@@ -1,0 +1,18 @@
+<Window x:Class="PlcScope.App.Windows.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="バージョン情報"
+        Width="420"
+        Height="220"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E"
+        Foreground="#E0E0E0">
+  <Grid Margin="20">
+    <StackPanel>
+      <TextBlock Text="PLC I/O モニター" FontSize="24" FontWeight="Bold" Margin="0,0,0,12" />
+      <TextBlock Text="SLMP / Host Link / TOYOPUC Computer Link に対応した Windows デスクトップモニターです。" TextWrapping="Wrap" Margin="0,0,0,8" />
+      <TextBlock Text=".NET 9 / WPF" Margin="0,0,0,4" />
+      <TextBlock Text="配布ターゲット: framework-dependent / win-x64" />
+    </StackPanel>
+  </Grid>
+</Window>

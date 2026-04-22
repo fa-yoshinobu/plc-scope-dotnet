@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>PLC デバイスモニター - UIモックアップ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Meiryo, sans-serif;
+    font-size: 13px;
+    background: #1e1e1e;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Title Bar */
+  .titlebar {
+    background: #2d2d2d;
+    border-bottom: 1px solid #444;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+  }
+  .titlebar-icon { font-size: 16px; }
+  .titlebar-text { font-size: 13px; font-weight: 500; color: #ccc; flex: 1; }
+  .titlebar-controls { display: flex; gap: 4px; }
+  .titlebar-btn {
+    width: 28px; height: 22px;
+    background: none; border: none; color: #ccc;
+    font-size: 11px; cursor: pointer; border-radius: 2px;
+  }
+  .titlebar-btn:hover { background: #555; }
+  .titlebar-btn.close:hover { background: #c42b1c; }
+
+  /* Toolbar */
+  .toolbar {
+    background: #252526;
+    border-bottom: 1px solid #333;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    padding: 4px 12px;
+    border-radius: 3px;
+    border: 1px solid #555;
+    background: #3c3c3c;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.1s;
+  }
+  .btn:hover { background: #4a4a4a; }
+  .btn.primary { background: #0e639c; border-color: #0e639c; color: #fff; }
+  .btn.primary:hover { background: #1177bb; }
+  .btn.danger { background: #6a1a1a; border-color: #aa3333; }
+  .btn.danger:hover { background: #7a2020; }
+  .btn.success { background: #1a5228; border-color: #27ae60; }
+  .btn.success:hover { background: #216a35; }
+  .status-indicator {
+    display: flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    background: #1a3d1a;
+    border: 1px solid #27ae60;
+    font-size: 12px;
+    color: #5dbc5d;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #27ae60; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .dot.disconnected { background: #888; animation: none; }
+  .dot.error { background: #e74c3c; }
+  .status-indicator.disconnected { background: #2a2a2a; border-color: #555; color: #888; }
+  .status-indicator.error { background: #3d1a1a; border-color: #e74c3c; color: #e74c3c; }
+  .separator { width: 1px; height: 24px; background: #444; margin: 0 4px; }
+  label { font-size: 12px; color: #aaa; }
+  select, input[type="text"], input[type="number"] {
+    background: #3c3c3c;
+    border: 1px solid #555;
+    color: #e0e0e0;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    outline: none;
+  }
+  select:focus, input:focus { border-color: #0e639c; }
+
+  /* Block Query Bar */
+  .query-bar {
+    background: #2d2d2d;
+    border-bottom: 1px solid #333;
+    padding: 7px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .query-bar label { color: #aaa; font-size: 12px; white-space: nowrap; }
+  .radio-group { display: flex; gap: 6px; align-items: center; }
+  .radio-group label { color: #ccc; cursor: pointer; }
+  .radio-group input[type="radio"] { accent-color: #0e639c; cursor: pointer; }
+  .checkbox-wrap { display: flex; align-items: center; gap: 4px; color: #ccc; font-size: 12px; }
+  .checkbox-wrap input[type="checkbox"] { accent-color: #0e639c; }
+
+  /* Main area */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Data Grid */
+  .grid-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead { position: sticky; top: 0; z-index: 10; }
+  thead th {
+    background: #2a2a2a;
+    border-bottom: 2px solid #444;
+    border-right: 1px solid #333;
+    padding: 6px 10px;
+    text-align: left;
+    color: #aaa;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid #2a2a2a; transition: background 0.1s; }
+  tbody tr:hover { background: #2a2a38; }
+  tbody tr.selected { background: #0e3a5c !important; }
+  tbody td {
+    padding: 4px 10px;
+    border-right: 1px solid #2a2a2a;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  td.addr { color: #9cdcfe; font-family: 'Consolas', monospace; font-size: 12px; }
+  td.val { font-family: 'Consolas', monospace; text-align: right; color: #dcdcaa; }
+  td.hex { font-family: 'Consolas', monospace; text-align: right; color: #ce9178; }
+  td.bits { font-family: 'Consolas', monospace; font-size: 11px; color: #888; letter-spacing: 0.1em; }
+  td.bits span.hi { color: #4ec9b0; }
+
+  /* 16-dot bit row */
+  .bit-dots { display: flex; gap: 3px; align-items: center; padding: 2px 0; }
+  .bit-dots .grp { display: flex; gap: 3px; }
+  .bit-dots .grp-sep { width: 6px; }
+  .bit-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px solid #444;
+    background: #2a2a2a;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; transition: background 0.1s, border-color 0.1s;
+    flex-shrink: 0;
+  }
+  .bit-dot.on  { background: #27ae60; border-color: #2ecc71; box-shadow: 0 0 5px #27ae6088; }
+  .bit-dot.off { background: #2a2a2a; border-color: #444; }
+  .bit-dot:hover.on  { background: #2ecc71; }
+  .bit-dot:hover.off { background: #3a3a3a; border-color: #666; }
+  .bit-idx { font-size: 9px; color: #444; text-align: center; width: 16px; }
+  td.comment { color: #6a9955; font-size: 11px; }
+  td.val input[type="text"] {
+    width: 80px;
+    padding: 2px 6px;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    text-align: right;
+    background: #1e3a5c;
+    border: 1px solid #0e639c;
+  }
+  .changed { animation: flash 0.6s ease-out; }
+  @keyframes flash {
+    0% { background: #3a3a00; }
+    100% { background: transparent; }
+  }
+
+  /* Bit toggle button */
+  .toggle-btn {
+    padding: 2px 14px;
+    border-radius: 2px;
+    border: none;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    min-width: 56px;
+    font-family: 'Consolas', monospace;
+  }
+  .toggle-btn.on { background: #1a5228; color: #5dbc5d; border: 1px solid #27ae60; }
+  .toggle-btn.off { background: #2a2a2a; color: #888; border: 1px solid #444; }
+  .toggle-btn:hover.on { background: #216a35; }
+  .toggle-btn:hover.off { background: #333; }
+
+  /* Write Panel */
+  .write-panel {
+    background: #252526;
+    border-top: 2px solid #333;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .write-panel label { color: #888; font-size: 11px; white-space: nowrap; }
+  .write-panel .field-group { display: flex; flex-direction: column; gap: 2px; }
+  .write-panel .field-group input, .write-panel .field-group select {
+    width: 120px;
+  }
+  .write-panel .field-group.small input { width: 80px; }
+  .lock-btn {
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid #e67e22;
+    background: #3a2200;
+    color: #e67e22;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .lock-btn:hover { background: #4a2e00; }
+  .lock-btn.locked { background: #6a1a1a; border-color: #e74c3c; color: #e74c3c; }
+
+  /* Status Bar */
+  .statusbar {
+    background: #007acc;
+    padding: 2px 12px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-size: 11px;
+    color: #fff;
+  }
+  .statusbar .item { display: flex; align-items: center; gap: 4px; }
+
+  /* Connection Dialog Overlay */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .overlay.active { display: flex; }
+  .dialog {
+    background: #2d2d2d;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 20px;
+    width: 360px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.6);
+  }
+  .dialog h2 { font-size: 14px; margin-bottom: 16px; color: #ccc; border-bottom: 1px solid #444; padding-bottom: 8px; }
+  .dialog .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .dialog .row label { color: #aaa; font-size: 11px; }
+  .dialog .row input, .dialog .row select { width: 100%; }
+  .dialog .radio-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .dialog .radio-row label { cursor: pointer; color: #ccc; display: flex; align-items: center; gap: 4px; }
+  .dialog .footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 10px; background: #0e639c22; color: #0e639c; border: 1px solid #0e639c44; margin-left: 4px; }
+
+  /* Menu Bar */
+  .menubar {
+    background: #2d2d2d;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    user-select: none;
+    position: relative;
+    z-index: 200;
+  }
+  .menu-item {
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #ccc;
+    cursor: pointer;
+    position: relative;
+  }
+  .menu-item:hover { background: #3c3c3c; }
+  .menu-item.open { background: #0e639c; color: #fff; }
+  .dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 180px;
+    background: #2d2d2d;
+    border: 1px solid #555;
+    box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
+    z-index: 300;
+  }
+  .menu-item.open .dropdown { display: block; }
+  .dd-item {
+    padding: 6px 16px;
+    font-size: 12px;
+    color: #ccc;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .dd-item:hover { background: #0e639c; color: #fff; }
+  .dd-sep { height: 1px; background: #444; margin: 3px 0; }
+</style>
+</head>
+<body>
+
+<!-- Menu Bar -->
+<div class="menubar" id="menubar">
+  <div class="menu-item" onclick="toggleMenu('fileMenu')">ファイル
+    <div class="dropdown" id="fileMenu">
+      <div class="dd-item">新規プロジェクト</div>
+      <div class="dd-item">プロジェクトを開く…</div>
+      <div class="dd-item">保存</div>
+      <div class="dd-item">名前を付けて保存…</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item">終了</div>
+    </div>
+  </div>
+  <div class="menu-item" onclick="toggleMenu('connMenu')">接続
+    <div class="dropdown" id="connMenu">
+      <div class="dd-item" onclick="document.getElementById('connDialog').classList.add('active')">接続設定…</div>
+      <div class="dd-item">接続</div>
+      <div class="dd-item">切断</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item">プリセット管理…</div>
+    </div>
+  </div>
+  <div class="menu-item" onclick="toggleMenu('viewMenu')">表示
+    <div class="dropdown" id="viewMenu">
+      <div class="dd-item">Word モード</div>
+      <div class="dd-item">DWord モード</div>
+      <div class="dd-item">Bit 展開モード</div>
+      <div class="dd-item">Float32 モード</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item">10進表示</div>
+      <div class="dd-item">16進表示</div>
+      <div class="dd-item">2進表示</div>
+    </div>
+  </div>
+  <div class="menu-item" onclick="toggleMenu('writeMenu')">書込
+    <div class="dropdown" id="writeMenu">
+      <div class="dd-item">書込ロック ON/OFF</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item">選択アドレスへ書込…</div>
+      <div class="dd-item">一括書込 (範囲)…</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item">CPU RUN</div>
+      <div class="dd-item">CPU STOP</div>
+    </div>
+  </div>
+  <div class="menu-item" onclick="toggleMenu('toolMenu')">ツール
+    <div class="dropdown" id="toolMenu">
+      <div class="dd-item">アドレスジャンプ…</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item">エラー履歴…</div>
+      <div class="dd-item">通信ログ…</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item">設定…</div>
+    </div>
+  </div>
+  <div class="menu-item" onclick="toggleMenu('helpMenu')">ヘルプ
+    <div class="dropdown" id="helpMenu">
+      <div class="dd-item">バージョン情報</div>
+    </div>
+  </div>
+</div>
+
+<!-- Title Bar -->
+<div class="titlebar">
+  <span class="titlebar-icon">🔌</span>
+  <span class="titlebar-text">PLC デバイスモニター</span>
+  <div class="titlebar-controls">
+    <button class="titlebar-btn">─</button>
+    <button class="titlebar-btn">□</button>
+    <button class="titlebar-btn close">✕</button>
+  </div>
+</div>
+
+<!-- Toolbar (Connection) -->
+<div class="toolbar">
+  <button class="btn" onclick="document.getElementById('connDialog').classList.add('active')">
+    ⚙ 接続設定
+  </button>
+  <button class="btn primary" id="connectBtn" onclick="toggleConnect()">接続</button>
+  <div class="separator"></div>
+  <div class="status-indicator disconnected" id="statusIndicator">
+    <div class="dot disconnected" id="statusDot"></div>
+    <span id="statusText">切断中</span>
+  </div>
+  <div class="separator"></div>
+  <label>メーカー:</label>
+  <select id="vendorSelect" onchange="updateDeviceKinds()" style="width:160px">
+    <option value="slmp">三菱 MELSEC (SLMP)</option>
+    <option value="hostlink">KEYENCE KV (HostLink)</option>
+    <option value="toyopuc">JTEKT TOYOPUC</option>
+  </select>
+</div>
+
+<!-- Block Query Bar -->
+<div class="query-bar">
+  <label>デバイス:</label>
+  <select id="deviceKind" style="width:80px">
+    <option>D</option><option>M</option><option>X</option><option>Y</option>
+    <option>W</option><option>R</option><option>B</option><option>SD</option><option>SM</option>
+  </select>
+
+  <label>先頭:</label>
+  <input type="text" id="startAddr" value="100" style="width:70px">
+
+  <label id="countLabel">点数:</label>
+  <input type="number" id="count" value="4" min="1" max="960" style="width:60px">
+  <span id="countUnit" style="color:#888;font-size:11px">ワード</span>
+
+  <div class="separator"></div>
+
+  <label>形式:</label>
+  <div class="radio-group">
+    <input type="radio" name="fmt" id="fmtWord" value="word" checked onchange="switchFormat()">
+    <label for="fmtWord">Word</label>
+    <input type="radio" name="fmt" id="fmtDWord" value="dword" onchange="switchFormat()">
+    <label for="fmtDWord">DWord</label>
+    <input type="radio" name="fmt" id="fmtBit" value="bit" onchange="switchFormat()">
+    <label for="fmtBit">Bit</label>
+    <input type="radio" name="fmt" id="fmtFloat" value="float" onchange="switchFormat()">
+    <label for="fmtFloat">Float32</label>
+  </div>
+
+  <div class="separator"></div>
+
+  <label>表示:</label>
+  <select id="dispFmt" style="width:70px" onchange="switchDisplay()">
+    <option value="dec">10進</option>
+    <option value="hex">16進</option>
+    <option value="bin">2進</option>
+  </select>
+
+  <div class="separator"></div>
+
+  <button class="btn success" onclick="startMonitor()">▶ 読込</button>
+  <button class="btn danger" id="stopBtn" style="display:none" onclick="stopMonitor()">■ 停止</button>
+
+  <div class="separator" id="bitLayoutSep" style="display:none"></div>
+  <div id="bitLayoutGroup" style="display:none">
+    <label>Bit表示:</label>
+    <div class="radio-group">
+      <input type="radio" name="bitLayout" id="bl16" value="block16" checked onchange="buildGrid();updateHeader()">
+      <label for="bl16">16点まとめ</label>
+      <input type="radio" name="bitLayout" id="bl1" value="single" onchange="buildGrid();updateHeader()">
+      <label for="bl1">1点1行</label>
+    </div>
+  </div>
+
+  <div class="separator"></div>
+  <div class="checkbox-wrap">
+    <input type="checkbox" id="autoRefresh" checked>
+    <label for="autoRefresh">自動更新</label>
+  </div>
+  <input type="number" value="500" style="width:60px" title="間隔(ms)">
+  <label>ms</label>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+  <div class="grid-wrap">
+    <table id="dataTable">
+      <thead id="gridHead">
+        <tr>
+          <th style="width:110px">アドレス</th>
+          <th style="width:100px" id="thVal">値 (Dec)</th>
+          <th style="width:70px">Hex</th>
+          <th id="thBits">Bit 15…0</th>
+          <th>コメント</th>
+        </tr>
+      </thead>
+      <tbody id="gridBody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Write Panel -->
+<div class="write-panel">
+  <div class="field-group">
+    <label>書込先アドレス</label>
+    <input type="text" id="writeAddr" value="D00100" style="width:100px">
+  </div>
+  <div class="field-group">
+    <label>データ型</label>
+    <select id="writeType" style="width:100px">
+      <option>UInt16</option><option>Int16</option><option>UInt32</option>
+      <option>Int32</option><option>Float32</option><option>Bit</option>
+    </select>
+  </div>
+  <div class="field-group">
+    <label>値</label>
+    <input type="text" id="writeVal" value="" placeholder="0" style="width:110px">
+  </div>
+  <div class="radio-group" style="align-self:flex-end; padding-bottom:2px">
+    <input type="radio" name="wr" id="wr10" value="dec" checked>
+    <label for="wr10" style="color:#ccc; font-size:12px">10進</label>
+    <input type="radio" name="wr" id="wr16" value="hex">
+    <label for="wr16" style="color:#ccc; font-size:12px">16進</label>
+    <input type="radio" name="wr" id="wr2" value="bin">
+    <label for="wr2" style="color:#ccc; font-size:12px">2進</label>
+  </div>
+  <button class="btn primary" style="align-self:flex-end" onclick="doWrite()">書込実行</button>
+  <div style="flex:1"></div>
+  <button class="lock-btn" id="lockBtn" onclick="toggleLock()">🔓 書込ロック: OFF</button>
+</div>
+
+<!-- Status Bar -->
+<div class="statusbar">
+  <div class="item">● <span id="sbStatus">切断中</span></div>
+  <div class="item" id="sbTime" style="display:none">最終読込: <span id="lastRead">--</span></div>
+  <div class="item" id="sbRtt" style="display:none">応答: <span id="rttVal">--</span></div>
+  <div style="flex:1"></div>
+  <div class="item">エラー: <span id="errMsg">なし</span></div>
+</div>
+
+<!-- Connection Dialog -->
+<div class="overlay" id="connDialog">
+  <div class="dialog">
+    <h2>⚙ 接続設定</h2>
+
+    <div class="row">
+      <label>プロトコル / メーカー</label>
+      <div class="radio-row">
+        <label><input type="radio" name="proto" value="slmp" checked> 三菱 MELSEC <span class="tag">SLMP</span></label>
+        <label><input type="radio" name="proto" value="keyence"> KEYENCE KV <span class="tag">HostLink</span></label>
+        <label><input type="radio" name="proto" value="toyopuc"> JTEKT <span class="tag">ComputerLink</span></label>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>ホスト (IP アドレス)</label>
+      <input type="text" value="192.168.1.10" placeholder="192.168.1.10">
+    </div>
+
+    <div class="row">
+      <label>ポート</label>
+      <input type="text" value="1025" style="width:80px">
+    </div>
+
+    <div class="row" id="familyRow">
+      <label>PLC ファミリ (SLMP)</label>
+      <select>
+        <option>IqR</option><option>IqF</option><option>IqL</option>
+        <option>QnU</option><option>QnUDV</option><option>MxR</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label>タイムアウト (秒)</label>
+      <input type="number" value="3" style="width:80px">
+    </div>
+
+    <div class="row">
+      <label>転送モード</label>
+      <div class="radio-row">
+        <label><input type="radio" name="transport" value="tcp" checked> TCP</label>
+        <label><input type="radio" name="transport" value="udp"> UDP</label>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn" onclick="document.getElementById('connDialog').classList.remove('active')">キャンセル</button>
+      <button class="btn primary" onclick="applyConn()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- State ----
+let connected = false;
+let locked = false;
+let monitorTimer = null;
+let currentFormat = 'word';
+let rowCount = 32;
+let startNum = 100;
+let deviceKind = 'D';
+
+// ---- Format definitions ----
+const sampleComments = {
+  0: '速度設定値', 1: '加速時間', 4: '現在位置', 7: '上限値', 12: 'ステータスWD', 16: '出力フラグ'
+};
+
+// ---- DOM helpers ----
+function el(id) { return document.getElementById(id); }
+
+// ---- Device kinds per vendor ----
+const deviceKinds = {
+  slmp:     ['D','M','X','Y','W','R','B','SD','SM','ZR','TN','CN','SB','SW','F','L','Z'],
+  keyence:  ['DM','EM','FM','W','R','MR','LR','CR','X','Y','M','L','ZF','TM','Z'],
+  toyopuc:  ['P1-D','P1-S','P1-N','P1-R','P1-M','P1-X','P1-Y','P1-T','P1-C']
+};
+
+// Bit devices: each address = 1 bit (not 16-bit word)
+const bitDevices = new Set([
+  'M','X','Y','L','F','B','SB','SM',                    // SLMP bit
+  'R','MR','LR','CR','VB',                               // KEYENCE bit
+  'P1-M','P1-X','P1-Y','P1-T','P1-C'                    // TOYOPUC bit
+]);
+const isBitDevice = (kind) => bitDevices.has(kind);
+
+function updateDeviceKinds() {
+  const v = el('vendorSelect').value;
+  const sel = el('deviceKind');
+  sel.innerHTML = deviceKinds[v].map(k => `<option>${k}</option>`).join('');
+  updateBitLayoutVisibility();
+  buildGrid(); updateHeader();
+}
+
+function updateBitLayoutVisibility() {
+  const dk = el('deviceKind').value;
+  const show = isBitDevice(dk) && currentFormat === 'word';
+  el('bitLayoutGroup').style.display = show ? '' : 'none';
+  el('bitLayoutSep').style.display   = show ? '' : 'none';
+}
+
+function bitLayout() {
+  return document.querySelector('input[name="bitLayout"]:checked').value;
+}
+
+// ---- Connect toggle ----
+function toggleConnect() {
+  connected = !connected;
+  const btn = el('connectBtn');
+  const ind = el('statusIndicator');
+  const dot = el('statusDot');
+  const stxt = el('statusText');
+  if (connected) {
+    btn.textContent = '切断';
+    btn.className = 'btn danger';
+    ind.className = 'status-indicator';
+    dot.className = 'dot';
+    stxt.textContent = '接続中: 192.168.1.10 (IqR-SLMP)';
+    el('sbStatus').textContent = '接続中';
+    el('sbTime').style.display = '';
+    el('sbRtt').style.display = '';
+    buildGrid();
+    startMonitor();
+  } else {
+    btn.textContent = '接続';
+    btn.className = 'btn primary';
+    ind.className = 'status-indicator disconnected';
+    dot.className = 'dot disconnected';
+    stxt.textContent = '切断中';
+    el('sbStatus').textContent = '切断中';
+    el('sbTime').style.display = 'none';
+    el('sbRtt').style.display = 'none';
+    stopMonitor();
+  }
+}
+
+// ---- Format switch ----
+function switchFormat() {
+  currentFormat = document.querySelector('input[name="fmt"]:checked').value;
+  const isBit = currentFormat === 'bit';
+  el('countUnit').textContent = isBit ? 'ワード' : '点';
+  el('countUnit').style.display = isBit ? '' : 'none';
+  updateBitLayoutVisibility();
+  buildGrid();
+  updateHeader();
+}
+
+function updateHeader() {
+  const thBits = el('thBits');
+  const thVal = el('thVal');
+  const head = el('gridHead');
+  if (currentFormat === 'bit') {
+    // Bit mode: replace header columns
+    head.innerHTML = `<tr>
+      <th style="width:120px">アドレス (bit)</th>
+      <th style="width:50px; text-align:center">bit#</th>
+      <th style="width:80px; text-align:center">ON / OFF</th>
+      <th></th>
+      <th>コメント</th>
+    </tr>`;
+  } else if (currentFormat === 'word') {
+    const dk = el('deviceKind').value;
+    const isBit = isBitDevice(dk);
+    // For bit devices: header shows +15…+0 (offset within block)
+    // For word devices: header shows bit15…bit0
+    const layout = isBit ? bitLayout() : 'word';
+    if (isBit && layout === 'single') {
+      head.innerHTML = `<tr>
+        <th style="width:120px">アドレス</th>
+        <th style="width:90px; text-align:center">ON / OFF</th>
+        <th style="width:40px">値</th>
+        <th></th>
+        <th>コメント</th>
+      </tr>`;
+    } else {
+      const idxHtml = [3,2,1,0].map(grp =>
+        `<div class="grp">${[3,2,1,0].map(b => {
+          const idx = grp*4+b;
+          return `<div class="bit-idx">${isBit ? '+'+idx : idx}</div>`;
+        }).join('')}</div>`
+      ).join('<div class="grp-sep"></div>');
+      head.innerHTML = `<tr>
+        <th style="width:120px">${isBit ? 'アドレス (×16)' : 'アドレス'}</th>
+        <th style="width:90px">${isBit ? '16点/行' : el('dispFmt').value==='hex'?'値 (Hex)':'値 (Dec)'}</th>
+        <th style="width:60px">${isBit ? '' : 'Hex'}</th>
+        <th><div class="bit-dots" style="padding:1px 0">${idxHtml}</div></th>
+        <th>コメント</th>
+      </tr>`;
+    }
+  } else {
+    head.innerHTML = `<tr>
+      <th style="width:110px">アドレス</th>
+      <th style="width:100px">${currentFormat==='float'?'値 (Float)':'値 (Dec)'}</th>
+      <th style="width:70px">Hex</th>
+      <th>${currentFormat==='float'?'Hex (IEEE754)':'Bit 31…0'}</th>
+      <th>コメント</th>
+    </tr>`;
+  }
+}
+
+function switchDisplay() {
+  buildGrid();
+  updateHeader();
+}
+
+// ---- Build grid ----
+function buildGrid() {
+  deviceKind = el('deviceKind').value;
+  startNum = parseInt(el('startAddr').value) || 0;
+  rowCount = parseInt(el('count').value) || 4;
+  const fmt = currentFormat;
+  const disp = el('dispFmt').value;
+
+  let html = '';
+
+  if (fmt === 'bit') {
+    // Bit mode: expand each word into 16 individual bit rows
+    // wordCount = rowCount (点数 = ワード数)
+    const wordCount = rowCount;
+    for (let w = 0; w < wordCount; w++) {
+      const wordNum = startNum + w;
+      const wordAddr = formatAddr(deviceKind, wordNum);
+      const wordVal = Math.floor(Math.random() * 65536);
+      const wordHex = wordVal.toString(16).toUpperCase().padStart(4,'0');
+
+      // Word group header row
+      html += `<tr style="background:#1a2a1a; border-top: 2px solid #2a4a2a;">
+        <td class="addr" colspan="2" style="color:#4ec9b0; font-size:11px; padding:3px 10px;">
+          ▼ ${wordAddr}
+          <span style="color:#555; margin-left:8px">= ${wordVal}</span>
+          <span style="color:#444; margin-left:4px">/ 0x${wordHex}</span>
+        </td>
+        <td colspan="3" style="font-size:10px; color:#555; font-family:Consolas">
+          ${formatBitsCompact(wordVal)}
+        </td>
+      </tr>`;
+
+      // 16 bit rows for this word
+      for (let b = 0; b < 16; b++) {
+        const bitAddr = `${wordAddr}.${b}`;
+        const isOn = (wordVal >> b) & 1;
+        const isSelected = (w === 0 && b === 3);
+        const cls = isSelected ? 'selected' : '';
+        html += `<tr class="${cls}" onclick="selectRow(this, '${bitAddr}', 'bit')" style="background:${isOn?'#0d1f0d':''}">
+          <td class="addr" style="padding-left:22px">${bitAddr}</td>
+          <td style="text-align:center; color:#666; font-size:11px; font-family:Consolas">b${b}</td>
+          <td style="text-align:center">
+            <button class="toggle-btn ${isOn?'on':'off'}" onclick="event.stopPropagation(); toggleBit(this, '${bitAddr}')">
+              ${isOn ? '● ON' : '○ OFF'}
+            </button>
+          </td>
+          <td></td>
+          <td class="comment"></td>
+        </tr>`;
+      }
+    }
+  } else if (fmt === 'float') {
+    const stride = 2;
+    const rows = Math.ceil(rowCount / stride);
+    for (let i = 0; i < rows; i++) {
+      const addrNum = startNum + i * stride;
+      const addrStr = formatAddr(deviceKind, addrNum);
+      const fval = (Math.random() * 200 - 100).toFixed(4);
+      const hexVal = '3F' + Math.floor(Math.random()*65535).toString(16).toUpperCase().padStart(4,'0');
+      const comment = sampleComments[i] || '';
+      const isSelected = i === 1;
+      const cls = isSelected ? 'selected' : '';
+      html += `<tr class="${cls}" onclick="selectRow(this, '${addrStr}', 'float')">
+        <td class="addr">${addrStr} <span style="color:#555;font-size:10px">(F)</span></td>
+        <td class="val">${isSelected ? `<input type="text" value="${fval}" onclick="event.stopPropagation()" onkeydown="handleEnter(event, this)">` : fval}</td>
+        <td class="hex">${hexVal}</td>
+        <td class="bits">${hexVal}</td>
+        <td class="comment">${comment}</td>
+      </tr>`;
+    }
+  } else if (fmt === 'dword') {
+    const stride = 2;
+    const rows = Math.ceil(rowCount / stride);
+    for (let i = 0; i < rows; i++) {
+      const addrNum = startNum + i * stride;
+      const addrStr = formatAddr(deviceKind, addrNum);
+      const dval = Math.floor(Math.random() * 4294967296);
+      const hexVal = dval.toString(16).toUpperCase().padStart(8,'0');
+      const dispVal = disp === 'hex' ? '0x'+hexVal : dval.toString();
+      const bits = dval.toString(2).padStart(32,'0');
+      const bitsHtml = formatBits32(bits);
+      const comment = sampleComments[i] || '';
+      const isSelected = i === 1;
+      const cls = isSelected ? 'selected' : '';
+      html += `<tr class="${cls}" onclick="selectRow(this, '${addrStr}', 'dword')">
+        <td class="addr">${addrStr} <span style="color:#555;font-size:10px">(2W)</span></td>
+        <td class="val">${isSelected ? `<input type="text" value="${dval}" onclick="event.stopPropagation()" onkeydown="handleEnter(event, this)">` : dispVal}</td>
+        <td class="hex">${hexVal}</td>
+        <td class="bits">${bitsHtml}</td>
+        <td class="comment">${comment}</td>
+      </tr>`;
+    }
+  } else {
+    // Word mode
+    if (isBitDevice(deviceKind)) {
+      if (bitLayout() === 'block16') {
+        // ---- 16点まとめ: group 16 bits per row ----
+        for (let i = 0; i < rowCount; i++) {
+          const baseNum  = startNum + i * 16;
+          const baseAddr = formatAddr(deviceKind, baseNum);
+          const rowId    = `row_${baseAddr.replace(/[^a-zA-Z0-9]/g,'_')}`;
+          const isSelected = i === 1;
+          const cls      = isSelected ? 'selected' : '';
+          const bits16   = Array.from({length:16}, () => Math.random() > 0.5 ? 1 : 0);
+
+          const dotsHtml = [3,2,1,0].map(grp => {
+            const btns = [3,2,1,0].map(b => {
+              const offset = grp*4 + b;
+              const addrS  = formatAddr(deviceKind, baseNum + offset);
+              const isOn   = bits16[offset];
+              return `<button class="bit-dot ${isOn?'on':'off'}" title="${addrS}"
+                onclick="event.stopPropagation(); flipBitDevice(this, '${addrS}')"
+              ></button>`;
+            }).join('');
+            return `<div class="grp">${btns}</div>`;
+          }).join('<div class="grp-sep"></div>');
+
+          html += `<tr class="${cls}" id="${rowId}" onclick="selectRow(this, '${baseAddr}', 'bitdev')">
+            <td class="addr">${baseAddr}<span style="color:#555;font-size:10px"> +15</span></td>
+            <td class="val" style="color:#555;font-size:11px">16点</td>
+            <td class="hex" style="color:#555">—</td>
+            <td><div class="bit-dots">${dotsHtml}</div></td>
+            <td class="comment"></td>
+          </tr>`;
+        }
+      } else {
+        // ---- 1点1行: each bit address as individual row with toggle ----
+        for (let i = 0; i < rowCount; i++) {
+          const addrNum  = startNum + i;
+          const addrStr  = formatAddr(deviceKind, addrNum);
+          const isOn     = Math.random() > 0.5;
+          const isSelected = i === 2;
+          const cls      = isSelected ? 'selected' : '';
+          html += `<tr class="${cls}" onclick="selectRow(this, '${addrStr}', 'bitdev')" style="background:${isOn?'#0d1f0d':''}">
+            <td class="addr">${addrStr}</td>
+            <td style="text-align:center">
+              <button class="toggle-btn ${isOn?'on':'off'}"
+                onclick="event.stopPropagation(); toggleBit(this, '${addrStr}')">
+                ${isOn ? '● ON' : '○ OFF'}
+              </button>
+            </td>
+            <td class="hex">${isOn?'1':'0'}</td>
+            <td></td>
+            <td class="comment"></td>
+          </tr>`;
+        }
+      }
+    } else {
+      // ---- Word device (D, W, DM …): 16 dot = 16 bits of one word ----
+      for (let i = 0; i < rowCount; i++) {
+        const addrNum = startNum + i;
+        const addrStr = formatAddr(deviceKind, addrNum);
+        const rawVal  = Math.floor(Math.random() * 65536);
+        const hexVal  = rawVal.toString(16).toUpperCase().padStart(4,'0');
+        const dispVal = disp === 'hex' ? '0x'+hexVal : rawVal.toString();
+        const comment = sampleComments[i] || '';
+        const isSelected = i === 1;
+        const cls    = isSelected ? 'selected' : '';
+        const rowId  = `row_${addrStr.replace(/[^a-zA-Z0-9]/g,'_')}`;
+
+        const dotsHtml = [3,2,1,0].map(grp => {
+          const btns = [3,2,1,0].map(b => {
+            const bitIdx = grp*4 + b;
+            const isOn   = (rawVal >> bitIdx) & 1;
+            return `<button class="bit-dot ${isOn?'on':'off'}" title="bit${bitIdx}"
+              onclick="event.stopPropagation(); flipDot(this, '${rowId}', ${bitIdx})"
+            ></button>`;
+          }).join('');
+          return `<div class="grp">${btns}</div>`;
+        }).join('<div class="grp-sep"></div>');
+
+        html += `<tr class="${cls}" id="${rowId}" data-val="${rawVal}" onclick="selectRow(this, '${addrStr}', 'word')">
+          <td class="addr">${addrStr}</td>
+          <td class="val">
+            <input type="text" value="${dispVal}" style="width:80px;text-align:right"
+              onclick="event.stopPropagation()"
+              onkeydown="handleEnterWord(event, this, '${rowId}')"
+              id="inp_${rowId}">
+          </td>
+          <td class="hex" id="hex_${rowId}">${hexVal}</td>
+          <td><div class="bit-dots">${dotsHtml}</div></td>
+          <td class="comment">${comment}</td>
+        </tr>`;
+      }
+    }
+  }
+  el('gridBody').innerHTML = html;
+}
+
+function formatAddr(kind, num) {
+  const hexKinds = ['X','Y','B','SB'];
+  const numStr = hexKinds.includes(kind)
+    ? num.toString(16).toUpperCase().padStart(4,'0')
+    : num.toString().padStart(5,'0');
+  return kind + numStr;
+}
+
+function formatBits(bits) {
+  let html = '';
+  for (let i = 0; i < 16; i++) {
+    html += bits[i] === '1'
+      ? `<span class="hi">${bits[i]}</span>`
+      : bits[i];
+    if (i === 3 || i === 7 || i === 11) html += ' ';
+  }
+  return html;
+}
+
+function formatBits32(bits) {
+  let html = '';
+  for (let i = 0; i < 32; i++) {
+    html += bits[i] === '1'
+      ? `<span class="hi">${bits[i]}</span>`
+      : bits[i];
+    if ((i+1) % 4 === 0 && i < 31) html += ' ';
+  }
+  return html;
+}
+
+// Flip a single bit in a bit-device row (M, X, Y…) — each dot = independent bit address
+function flipBitDevice(btn, addr) {
+  const wasOn = btn.classList.contains('on');
+  btn.classList.toggle('on',  !wasOn);
+  btn.classList.toggle('off',  wasOn);
+  // flash parent row
+  const tr = btn.closest('tr');
+  tr.classList.add('changed');
+  setTimeout(() => tr.classList.remove('changed'), 600);
+}
+
+// Flip a single bit dot in Word mode — updates value + hex display
+function flipDot(btn, rowId, bitIdx) {
+  const tr = document.getElementById(rowId);
+  let val = parseInt(tr.dataset.val) || 0;
+  const wasOn = btn.classList.contains('on');
+  if (wasOn) { val &= ~(1 << bitIdx); }
+  else        { val |=  (1 << bitIdx); }
+  tr.dataset.val = val;
+  btn.classList.toggle('on',  !wasOn);
+  btn.classList.toggle('off',  wasOn);
+  const inp = document.getElementById('inp_' + rowId);
+  const disp = el('dispFmt').value;
+  inp.value = disp === 'hex' ? '0x' + val.toString(16).toUpperCase().padStart(4,'0') : val.toString();
+  document.getElementById('hex_' + rowId).textContent =
+    val.toString(16).toUpperCase().padStart(4,'0');
+  tr.classList.add('changed');
+  setTimeout(() => tr.classList.remove('changed'), 600);
+}
+
+// Enter key on value input — parse and update dots + hex
+function handleEnterWord(e, input, rowId) {
+  if (e.key !== 'Enter') { if (e.key === 'Escape') input.blur(); return; }
+  const raw = input.value.trim();
+  let val = raw.startsWith('0x') || raw.startsWith('0X')
+    ? parseInt(raw, 16) : parseInt(raw, 10);
+  if (isNaN(val)) return;
+  val = Math.max(0, Math.min(65535, val));
+  const tr = document.getElementById(rowId);
+  tr.dataset.val = val;
+  const disp = el('dispFmt').value;
+  input.value = disp === 'hex' ? '0x' + val.toString(16).toUpperCase().padStart(4,'0') : val.toString();
+  document.getElementById('hex_' + rowId).textContent =
+    val.toString(16).toUpperCase().padStart(4,'0');
+  // Update all 16 dots
+  const dots = tr.querySelectorAll('.bit-dot');
+  // dots order: b15…b12, b11…b8, b7…b4, b3…b0 (left to right)
+  const order = [15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0];
+  dots.forEach((d, idx) => {
+    const isOn = (val >> order[idx]) & 1;
+    d.classList.toggle('on', !!isOn);
+    d.classList.toggle('off', !isOn);
+  });
+  tr.classList.add('changed');
+  setTimeout(() => tr.classList.remove('changed'), 600);
+  input.blur();
+}
+
+function toggleBit(btn, addr) {
+  const isOn = btn.classList.contains('on');
+  btn.classList.toggle('on', !isOn);
+  btn.classList.toggle('off', isOn);
+  btn.textContent = isOn ? '○ OFF' : '● ON';
+  const tr = btn.closest('tr');
+  tr.style.background = isOn ? '' : '#0d1f0d';
+}
+
+function formatBitsCompact(val) {
+  const bits = val.toString(2).padStart(16,'0');
+  let html = '';
+  for (let i = 0; i < 16; i++) {
+    html += bits[i] === '1'
+      ? `<span style="color:#4ec9b0">${bits[i]}</span>`
+      : `<span style="color:#333">${bits[i]}</span>`;
+    if (i === 3 || i === 7 || i === 11) html += ' ';
+  }
+  return `<span style="font-size:11px;font-family:Consolas">${html}</span>`;
+}
+
+function handleEnter(e, input) {
+  if (e.key === 'Enter') {
+    const tr = input.closest('tr');
+    tr.classList.add('changed');
+    setTimeout(() => tr.classList.remove('changed'), 700);
+    input.blur();
+  }
+  if (e.key === 'Escape') input.blur();
+}
+
+function selectRow(tr, addr, type) {
+  document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
+  tr.classList.add('selected');
+  el('writeAddr').value = addr;
+  const typeMap = { bit: 'Bit', word: 'UInt16', dword: 'UInt32', float: 'Float32' };
+  el('writeType').value = typeMap[type];
+}
+
+// ---- Monitor ----
+function startMonitor() {
+  if (!connected) return;
+  el('stopBtn').style.display = '';
+  buildGrid();
+  if (el('autoRefresh').checked) {
+    monitorTimer = setInterval(() => {
+      const now = new Date();
+      el('lastRead').textContent = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3,'0');
+      el('rttVal').textContent = (8 + Math.floor(Math.random()*10)) + 'ms';
+      // Re-randomize some values
+      document.querySelectorAll('#gridBody tr:not(.selected) .val').forEach(td => {
+        if (!td.querySelector('input')) {
+          const old = td.textContent;
+          const newVal = Math.floor(Math.random() * 65536);
+          td.textContent = newVal.toString();
+        }
+      });
+    }, 500);
+  }
+}
+
+function stopMonitor() {
+  clearInterval(monitorTimer);
+  el('stopBtn').style.display = 'none';
+}
+
+// ---- Write ----
+function doWrite() {
+  if (locked) { alert('書込ロックが有効です'); return; }
+  const addr = el('writeAddr').value;
+  const val = el('writeVal').value;
+  if (!val) return;
+  if (confirm(`${addr} に ${val} を書込みますか?`)) {
+    el('lastRead').textContent = new Date().toTimeString().split(' ')[0];
+    el('errMsg').textContent = 'なし';
+  }
+}
+
+// ---- Lock ----
+function toggleLock() {
+  locked = !locked;
+  const btn = el('lockBtn');
+  btn.textContent = locked ? '🔒 書込ロック: ON' : '🔓 書込ロック: OFF';
+  btn.className = locked ? 'lock-btn locked' : 'lock-btn';
+}
+
+// ---- Apply connection ----
+function applyConn() {
+  document.getElementById('connDialog').classList.remove('active');
+}
+
+// ---- Menu ----
+function toggleMenu(id) {
+  const all = document.querySelectorAll('.menu-item');
+  const target = document.getElementById(id).parentElement;
+  const wasOpen = target.classList.contains('open');
+  all.forEach(m => m.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.menu-item')) {
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('open'));
+  }
+});
+
+// ---- Init ----
+el('countUnit').style.display = 'none';
+buildGrid();
+updateHeader();
+</script>
+</body>
+</html>
