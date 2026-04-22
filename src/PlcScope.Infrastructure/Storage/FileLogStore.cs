@@ -33,7 +33,7 @@ public sealed class FileLogStore : ILogStore
 
         var lines = await File.ReadAllLinesAsync(path, cancellationToken).ConfigureAwait(false);
         var items = new List<T>(Math.Min(maxCount, lines.Length));
-        foreach (var line in lines.Reverse().Where(static line => !string.IsNullOrWhiteSpace(line)).Take(maxCount))
+        foreach (var line in lines.Where(static line => !string.IsNullOrWhiteSpace(line)).Reverse().Take(maxCount))
         {
             var item = JsonSerializer.Deserialize<T>(line, JsonDefaults.Options);
             if (item is not null)

@@ -16,7 +16,7 @@
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
-    <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+    <Style x:Key="ToolbarButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Margin" Value="0,0,6,0" />
       <Setter Property="Padding" Value="10,4" />
       <Setter Property="Background" Value="#3C3C3C" />
@@ -25,7 +25,7 @@
       <Setter Property="BorderThickness" Value="1" />
     </Style>
 
-    <Style x:Key="BitButtonStyle" TargetType="Button">
+    <Style x:Key="BitButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Width" Value="22" />
       <Setter Property="Height" Value="22" />
       <Setter Property="Margin" Value="1" />
@@ -310,26 +310,35 @@
       </Border>
 
       <Border Background="#1F1F1F" BorderBrush="#333333" BorderThickness="1" Padding="8" Margin="0,0,0,8">
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="130" />
-            <ColumnDefinition Width="100" />
-            <ColumnDefinition Width="100" />
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="200" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="アドレス" FontWeight="Bold" />
-          <TextBlock Grid.Column="1" Text="値" FontWeight="Bold" />
-          <TextBlock Grid.Column="2" Text="Hex" FontWeight="Bold" />
-          <TextBlock Grid.Column="3" Text="ビット" FontWeight="Bold" />
-          <TextBlock Grid.Column="4" Text="コメント" FontWeight="Bold" />
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="130" />
+              <ColumnDefinition Width="100" />
+              <ColumnDefinition Width="100" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="200" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="アドレス" FontWeight="Bold" />
+            <TextBlock Grid.Column="1" Text="値" FontWeight="Bold" />
+            <TextBlock Grid.Column="2" Text="Hex" FontWeight="Bold" />
+            <TextBlock Grid.Column="3" Text="ビット" FontWeight="Bold" />
+            <TextBlock Grid.Column="4" Text="コメント" FontWeight="Bold" />
+          </Grid>
+
+          <ListBox Grid.Row="1"
+                   ItemsSource="{Binding Rows}"
+                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                   Background="#1F1F1F"
+                   BorderThickness="0"
+                   Foreground="#E0E0E0"
+                   ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}" />
         </Grid>
-        <ListBox ItemsSource="{Binding Rows}"
-                 SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-                 Background="#1F1F1F"
-                 BorderThickness="0"
-                 Foreground="#E0E0E0"
-                 ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}" />
       </Border>
 
       <Border Background="#252526" BorderBrush="#333333" BorderThickness="1" Padding="8">

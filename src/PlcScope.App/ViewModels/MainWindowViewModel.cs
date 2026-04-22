@@ -40,7 +40,6 @@ public partial class MainWindowViewModel : ObservableObject
 
         ConnectionSettings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
         SelectedProtocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
-        AvailableDeviceFamilies = new ObservableCollection<DeviceFamilyDefinition>(SelectedProtocol.DeviceFamilies);
         SelectedDeviceFamily = SelectedProtocol.DefaultWordFamily;
         StartAddress = "D100";
         ItemCount = 16;
@@ -64,7 +63,7 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     public ObservableCollection<ProtocolDefinition> AvailableProtocols { get; }
-    public ObservableCollection<DeviceFamilyDefinition> AvailableDeviceFamilies { get; }
+    public ObservableCollection<DeviceFamilyDefinition> AvailableDeviceFamilies { get; } = [];
     public ObservableCollection<MonitorRowViewModel> Rows { get; } = [];
 
     public IReadOnlyList<BlockDisplayMode> DisplayModes { get; }
