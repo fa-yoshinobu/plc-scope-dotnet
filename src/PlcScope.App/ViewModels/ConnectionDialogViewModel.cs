@@ -1,17 +1,13 @@
 namespace PlcScope.App.ViewModels;
 
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
 
 public partial class ConnectionDialogViewModel : ObservableObject
 {
-    public ConnectionDialogViewModel(ConnectionSettings settings, IEnumerable<ConnectionPreset> presets)
+    public ConnectionDialogViewModel(ConnectionSettings settings)
     {
-        Protocols = new ObservableCollection<ProtocolDefinition>(ProtocolCatalog.All);
-        Presets = new ObservableCollection<ConnectionPreset>(presets);
-
         SelectedProtocol = Protocols.First(protocol => protocol.Kind == settings.Protocol);
         Host = settings.Host;
         Port = settings.Port;
@@ -31,19 +27,12 @@ public partial class ConnectionDialogViewModel : ObservableObject
         ToyopucRetryDelayMs = settings.ToyopucRetryDelayMs;
     }
 
-    public ObservableCollection<ProtocolDefinition> Protocols { get; }
-    public ObservableCollection<ConnectionPreset> Presets { get; }
+    public IReadOnlyList<ProtocolDefinition> Protocols { get; } = ProtocolCatalog.All;
     public IReadOnlyList<string> SlmpFamilies { get; } = ["IqR", "IqF", "IqL", "QnU", "QnUDV", "MxR", "MxF"];
     public IReadOnlyList<TransportMode> TransportModes { get; } = Enum.GetValues<TransportMode>();
 
     [ObservableProperty]
     private ProtocolDefinition selectedProtocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
-
-    [ObservableProperty]
-    private ConnectionPreset? selectedPreset;
-
-    [ObservableProperty]
-    private string presetName = string.Empty;
 
     [ObservableProperty]
     private string host = "192.168.1.10";
@@ -118,62 +107,6 @@ public partial class ConnectionDialogViewModel : ObservableObject
         ToyopucRetryDelayMs = ToyopucRetryDelayMs,
     };
 
-    public IReadOnlyList<ConnectionPreset> CurrentPresets => Presets.ToList();
-
-    public void LoadFromSelectedPreset()
-    {
-        if (SelectedPreset is null)
-            return;
-
-        var settings = SelectedPreset.Settings;
-        SelectedProtocol = Protocols.First(protocol => protocol.Kind == settings.Protocol);
-        Host = settings.Host;
-        Port = settings.Port;
-        TimeoutSeconds = settings.TimeoutSeconds;
-        Transport = settings.Transport;
-        SlmpPlcFamilyName = settings.SlmpPlcFamilyName;
-        SlmpNetwork = settings.SlmpNetwork;
-        SlmpStation = settings.SlmpStation;
-        SlmpModuleIo = settings.SlmpModuleIo;
-        SlmpMultidrop = settings.SlmpMultidrop;
-        SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
-        HostLinkAppendLfOnSend = settings.HostLinkAppendLfOnSend;
-        ToyopucDeviceProfile = settings.ToyopucDeviceProfile ?? string.Empty;
-        ToyopucRelayHops = settings.ToyopucRelayHops ?? string.Empty;
-        ToyopucLocalPort = settings.ToyopucLocalPort;
-        ToyopucRetries = settings.ToyopucRetries;
-        ToyopucRetryDelayMs = settings.ToyopucRetryDelayMs;
-    }
-
-    public void SaveOrUpdatePreset()
-    {
-        if (string.IsNullOrWhiteSpace(PresetName))
-            return;
-
-        var existing = Presets.FirstOrDefault(preset => string.Equals(preset.Name, PresetName, StringComparison.OrdinalIgnoreCase));
-        var newPreset = new ConnectionPreset(PresetName.Trim(), BuildSettings());
-        if (existing is null)
-        {
-            Presets.Add(newPreset);
-            SelectedPreset = newPreset;
-        }
-        else
-        {
-            var index = Presets.IndexOf(existing);
-            Presets[index] = newPreset;
-            SelectedPreset = newPreset;
-        }
-    }
-
-    public void DeleteSelectedPreset()
-    {
-        if (SelectedPreset is null)
-            return;
-
-        Presets.Remove(SelectedPreset);
-        SelectedPreset = null;
-    }
-
     partial void OnSelectedProtocolChanged(ProtocolDefinition value)
     {
         OnPropertyChanged(nameof(IsSlmpSelected));
@@ -184,13 +117,5 @@ public partial class ConnectionDialogViewModel : ObservableObject
             Port = 8501;
         else if (value.Kind == ProtocolKind.Slmp || value.Kind == ProtocolKind.Toyopuc)
             Port = 1025;
-    }
-
-    partial void OnSelectedPresetChanged(ConnectionPreset? value)
-    {
-        if (value is null)
-            return;
-
-        PresetName = value.Name;
     }
 }

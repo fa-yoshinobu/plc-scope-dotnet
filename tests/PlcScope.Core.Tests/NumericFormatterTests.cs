@@ -26,4 +26,20 @@ public sealed class NumericFormatterTests
         var value = NumericFormatter.RawBitsToFloat(bits);
         Assert.Equal(3.1415927f, value, 5);
     }
+
+    [Fact]
+    public void FormatFloat_NormalizesNegativeZero()
+    {
+        var negativeZero = NumericFormatter.RawBitsToFloat(0x80000000);
+
+        Assert.Equal("0", NumericFormatter.FormatFloat(negativeZero));
+    }
+
+    [Fact]
+    public void FormatFloat_UsesNotAvailableForNonFiniteValues()
+    {
+        Assert.Equal("N/A", NumericFormatter.FormatFloat(float.NaN));
+        Assert.Equal("N/A", NumericFormatter.FormatFloat(float.PositiveInfinity));
+        Assert.Equal("N/A", NumericFormatter.FormatFloat(float.NegativeInfinity));
+    }
 }

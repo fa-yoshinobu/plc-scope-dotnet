@@ -24,7 +24,13 @@ public static class NumericFormatter
             _ => value.ToString(CultureInfo.InvariantCulture),
         };
 
-    public static string FormatFloat(float value) => value.ToString("0.#####", CultureInfo.InvariantCulture);
+    public static string FormatFloat(float value)
+    {
+        if (float.IsNaN(value) || float.IsInfinity(value))
+            return "N/A";
+
+        return value == 0f ? "0" : value.ToString("0.#####", CultureInfo.InvariantCulture);
+    }
 
     public static ushort ParseWord(string text, DisplayRadix radix)
     {

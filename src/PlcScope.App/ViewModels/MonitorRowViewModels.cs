@@ -34,11 +34,12 @@ public sealed partial class BitCellViewModel : ObservableObject
 {
     private readonly Func<bool, Task>? _toggleAsync;
 
-    public BitCellViewModel(int bitIndex, bool isOn, string address, bool canToggle, Func<bool, Task>? toggleAsync)
+    public BitCellViewModel(int bitIndex, bool isOn, string address, bool canToggle, Func<bool, Task>? toggleAsync, string? label = null)
     {
         BitIndex = bitIndex;
         IsOn = isOn;
         Address = address;
+        Label = label ?? $"b{BitIndex}";
         _toggleAsync = toggleAsync;
         ToggleCommand = new AsyncRelayCommand(ToggleAsync, () => CanToggle);
         CanToggle = canToggle;
@@ -46,7 +47,7 @@ public sealed partial class BitCellViewModel : ObservableObject
 
     public int BitIndex { get; }
     public string Address { get; }
-    public string Label => $"b{BitIndex}";
+    public string Label { get; }
 
     [ObservableProperty]
     private bool isOn;
@@ -172,18 +173,20 @@ public sealed class FloatRowViewModel : MonitorRowViewModel, IInlineEditableRow
     private readonly string _originalText;
     private string _editableValueText;
 
-    public FloatRowViewModel(string address, float value, string editableValueText, string hexText, bool canEdit, string? comment)
+    public FloatRowViewModel(string address, float value, string editableValueText, string hexText, IEnumerable<BitCellViewModel> bits, bool canEdit, string? comment)
         : base(MonitorRowKind.Float, address, address, comment)
     {
         Value = value;
         _editableValueText = editableValueText;
         _originalText = editableValueText;
         HexText = hexText;
+        Bits = new ObservableCollection<BitCellViewModel>(bits);
         CanEdit = canEdit;
     }
 
     public float Value { get; }
     public string HexText { get; }
+    public ObservableCollection<BitCellViewModel> Bits { get; }
     public bool CanEdit { get; }
     public string EditableValueText
     {

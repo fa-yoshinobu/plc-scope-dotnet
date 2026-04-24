@@ -35,9 +35,16 @@ public sealed class FileLogStore : ILogStore
         var items = new List<T>(Math.Min(maxCount, lines.Length));
         foreach (var line in lines.Where(static line => !string.IsNullOrWhiteSpace(line)).Reverse().Take(maxCount))
         {
-            var item = JsonSerializer.Deserialize<T>(line, JsonDefaults.Options);
-            if (item is not null)
-                items.Add(item);
+            try
+            {
+                var item = JsonSerializer.Deserialize<T>(line, JsonDefaults.Options);
+                if (item is not null)
+                    items.Add(item);
+            }
+            catch (JsonException)
+            {
+                // Keep the log viewer usable even if an older or partial log line exists.
+            }
         }
 
         return items;

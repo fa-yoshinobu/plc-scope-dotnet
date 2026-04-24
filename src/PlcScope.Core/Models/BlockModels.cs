@@ -12,7 +12,7 @@ public sealed record BlockQuery
     public BlockDisplayMode DisplayMode { get; init; } = BlockDisplayMode.Word;
     public BitDisplayMode BitDisplayMode { get; init; } = BitDisplayMode.Packed16;
     public DisplayRadix DisplayRadix { get; init; } = DisplayRadix.Decimal;
-    public bool AutoRefreshEnabled { get; init; }
+    public bool AutoRefreshEnabled { get; init; } = true;
     public int AutoRefreshIntervalMs { get; init; } = 500;
 
     public int EffectiveItemCount => Math.Max(1, ItemCount);
@@ -61,6 +61,7 @@ public sealed record FloatMonitorRow(
     string Address,
     float Value,
     uint RawBits,
+    IReadOnlyList<BitCellState> Bits,
     string? Comment = null) : MonitorRow(MonitorRowKind.Float, Address, Comment);
 
 public sealed record ExpandedWordHeaderMonitorRow(

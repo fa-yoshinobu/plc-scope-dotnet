@@ -28,11 +28,13 @@ public static class BlockDataBuilder
         };
 
     private static IReadOnlyList<MonitorRow> BuildBitRows(BlockReadResult result) =>
-        result.Query.BitDisplayMode switch
+        result.Query.DisplayMode switch
         {
-            BitDisplayMode.Packed16 => BuildPackedBits(result),
-            BitDisplayMode.SingleLine => BuildSingleBits(result),
-            _ => [],
+            BlockDisplayMode.BitExpand => BuildSingleBits(result),
+            BlockDisplayMode.Word => BuildBitWordRows(result),
+            BlockDisplayMode.DWord => BuildBitDWordRows(result),
+            BlockDisplayMode.Float32 => BuildBitFloatRows(result),
+            _ => BuildBitWordRows(result),
         };
 
     private static IReadOnlyList<MonitorRow> BuildWordMode(BlockReadResult result)
@@ -65,7 +67,7 @@ public static class BlockDataBuilder
             rows.Add(new DWordMonitorRow(
                 address,
                 dword,
-                BuildBits(address, dword, 32),
+                BuildDWordBits(address, result.ElementAddresses[i + 1], dword),
                 result.Comments.GetValueOrDefault(address)));
         }
 
@@ -80,10 +82,10 @@ public static class BlockDataBuilder
             var buffer = new byte[4];
             BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(0, 2), result.WordValues[i]);
             BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(2, 2), result.WordValues[i + 1]);
-            var bits = BinaryPrimitives.ReadUInt32LittleEndian(buffer);
-            var value = NumericFormatter.RawBitsToFloat(bits);
+            var rawBits = BinaryPrimitives.ReadUInt32LittleEndian(buffer);
+            var value = NumericFormatter.RawBitsToFloat(rawBits);
             var address = result.ElementAddresses[i];
-            rows.Add(new FloatMonitorRow(address, value, bits, result.Comments.GetValueOrDefault(address)));
+            rows.Add(new FloatMonitorRow(address, value, rawBits, BuildDWordBits(address, result.ElementAddresses[i + 1], rawBits), result.Comments.GetValueOrDefault(address)));
         }
 
         return rows;
@@ -98,7 +100,9 @@ public static class BlockDataBuilder
             var value = result.WordValues[i];
             var bits = BuildBits(address, value, 16);
             rows.Add(new ExpandedWordHeaderMonitorRow(address, value, bits, result.Comments.GetValueOrDefault(address)));
-            rows.AddRange(bits.Select(bit => new ExpandedBitMonitorRow($"{address}.{bit.Index}", bit.Index, bit.Value)));
+            rows.AddRange(bits
+                .OrderBy(bit => bit.Index)
+                .Select(bit => new ExpandedBitMonitorRow($"{address}.{bit.Index}", bit.Index, bit.Value)));
         }
 
         return rows;
@@ -126,6 +130,78 @@ public static class BlockDataBuilder
     private static IReadOnlyList<MonitorRow> BuildSingleBits(BlockReadResult result) =>
         result.BitValues.Select((value, index) => (MonitorRow)new SingleBitMonitorRow(result.ElementAddresses[index], value)).ToArray();
 
+    private static IReadOnlyList<MonitorRow> BuildBitWordRows(BlockReadResult result)
+    {
+        var rows = new List<MonitorRow>((result.BitValues.Count + 15) / 16);
+        for (var offset = 0; offset < result.BitValues.Count; offset += 16)
+        {
+            ushort wordValue = 0;
+            var bits = new List<BitCellState>(16);
+            var end = Math.Min(offset + 16, result.BitValues.Count);
+            for (var index = offset; index < end; index++)
+            {
+                var bitIndex = index - offset;
+                var value = result.BitValues[index];
+                if (value)
+                    wordValue |= (ushort)(1 << bitIndex);
+
+                bits.Add(new BitCellState(bitIndex, value, result.ElementAddresses[index]));
+            }
+
+            var address = result.ElementAddresses[offset];
+            rows.Add(new WordMonitorRow(
+                address,
+                wordValue,
+                bits.OrderByDescending(bit => bit.Index).ToArray(),
+                result.Comments.GetValueOrDefault(address)));
+        }
+
+        return rows;
+    }
+
+    private static IReadOnlyList<MonitorRow> BuildBitDWordRows(BlockReadResult result)
+    {
+        var rows = new List<MonitorRow>((result.BitValues.Count + 31) / 32);
+        for (var offset = 0; offset < result.BitValues.Count; offset += 32)
+        {
+            uint dwordValue = 0;
+            var bits = new List<BitCellState>(32);
+            var end = Math.Min(offset + 32, result.BitValues.Count);
+            for (var index = offset; index < end; index++)
+            {
+                var bitIndex = index - offset;
+                var value = result.BitValues[index];
+                if (value)
+                    dwordValue |= 1u << bitIndex;
+
+                bits.Add(new BitCellState(bitIndex, value, result.ElementAddresses[index]));
+            }
+
+            var address = result.ElementAddresses[offset];
+            rows.Add(new DWordMonitorRow(
+                address,
+                dwordValue,
+                bits.OrderByDescending(bit => bit.Index).ToArray(),
+                result.Comments.GetValueOrDefault(address)));
+        }
+
+        return rows;
+    }
+
+    private static IReadOnlyList<MonitorRow> BuildBitFloatRows(BlockReadResult result)
+    {
+        var dwordRows = BuildBitDWordRows(result);
+        return dwordRows
+            .OfType<DWordMonitorRow>()
+            .Select(row => (MonitorRow)new FloatMonitorRow(
+                row.Address,
+                NumericFormatter.RawBitsToFloat(row.Value),
+                row.Value,
+                row.Bits,
+                row.Comment))
+            .ToArray();
+    }
+
     private static IReadOnlyList<BitCellState> BuildBits(string address, ushort value, int bitCount)
     {
         var bits = new List<BitCellState>(bitCount);
@@ -145,6 +221,20 @@ public static class BlockDataBuilder
         {
             var isOn = ((value >> bitIndex) & 0x1) == 1;
             bits.Add(new BitCellState(bitIndex, isOn, $"{address}.{bitIndex}"));
+        }
+
+        return bits;
+    }
+
+    private static IReadOnlyList<BitCellState> BuildDWordBits(string lowWordAddress, string highWordAddress, uint value)
+    {
+        var bits = new List<BitCellState>(32);
+        for (var bitIndex = 31; bitIndex >= 0; bitIndex--)
+        {
+            var localBitIndex = bitIndex % 16;
+            var wordAddress = bitIndex >= 16 ? highWordAddress : lowWordAddress;
+            var isOn = ((value >> bitIndex) & 0x1) == 1;
+            bits.Add(new BitCellState(bitIndex, isOn, $"{wordAddress}.{localBitIndex}"));
         }
 
         return bits;
