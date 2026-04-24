@@ -6,6 +6,12 @@ obj/
 
 TestResults/
 artifacts/
+.artifacts-build/
+.dotnet-home/
+.dotnet_home/
+restore-diag.log
+build.log
+*.lnk
 
 .DS_Store
 Thumbs.db

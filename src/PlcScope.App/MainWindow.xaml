@@ -11,34 +11,148 @@
         Height="920"
         MinWidth="1200"
         MinHeight="720"
-        Background="#1E1E1E"
-        Foreground="#E0E0E0">
+        FontSize="{Binding SelectedFontSizeOption.Size}"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource AppForegroundBrush}">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
-    <Style x:Key="ToolbarButtonStyle" TargetType="Button">
-      <Setter Property="Margin" Value="0,0,6,0" />
-      <Setter Property="Padding" Value="10,4" />
-      <Setter Property="Background" Value="#3C3C3C" />
-      <Setter Property="Foreground" Value="#F0F0F0" />
-      <Setter Property="BorderBrush" Value="#555555" />
+    <Style x:Key="PanelBorderStyle" TargetType="{x:Type Border}">
+      <Setter Property="Background" Value="{DynamicResource AppPanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="8" />
     </Style>
 
-    <Style x:Key="BitButtonStyle" TargetType="Button">
-      <Setter Property="Width" Value="22" />
-      <Setter Property="Height" Value="22" />
+    <Style x:Key="ToolbarButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="Padding" Value="10,4" />
+    </Style>
+
+    <Style x:Key="PrimaryToolbarButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource AccentButtonStyle}">
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="Padding" Value="12,4" />
+    </Style>
+
+    <Style x:Key="FieldGroupStyle" TargetType="{x:Type StackPanel}">
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <Style x:Key="MonitorHeaderTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource SectionTitleTextStyle}">
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style x:Key="AddressTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="Foreground" Value="{DynamicResource AppAddressBrush}" />
+      <Setter Property="FontFamily" Value="Consolas" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="8,0" />
+    </Style>
+
+    <Style x:Key="ValueTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="Foreground" Value="{DynamicResource AppValueBrush}" />
+      <Setter Property="FontFamily" Value="Consolas" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="8,0" />
+    </Style>
+
+    <Style x:Key="HexTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="Foreground" Value="{DynamicResource AppHexBrush}" />
+      <Setter Property="FontFamily" Value="Consolas" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="8,0" />
+    </Style>
+
+    <Style x:Key="CommentTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="Foreground" Value="{DynamicResource AppCommentBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="8,0" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="InlineValueTextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="Margin" Value="8,2" />
+      <Setter Property="Background" Value="{DynamicResource AppWriteInputBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+      <Setter Property="FontFamily" Value="Consolas" />
+      <Setter Property="HorizontalContentAlignment" Value="Right" />
+      <Setter Property="ToolTip" Value="Enter で書込み、Esc で元に戻します。" />
+      <EventSetter Event="GotKeyboardFocus" Handler="InlineValueTextBox_GotKeyboardFocus" />
+      <EventSetter Event="LostKeyboardFocus" Handler="InlineValueTextBox_LostKeyboardFocus" />
+    </Style>
+
+    <Style x:Key="BitButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
       <Setter Property="Margin" Value="1" />
+      <Setter Property="Padding" Value="0" />
       <Setter Property="FontSize" Value="10" />
-      <Setter Property="Background" Value="#2A2A2A" />
-      <Setter Property="Foreground" Value="#CCCCCC" />
-      <Setter Property="BorderBrush" Value="#444444" />
+      <Setter Property="FontFamily" Value="Consolas" />
+      <Setter Property="Background" Value="{DynamicResource AppBitOffBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundMutedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBitOffBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding IsOn}" Value="True">
-          <Setter Property="Background" Value="#27AE60" />
-          <Setter Property="Foreground" Value="White" />
-          <Setter Property="BorderBrush" Value="#2ECC71" />
+          <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="BitStateButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Width" Value="96" />
+      <Setter Property="Margin" Value="8,0" />
+      <Setter Property="Background" Value="{DynamicResource AppBitOffBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundMutedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBitOffBorderBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Value}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="StatusPillStyle" TargetType="{x:Type Border}">
+      <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="8,4" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ConnectionState}" Value="Connected">
+          <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ConnectionState}" Value="Connecting">
+          <Setter Property="Background" Value="{DynamicResource AppWarningSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppWarningBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ConnectionState}" Value="Error">
+          <Setter Property="Background" Value="{DynamicResource AppDangerSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="StatusDotStyle" TargetType="{x:Type Ellipse}">
+      <Setter Property="Fill" Value="{DynamicResource AppForegroundMutedBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ConnectionState}" Value="Connected">
+          <Setter Property="Fill" Value="{DynamicResource AppSuccessBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ConnectionState}" Value="Connecting">
+          <Setter Property="Fill" Value="{DynamicResource AppWarningBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ConnectionState}" Value="Error">
+          <Setter Property="Fill" Value="{DynamicResource AppDangerBrush}" />
         </DataTrigger>
       </Style.Triggers>
     </Style>
@@ -48,158 +162,160 @@
               Command="{Binding ToggleCommand}"
               IsEnabled="{Binding CanToggle}"
               ToolTip="{Binding Address}"
-              Content="{Binding BitIndex}" />
+              Content="{Binding Label}" />
     </DataTemplate>
 
     <DataTemplate x:Key="WordRowTemplate" DataType="{x:Type vm:WordRowViewModel}">
-      <Grid Margin="2,1">
+      <Grid MinHeight="34">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130" />
-          <ColumnDefinition Width="100" />
-          <ColumnDefinition Width="100" />
+          <ColumnDefinition Width="140" />
+          <ColumnDefinition Width="120" />
+          <ColumnDefinition Width="110" />
           <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="200" />
+          <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" VerticalAlignment="Center" Foreground="#9CDCFE" FontFamily="Consolas" />
+        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <TextBox Grid.Column="1"
-                 Margin="4,0"
-                 Background="#1E3A5C"
-                 Foreground="#F0F0F0"
-                 BorderBrush="#0E639C"
+                 Style="{StaticResource InlineValueTextBoxStyle}"
                  IsEnabled="{Binding CanEdit}"
                  Text="{Binding EditableValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  KeyDown="InlineValueTextBox_KeyDown" />
-        <TextBlock Grid.Column="2" Text="{Binding HexText}" VerticalAlignment="Center" Foreground="#CE9178" FontFamily="Consolas" />
-        <ItemsControl Grid.Column="3" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
+        <TextBlock Grid.Column="2" Text="{Binding HexText}" Style="{StaticResource HexTextStyle}" />
+        <ItemsControl Grid.Column="3" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel />
+              <WrapPanel VerticalAlignment="Center" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
         </ItemsControl>
-        <TextBlock Grid.Column="4" Text="{Binding Comment}" VerticalAlignment="Center" Foreground="#6A9955" />
+        <TextBlock Grid.Column="4" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="PackedBitRowTemplate" DataType="{x:Type vm:PackedBitRowViewModel}">
-      <Grid Margin="2,1">
+      <Grid MinHeight="34">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130" />
+          <ColumnDefinition Width="140" />
           <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="200" />
+          <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" VerticalAlignment="Center" Foreground="#9CDCFE" FontFamily="Consolas" />
-        <ItemsControl Grid.Column="1" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
+        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <ItemsControl Grid.Column="1" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel />
+              <WrapPanel VerticalAlignment="Center" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
         </ItemsControl>
-        <TextBlock Grid.Column="2" Text="{Binding Comment}" VerticalAlignment="Center" Foreground="#6A9955" />
+        <TextBlock Grid.Column="2" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="SingleBitRowTemplate" DataType="{x:Type vm:SingleBitRowViewModel}">
-      <Grid Margin="2,1">
+      <Grid MinHeight="34">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130" />
-          <ColumnDefinition Width="100" />
-          <ColumnDefinition Width="80" />
+          <ColumnDefinition Width="140" />
+          <ColumnDefinition Width="120" />
+          <ColumnDefinition Width="90" />
+          <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" VerticalAlignment="Center" Foreground="#9CDCFE" FontFamily="Consolas" />
-        <Button Grid.Column="1" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource ToolbarButtonStyle}" />
-        <TextBlock Grid.Column="2" Text="{Binding ValueText}" VerticalAlignment="Center" Foreground="#DCDCAA" FontFamily="Consolas" />
+        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <Button Grid.Column="1" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource BitStateButtonStyle}" />
+        <TextBlock Grid.Column="2" Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
+        <TextBlock Grid.Column="3" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="DWordRowTemplate" DataType="{x:Type vm:DWordRowViewModel}">
-      <Grid Margin="2,1">
+      <Grid MinHeight="34">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130" />
           <ColumnDefinition Width="140" />
-          <ColumnDefinition Width="110" />
+          <ColumnDefinition Width="150" />
+          <ColumnDefinition Width="120" />
           <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="200" />
+          <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" VerticalAlignment="Center" Foreground="#9CDCFE" FontFamily="Consolas" />
+        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <TextBox Grid.Column="1"
-                 Margin="4,0"
-                 Background="#1E3A5C"
-                 Foreground="#F0F0F0"
-                 BorderBrush="#0E639C"
+                 Style="{StaticResource InlineValueTextBoxStyle}"
                  IsEnabled="{Binding CanEdit}"
                  Text="{Binding EditableValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  KeyDown="InlineValueTextBox_KeyDown" />
-        <TextBlock Grid.Column="2" Text="{Binding HexText}" VerticalAlignment="Center" Foreground="#CE9178" FontFamily="Consolas" />
-        <ItemsControl Grid.Column="3" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
+        <TextBlock Grid.Column="2" Text="{Binding HexText}" Style="{StaticResource HexTextStyle}" />
+        <ItemsControl Grid.Column="3" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel />
+              <WrapPanel VerticalAlignment="Center" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
         </ItemsControl>
-        <TextBlock Grid.Column="4" Text="{Binding Comment}" VerticalAlignment="Center" Foreground="#6A9955" />
+        <TextBlock Grid.Column="4" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="FloatRowTemplate" DataType="{x:Type vm:FloatRowViewModel}">
-      <Grid Margin="2,1">
+      <Grid MinHeight="34">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130" />
           <ColumnDefinition Width="140" />
-          <ColumnDefinition Width="110" />
+          <ColumnDefinition Width="150" />
+          <ColumnDefinition Width="120" />
           <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" VerticalAlignment="Center" Foreground="#9CDCFE" FontFamily="Consolas" />
+        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <TextBox Grid.Column="1"
-                 Margin="4,0"
-                 Background="#1E3A5C"
-                 Foreground="#F0F0F0"
-                 BorderBrush="#0E639C"
+                 Style="{StaticResource InlineValueTextBoxStyle}"
                  IsEnabled="{Binding CanEdit}"
                  Text="{Binding EditableValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  KeyDown="InlineValueTextBox_KeyDown" />
-        <TextBlock Grid.Column="2" Text="{Binding HexText}" VerticalAlignment="Center" Foreground="#CE9178" FontFamily="Consolas" />
-        <TextBlock Grid.Column="3" Text="{Binding Comment}" VerticalAlignment="Center" Foreground="#6A9955" />
+        <TextBlock Grid.Column="2" Text="{Binding HexText}" Style="{StaticResource HexTextStyle}" />
+        <ItemsControl Grid.Column="3" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel VerticalAlignment="Center" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+        <TextBlock Grid.Column="4" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="ExpandedHeaderTemplate" DataType="{x:Type vm:ExpandedWordHeaderRowViewModel}">
-      <Grid Margin="2,6,2,1">
+      <Grid MinHeight="34" Background="{DynamicResource AppHeaderBrush}">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130" />
-          <ColumnDefinition Width="100" />
-          <ColumnDefinition Width="100" />
+          <ColumnDefinition Width="140" />
+          <ColumnDefinition Width="120" />
+          <ColumnDefinition Width="110" />
           <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="200" />
+          <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" VerticalAlignment="Center" FontWeight="Bold" Foreground="#9CDCFE" FontFamily="Consolas" />
-        <TextBlock Grid.Column="1" Text="{Binding ValueText}" VerticalAlignment="Center" Foreground="#DCDCAA" FontFamily="Consolas" />
-        <TextBlock Grid.Column="2" Text="{Binding HexText}" VerticalAlignment="Center" Foreground="#CE9178" FontFamily="Consolas" />
-        <ItemsControl Grid.Column="3" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
+        <TextBlock Grid.Column="0" Text="{Binding Address}" FontWeight="SemiBold" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="1" Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
+        <TextBlock Grid.Column="2" Text="{Binding HexText}" Style="{StaticResource HexTextStyle}" />
+        <ItemsControl Grid.Column="3" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel />
+              <WrapPanel VerticalAlignment="Center" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
         </ItemsControl>
-        <TextBlock Grid.Column="4" Text="{Binding Comment}" VerticalAlignment="Center" Foreground="#6A9955" />
+        <TextBlock Grid.Column="4" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="ExpandedBitTemplate" DataType="{x:Type vm:ExpandedBitRowViewModel}">
-      <Grid Margin="18,1,2,1">
+      <Grid MinHeight="32" Margin="22,0,0,0">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="130" />
-          <ColumnDefinition Width="70" />
-          <ColumnDefinition Width="100" />
+          <ColumnDefinition Width="140" />
           <ColumnDefinition Width="80" />
+          <ColumnDefinition Width="120" />
+          <ColumnDefinition Width="90" />
+          <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" VerticalAlignment="Center" Foreground="#9CDCFE" FontFamily="Consolas" />
-        <TextBlock Grid.Column="1" Text="{Binding BitIndex, StringFormat=b{0}}" VerticalAlignment="Center" />
-        <Button Grid.Column="2" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource ToolbarButtonStyle}" />
-        <TextBlock Grid.Column="3" Text="{Binding ValueText}" VerticalAlignment="Center" Foreground="#DCDCAA" FontFamily="Consolas" />
+        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="1" Text="{Binding BitIndex, StringFormat=b{0}}" VerticalAlignment="Center" Margin="8,0" />
+        <Button Grid.Column="2" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource BitStateButtonStyle}" />
+        <TextBlock Grid.Column="3" Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
       </Grid>
     </DataTemplate>
 
@@ -214,7 +330,7 @@
   </Window.Resources>
 
   <DockPanel>
-    <Menu DockPanel.Dock="Top" Background="#252526" Foreground="#E0E0E0">
+    <Menu DockPanel.Dock="Top">
       <MenuItem Header="ファイル">
         <MenuItem Header="新規プロジェクト" Click="NewProjectMenuItem_Click" />
         <MenuItem Header="開く..." Click="OpenProjectMenuItem_Click" />
@@ -223,6 +339,16 @@
       </MenuItem>
       <MenuItem Header="接続">
         <MenuItem Header="接続設定..." Click="ConnectionSettingsMenuItem_Click" />
+      </MenuItem>
+      <MenuItem Header="CPU">
+        <MenuItem Header="CPU RUN"
+                  Command="{Binding CpuRunCommand}"
+                  IsEnabled="{Binding CanIssueCpuControl}"
+                  ToolTip="{Binding CpuControlHint}" />
+        <MenuItem Header="CPU STOP"
+                  Command="{Binding CpuStopCommand}"
+                  IsEnabled="{Binding CanIssueCpuControl}"
+                  ToolTip="{Binding CpuControlHint}" />
       </MenuItem>
       <MenuItem Header="ツール">
         <MenuItem Header="通信ログ..." Click="TraceLogMenuItem_Click" />
@@ -233,130 +359,155 @@
       </MenuItem>
     </Menu>
 
-    <StatusBar DockPanel.Dock="Bottom" Background="#252526" Foreground="#E0E0E0">
+    <StatusBar DockPanel.Dock="Bottom">
       <StatusBarItem Content="{Binding StatusText}" />
       <Separator />
       <StatusBarItem Content="{Binding LastReadText, StringFormat=最終読込: {0}}" />
       <Separator />
       <StatusBarItem Content="{Binding ResponseTimeText, StringFormat=応答: {0}}" />
       <Separator />
+      <StatusBarItem Content="{Binding CommunicationRateText, StringFormat=通信: {0}}" />
+      <Separator />
       <StatusBarItem Content="{Binding CpuStateText, StringFormat=CPU: {0}}" />
       <Separator />
-      <StatusBarItem Content="{Binding ErrorText}" />
+      <StatusBarItem>
+        <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource AppDangerBrush}" TextTrimming="CharacterEllipsis" />
+      </StatusBarItem>
     </StatusBar>
 
-    <StackPanel Margin="12">
-      <Border Background="#252526" BorderBrush="#333333" BorderThickness="1" Padding="8" Margin="0,0,0,8">
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <Button Content="接続設定..." Click="ConnectionSettingsMenuItem_Click" Style="{StaticResource ToolbarButtonStyle}" />
-          <Button Content="接続" Command="{Binding ConnectCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-          <Button Content="切断" Command="{Binding DisconnectCommand}" Style="{StaticResource ToolbarButtonStyle}" />
-          <Ellipse Width="12" Height="12" Margin="10,0,6,0">
-            <Ellipse.Style>
-              <Style TargetType="Ellipse">
-                <Setter Property="Fill" Value="#808080" />
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding ConnectionState}" Value="Connected">
-                    <Setter Property="Fill" Value="#27AE60" />
-                  </DataTrigger>
-                  <DataTrigger Binding="{Binding ConnectionState}" Value="Error">
-                    <Setter Property="Fill" Value="#E74C3C" />
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </Ellipse.Style>
-          </Ellipse>
-          <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="0,0,16,0" />
-          <TextBlock Text="プロトコル" VerticalAlignment="Center" Margin="0,0,6,0" />
-          <ComboBox Width="240"
-                    ItemsSource="{Binding AvailableProtocols}"
-                    DisplayMemberPath="DisplayName"
-                    SelectedItem="{Binding SelectedProtocol}" />
-        </StackPanel>
-      </Border>
+    <Grid Margin="12">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
 
-      <Border Background="#2D2D2D" BorderBrush="#333333" BorderThickness="1" Padding="8" Margin="0,0,0,8">
+      <Border Grid.Row="0" Style="{StaticResource PanelBorderStyle}" Margin="0,0,0,8">
         <Grid>
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="100" />
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="90" />
-            <ColumnDefinition Width="90" />
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <ComboBox Grid.Column="0"
-                    Margin="0,0,6,0"
-                    ItemsSource="{Binding AvailableDeviceFamilies}"
-                    DisplayMemberPath="DisplayName"
-                    SelectedItem="{Binding SelectedDeviceFamily}" />
-          <TextBox Grid.Column="1" Margin="0,0,6,0" Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBox Grid.Column="2" Margin="0,0,6,0" Text="{Binding ItemCount, UpdateSourceTrigger=PropertyChanged}" />
-          <ComboBox Grid.Column="3" Margin="0,0,6,0" ItemsSource="{Binding DisplayModes}" SelectedItem="{Binding DisplayMode}" />
-          <ComboBox Grid.Column="4" Margin="0,0,6,0" ItemsSource="{Binding BitDisplayModes}" SelectedItem="{Binding BitDisplayMode}" />
-          <ComboBox Grid.Column="5" Margin="0,0,6,0" ItemsSource="{Binding DisplayRadices}" SelectedItem="{Binding DisplayRadix}" />
-          <CheckBox Grid.Column="6" Margin="0,0,6,0" Content="自動更新" IsChecked="{Binding AutoRefreshEnabled}" VerticalAlignment="Center" />
-          <TextBox Grid.Column="7" Margin="0,0,6,0" Text="{Binding AutoRefreshIntervalMs}" />
-          <Button Grid.Column="8" Content="読込" Command="{Binding ReadOnceCommand}" IsEnabled="{Binding IsConnected}" Style="{StaticResource ToolbarButtonStyle}" />
-          <TextBlock Grid.Column="9" Text="プロジェクト" VerticalAlignment="Center" Margin="8,0,4,0" />
-          <TextBlock Grid.Column="10" Text="{Binding ProjectName}" VerticalAlignment="Center" Foreground="#DCDCAA" />
-        </Grid>
-      </Border>
 
-      <Border Background="#1F1F1F" BorderBrush="#333333" BorderThickness="1" Padding="8" Margin="0,0,0,8">
-        <Grid Margin="0,0,0,6">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="130" />
-            <ColumnDefinition Width="100" />
-            <ColumnDefinition Width="100" />
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="200" />
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="アドレス" FontWeight="Bold" />
-          <TextBlock Grid.Column="1" Text="値" FontWeight="Bold" />
-          <TextBlock Grid.Column="2" Text="Hex" FontWeight="Bold" />
-          <TextBlock Grid.Column="3" Text="ビット" FontWeight="Bold" />
-          <TextBlock Grid.Column="4" Text="コメント" FontWeight="Bold" />
-        </Grid>
-        <ListBox ItemsSource="{Binding Rows}"
-                 SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-                 Background="#1F1F1F"
-                 BorderThickness="0"
-                 Foreground="#E0E0E0"
-                 ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}" />
-      </Border>
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button Content="接続設定" Click="ConnectionSettingsMenuItem_Click" Style="{StaticResource ToolbarButtonStyle}" ToolTip="PLC との通信条件を設定します。" />
+            <Button Content="接続" Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryToolbarButtonStyle}" ToolTip="選択中の設定で接続します。" />
+            <Button Content="切断" Command="{Binding DisconnectCommand}" Style="{StaticResource ToolbarButtonStyle}" ToolTip="PLC との接続を切断します。" />
+          </StackPanel>
 
-      <Border Background="#252526" BorderBrush="#333333" BorderThickness="1" Padding="8">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="180" />
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="160" />
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="120" />
-            <ColumnDefinition Width="110" />
-            <ColumnDefinition Width="110" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <TextBox Grid.Column="0" Margin="0,0,8,0" IsEnabled="{Binding CanUseWritePanel}" Text="{Binding WriteAddress, UpdateSourceTrigger=PropertyChanged}" />
-          <ComboBox Grid.Column="1" Margin="0,0,8,0" IsEnabled="{Binding CanUseWritePanel}" ItemsSource="{Binding ValueDataTypes}" SelectedItem="{Binding SelectedWriteDataType}" />
-          <TextBox Grid.Column="2" Margin="0,0,8,0" IsEnabled="{Binding CanUseWritePanel}" Text="{Binding WriteValueText, UpdateSourceTrigger=PropertyChanged}" />
-          <ComboBox Grid.Column="3" Margin="0,0,8,0" IsEnabled="{Binding CanUseWritePanel}" ItemsSource="{Binding DisplayRadices}" SelectedItem="{Binding WriteRadix}" />
-          <Button Grid.Column="4" Content="書込み" Command="{Binding WritePanelCommand}" IsEnabled="{Binding CanUseWritePanel}" Style="{StaticResource ToolbarButtonStyle}" />
-          <CheckBox Grid.Column="5" Content="書込みロック" IsChecked="{Binding WriteLockEnabled}" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="6" Content="確認" IsChecked="{Binding ConfirmBeforeWrite}" VerticalAlignment="Center" />
-          <StackPanel Grid.Column="7" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="CPU RUN" Command="{Binding CpuRunCommand}" IsEnabled="{Binding CanIssueCpuControl}" ToolTip="{Binding CpuControlHint}" Style="{StaticResource ToolbarButtonStyle}" />
-            <Button Content="CPU STOP" Command="{Binding CpuStopCommand}" IsEnabled="{Binding CanIssueCpuControl}" ToolTip="{Binding CpuControlHint}" Style="{StaticResource ToolbarButtonStyle}" />
+          <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,10,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <Ellipse Width="10" Height="10" Margin="0,0,8,0" Style="{StaticResource StatusDotStyle}" />
+              <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+
+          <Grid Grid.Column="2" VerticalAlignment="Center" Margin="0,0,12,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="プロジェクト" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBlock Grid.Column="1" Text="{Binding ProjectName}" Foreground="{DynamicResource AppValueBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+          </Grid>
+
+          <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+            <TextBlock Text="テーマ" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Width="88"
+                      ItemsSource="{Binding ThemeOptions}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedThemeOption}"
+                      ToolTip="ダークモードとライトモードを切り替えます。" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="文字" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Width="78"
+                      ItemsSource="{Binding FontSizeOptions}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedFontSizeOption}"
+                      ToolTip="画面全体の文字サイズを切り替えます。" />
           </StackPanel>
         </Grid>
       </Border>
-    </StackPanel>
+
+      <Border Grid.Row="1" Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppPanelAltBrush}" Margin="0,0,0,8">
+        <Grid VerticalAlignment="Center">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="112" />
+            <ColumnDefinition Width="138" />
+            <ColumnDefinition Width="112" />
+            <ColumnDefinition Width="104" />
+            <ColumnDefinition Width="92" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+
+          <StackPanel Grid.Column="0" Style="{StaticResource FieldGroupStyle}">
+            <TextBlock Text="デバイス" Style="{StaticResource FieldLabelTextStyle}" />
+            <ComboBox ItemsSource="{Binding AvailableDeviceFamilies}"
+                      DisplayMemberPath="DisplayName"
+                      SelectedItem="{Binding SelectedDeviceFamily}"
+                      ToolTip="読込み対象のデバイス種別です。" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Style="{StaticResource FieldGroupStyle}">
+            <TextBlock Text="先頭アドレス" Style="{StaticResource FieldLabelTextStyle}" />
+            <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" ToolTip="例: D100、M0。デバイス記号つきで入力します。" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Style="{StaticResource FieldGroupStyle}">
+            <TextBlock Text="表示形式" Style="{StaticResource FieldLabelTextStyle}" />
+            <ComboBox ItemsSource="{Binding DisplayModes}" SelectedItem="{Binding DisplayMode}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3" Style="{StaticResource FieldGroupStyle}">
+            <TextBlock Text="進数" Style="{StaticResource FieldLabelTextStyle}" />
+            <ComboBox ItemsSource="{Binding DisplayRadices}" SelectedItem="{Binding DisplayRadix}" />
+          </StackPanel>
+          <StackPanel Grid.Column="4" Style="{StaticResource FieldGroupStyle}">
+            <TextBlock Text="間隔 ms" Style="{StaticResource FieldLabelTextStyle}" />
+            <TextBox Text="{Binding AutoRefreshIntervalMs}" ToolTip="自動更新の間隔です。最小 100 ms で扱います。" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="2" Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppInputBrush}" Padding="0" Margin="0,0,0,8">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <Grid Grid.Row="0" Background="{DynamicResource AppHeaderBrush}">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="140" />
+              <ColumnDefinition Width="120" />
+              <ColumnDefinition Width="110" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="220" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="アドレス" Style="{StaticResource MonitorHeaderTextStyle}" />
+            <TextBlock Grid.Column="1" Text="値" Style="{StaticResource MonitorHeaderTextStyle}" />
+            <TextBlock Grid.Column="2" Text="Hex" Style="{StaticResource MonitorHeaderTextStyle}" />
+            <TextBlock Grid.Column="3" Text="ビット" Style="{StaticResource MonitorHeaderTextStyle}" />
+            <TextBlock Grid.Column="4" Text="コメント" Style="{StaticResource MonitorHeaderTextStyle}" />
+          </Grid>
+
+          <ListBox x:Name="MonitorListBox"
+                   Grid.Row="1"
+                   ItemsSource="{Binding Rows}"
+                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                   BorderThickness="0"
+                   Loaded="MonitorListBox_Loaded"
+                   Unloaded="MonitorListBox_Unloaded"
+                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   ScrollViewer.CanContentScroll="True"
+                   VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling"
+                   ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}" />
+        </Grid>
+      </Border>
+    </Grid>
   </DockPanel>
 </Window>

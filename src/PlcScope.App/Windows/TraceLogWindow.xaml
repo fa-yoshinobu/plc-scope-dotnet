@@ -4,16 +4,12 @@
         Title="通信ログ"
         Width="1100"
         Height="700"
-        Background="#1E1E1E"
-        Foreground="#E0E0E0">
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource AppForegroundBrush}">
   <Grid Margin="12">
     <DataGrid ItemsSource="{Binding}"
               AutoGenerateColumns="False"
-              IsReadOnly="True"
-              Background="#252526"
-              Foreground="#E0E0E0"
-              RowBackground="#1F1F1F"
-              AlternatingRowBackground="#252526">
+              IsReadOnly="True">
       <DataGrid.Columns>
         <DataGridTextColumn Header="時刻" Binding="{Binding Timestamp}" Width="180" />
         <DataGridTextColumn Header="プロトコル" Binding="{Binding Protocol}" Width="120" />
