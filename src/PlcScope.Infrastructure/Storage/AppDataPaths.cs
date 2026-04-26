@@ -16,6 +16,6 @@ internal static class AppDataPaths
     }
 
     public static string SettingsFile => Path.Combine(BaseDirectory, "settings.json");
-    public static string TraceLogFile => Path.Combine(BaseDirectory, "trace.log.jsonl");
-    public static string ErrorLogFile => Path.Combine(BaseDirectory, "error.log.jsonl");
+    public static string TraceLogFile => Path.Combine(AppContext.BaseDirectory, "trace.log.jsonl");
+    public static string ErrorLogFile => Path.Combine(AppContext.BaseDirectory, "error.log.jsonl");
 }

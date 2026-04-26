@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using PlcScope.App.ViewModels;
 using PlcScope.App.Windows;
@@ -12,6 +13,7 @@ using PlcScope.App.Windows;
 public partial class MainWindow : Window
 {
     private ScrollViewer? _monitorScrollViewer;
+    private bool _isProgrammaticMonitorScroll;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -19,8 +21,8 @@ public partial class MainWindow : Window
         ViewModel = viewModel;
         DataContext = viewModel;
 
-        ViewModel.ConfirmWriteAsync = ConfirmWriteAsync;
         ViewModel.RequestPasswordAsync = RequestPasswordAsync;
+        ViewModel.RequestMonitorScrollToRowIndex = ScrollMonitorToRowIndex;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += MainWindow_Loaded;
     }
@@ -98,7 +100,7 @@ public partial class MainWindow : Window
         try
         {
             var entries = await ViewModel.LoadTraceEntriesAsync().ConfigureAwait(true);
-            new TraceLogWindow(entries) { Owner = this }.ShowDialog();
+            new TraceLogWindow(entries, ViewModel.ClearTraceEntriesAsync) { Owner = this }.ShowDialog();
         }
         catch (Exception exception)
         {
@@ -111,11 +113,24 @@ public partial class MainWindow : Window
         try
         {
             var entries = await ViewModel.LoadErrorEntriesAsync().ConfigureAwait(true);
-            new ErrorHistoryWindow(entries) { Owner = this }.ShowDialog();
+            new ErrorHistoryWindow(entries, ViewModel.ClearErrorEntriesAsync) { Owner = this }.ShowDialog();
         }
         catch (Exception exception)
         {
             MessageBox.Show(this, exception.Message, "エラー履歴を開けません", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void DeviceRangeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var catalog = await ViewModel.LoadDeviceRangeCatalogAsync().ConfigureAwait(true);
+            new DeviceRangeWindow(catalog) { Owner = this }.ShowDialog();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "デバイス範囲を開けません", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -132,6 +147,7 @@ public partial class MainWindow : Window
 
         _monitorScrollViewer.ScrollChanged += MonitorScrollViewer_ScrollChanged;
         UpdateVisibleMonitorRange(isScrollActivity: false);
+        ViewModel.RequestScrollToStartAddress();
     }
 
     private void MonitorListBox_Unloaded(object sender, RoutedEventArgs e)
@@ -144,7 +160,8 @@ public partial class MainWindow : Window
 
     private void MonitorScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        UpdateVisibleMonitorRange(Math.Abs(e.VerticalChange) > 0.001);
+        var isVerticalScroll = Math.Abs(e.VerticalChange) > 0.001;
+        UpdateVisibleMonitorRange(isVerticalScroll && !_isProgrammaticMonitorScroll);
     }
 
     private void UpdateVisibleMonitorRange(bool isScrollActivity)
@@ -158,6 +175,26 @@ public partial class MainWindow : Window
         var firstIndex = Math.Max(0, (int)Math.Floor(_monitorScrollViewer.VerticalOffset));
         var visibleCount = Math.Max(1, (int)Math.Ceiling(_monitorScrollViewer.ViewportHeight));
         ViewModel.UpdateVisibleRowRange(firstIndex, visibleCount);
+    }
+
+    private void ScrollMonitorToRowIndex(int rowIndex)
+    {
+        if (_monitorScrollViewer is null || ViewModel.Rows.Count == 0)
+            return;
+
+        var boundedRowIndex = Math.Clamp(rowIndex, 0, ViewModel.Rows.Count - 1);
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (_monitorScrollViewer is null)
+                    return;
+
+                _isProgrammaticMonitorScroll = true;
+                _monitorScrollViewer.ScrollToVerticalOffset(boundedRowIndex);
+                UpdateVisibleMonitorRange(isScrollActivity: false);
+                Dispatcher.BeginInvoke(() => _isProgrammaticMonitorScroll = false, DispatcherPriority.ContextIdle);
+            },
+            DispatcherPriority.Loaded);
     }
 
     private static T? FindDescendant<T>(DependencyObject root)
@@ -185,28 +222,44 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter)
         {
             await ViewModel.CommitInlineEditAsync(row, textBox.Text).ConfigureAwait(true);
-            ViewModel.EndInlineEdit();
+            ViewModel.EndInlineEdit(force: true);
             e.Handled = true;
         }
         else if (e.Key == Key.Escape && row is IInlineEditableRow editable)
         {
             editable.ResetEditableValue();
             textBox.Text = editable.EditableValueText;
-            ViewModel.EndInlineEdit();
+            ViewModel.EndInlineEdit(force: true);
             e.Handled = true;
         }
     }
 
     private void InlineValueTextBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        ViewModel.BeginInlineEdit();
+        BeginInlineEditFromTextBox(sender);
         if (sender is TextBox textBox)
             textBox.SelectAll();
     }
 
+    private void InlineValueTextBox_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        BeginInlineEditFromTextBox(sender);
+    }
+
     private void InlineValueTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        ViewModel.EndInlineEdit();
+        if (sender is TextBox { DataContext: MonitorRowViewModel row })
+            ViewModel.EndInlineEdit(row);
+        else
+            ViewModel.EndInlineEdit();
+    }
+
+    private void BeginInlineEditFromTextBox(object sender)
+    {
+        if (sender is TextBox { DataContext: MonitorRowViewModel row })
+            ViewModel.BeginInlineEdit(row);
+        else
+            ViewModel.BeginInlineEdit();
     }
 
     private Task<bool> ConfirmWriteAsync(string message)

@@ -9,6 +9,7 @@ public interface IPlcSession : IAsyncDisposable
     bool IsConnected { get; }
 
     event EventHandler<TraceEntry>? TraceReceived;
+    event EventHandler<ErrorEntry>? ErrorReceived;
 
     Task ConnectAsync(CancellationToken cancellationToken = default);
     Task DisconnectAsync(CancellationToken cancellationToken = default);
@@ -17,5 +18,6 @@ public interface IPlcSession : IAsyncDisposable
     Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default);
     Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default);
     Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default);
+    Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default);
     Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default);
 }

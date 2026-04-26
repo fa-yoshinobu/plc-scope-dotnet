@@ -6,10 +6,28 @@
         Height="640"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource AppForegroundBrush}">
-  <Grid Margin="12">
-    <DataGrid ItemsSource="{Binding}"
+  <DockPanel Margin="12">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+      <Button Content="選択コピー" Click="CopySelectedButton_Click" Padding="10,4" Margin="0,0,6,0" />
+      <Button Content="全コピー" Click="CopyAllButton_Click" Padding="10,4" Margin="0,0,6,0" />
+      <Button Content="履歴削除" Click="ClearHistoryButton_Click" Padding="10,4" />
+    </StackPanel>
+
+    <DataGrid x:Name="ErrorDataGrid"
+              ItemsSource="{Binding}"
               AutoGenerateColumns="False"
-              IsReadOnly="True">
+              IsReadOnly="True"
+              SelectionMode="Extended"
+              SelectionUnit="FullRow"
+              ClipboardCopyMode="IncludeHeader">
+      <DataGrid.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="選択コピー" Click="CopySelectedButton_Click" />
+          <MenuItem Header="全コピー" Click="CopyAllButton_Click" />
+          <Separator />
+          <MenuItem Header="履歴削除" Click="ClearHistoryButton_Click" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
       <DataGrid.Columns>
         <DataGridTextColumn Header="時刻" Binding="{Binding Timestamp}" Width="180" />
         <DataGridTextColumn Header="操作" Binding="{Binding Operation}" Width="160" />
@@ -17,5 +35,5 @@
         <DataGridTextColumn Header="詳細" Binding="{Binding Details}" Width="*" />
       </DataGrid.Columns>
     </DataGrid>
-  </Grid>
+  </DockPanel>
 </Window>

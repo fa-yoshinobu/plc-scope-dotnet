@@ -8,4 +8,6 @@ public interface ILogStore
     Task AppendErrorAsync(ErrorEntry errorEntry, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TraceEntry>> LoadRecentTraceAsync(int maxCount, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ErrorEntry>> LoadRecentErrorsAsync(int maxCount, CancellationToken cancellationToken = default);
+    Task ClearTraceAsync(CancellationToken cancellationToken = default);
+    Task ClearErrorsAsync(CancellationToken cancellationToken = default);
 }
