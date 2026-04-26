@@ -55,6 +55,7 @@ public partial class MainWindowViewModel : ObservableObject
     private int _startAddressRowIndex;
     private SequentialDeviceAddress? _generatedStartAddress;
     private DeviceRangeCatalog? _deviceRangeCatalog;
+    private readonly Dictionary<string, string> _commentCsvComments = new(StringComparer.OrdinalIgnoreCase);
     private string? _inlineEditingAddress;
     private string? _layoutErrorText;
     private string _rowLayoutKey = string.Empty;
@@ -88,7 +89,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         ConnectionSettings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
         SelectedProtocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
-        SelectedDeviceFamily = SelectedProtocol.DefaultWordFamily;
+        RefreshAvailableDeviceFamilies(SelectedProtocol);
         RefreshDisplayModes();
         StartAddress = InferDefaultStartAddress();
         ItemCount = 16;
@@ -145,7 +146,7 @@ public partial class MainWindowViewModel : ObservableObject
     private ProtocolDefinition selectedProtocol;
 
     [ObservableProperty]
-    private DeviceFamilyDefinition selectedDeviceFamily;
+    private DeviceFamilyDefinition selectedDeviceFamily = ProtocolCatalog.Get(ProtocolKind.Slmp).DefaultWordFamily;
 
     [ObservableProperty]
     private string startAddress;
@@ -202,6 +203,9 @@ public partial class MainWindowViewModel : ObservableObject
     private string currentProjectPath = string.Empty;
 
     [ObservableProperty]
+    private string commentCsvPath = string.Empty;
+
+    [ObservableProperty]
     private string projectName = "タイトルなし";
 
     [ObservableProperty]
@@ -249,6 +253,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         ConnectionSettings = settings;
         SelectedProtocol = ProtocolCatalog.Get(settings.Protocol);
+        RefreshAvailableDeviceFamilies(SelectedProtocol);
         StartAddress = InferDefaultStartAddress();
 
         AppSettings = AppSettings with { LastSelectedProtocol = settings.Protocol.ToString() };
@@ -281,23 +286,28 @@ public partial class MainWindowViewModel : ObservableObject
         await ApplyConnectionSettingsAsync(project.Connection).ConfigureAwait(true);
 
         SelectedProtocol = ProtocolCatalog.Get(activeBlock.Protocol);
-        SelectedDeviceFamily = SelectedProtocol.FindFamily(activeBlock.DeviceFamilyCode) ?? SelectedProtocol.DefaultWordFamily;
-        StartAddress = activeBlock.StartAddress;
+        RefreshAvailableDeviceFamilies(SelectedProtocol, SelectedProtocol.FindFamily(activeBlock.DeviceFamilyCode));
+        StartAddress = string.Equals(SelectedDeviceFamily.Code, activeBlock.DeviceFamilyCode, StringComparison.OrdinalIgnoreCase)
+            ? activeBlock.StartAddress
+            : InferDefaultStartAddress();
         ItemCount = activeBlock.ItemCount;
         DisplayMode = NormalizeDisplayMode(activeBlock.DisplayMode);
         BitDisplayMode = activeBlock.BitDisplayMode;
         DisplayRadix = activeBlock.DisplayRadix;
         AutoRefreshEnabled = true;
         AutoRefreshIntervalMs = activeBlock.AutoRefreshIntervalMs;
+        await LoadProjectCommentCsvAsync(project.CommentCsvPath).ConfigureAwait(true);
     }
 
     public void NewProject()
     {
         ProjectName = "タイトルなし";
         CurrentProjectPath = string.Empty;
+        CommentCsvPath = string.Empty;
+        _commentCsvComments.Clear();
         ErrorText = string.Empty;
         ConnectionSettings = ConnectionSettings.CreateDefault(SelectedProtocol.Kind);
-        SelectedDeviceFamily = SelectedProtocol.DefaultWordFamily;
+        RefreshAvailableDeviceFamilies(SelectedProtocol);
         RefreshDisplayModes();
         StartAddress = InferDefaultStartAddress();
         ItemCount = 16;
@@ -314,6 +324,17 @@ public partial class MainWindowViewModel : ObservableObject
         _lastSnapshot = null;
         _rowLayoutKey = string.Empty;
         EnsureRowsForCurrentLayout();
+    }
+
+    public async Task ImportCommentCsvAsync(string path)
+    {
+        var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
+        SetCommentCsv(path, comments);
+        ErrorText = string.Empty;
+        StatusText = $"コメントCSV読込: {Path.GetFileName(path)}";
+
+        if (IsConnected)
+            await ReadOnceAsync().ConfigureAwait(true);
     }
 
     public Task<IReadOnlyList<TraceEntry>> LoadTraceEntriesAsync(int maxCount = 500) =>
@@ -497,7 +518,8 @@ public partial class MainWindowViewModel : ObservableObject
             if (_isInlineEditing || !ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
                 return;
 
-            _lastSnapshot = BlockDataBuilder.Build(result);
+            var resultWithComments = ApplyCsvComments(result);
+            _lastSnapshot = BlockDataBuilder.Build(resultWithComments);
             if (string.Equals(plan.LayoutKey, _rowLayoutKey, StringComparison.Ordinal))
                 ReplaceRows(plan.ReplacementStartIndex, _lastSnapshot.Rows);
 
@@ -1243,7 +1265,75 @@ public partial class MainWindowViewModel : ObservableObject
         Name = ProjectName,
         Connection = ConnectionSettings,
         Blocks = [BuildProjectBlockQuery()],
+        CommentCsvPath = string.IsNullOrWhiteSpace(CommentCsvPath) ? null : CommentCsvPath,
     };
+
+    private async Task LoadProjectCommentCsvAsync(string? path)
+    {
+        CommentCsvPath = path ?? string.Empty;
+        _commentCsvComments.Clear();
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return;
+
+        try
+        {
+            var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
+            SetCommentCsv(path, comments);
+        }
+        catch (Exception exception)
+        {
+            ErrorText = $"コメントCSVを読み込めません: {exception.Message}";
+        }
+    }
+
+    private void SetCommentCsv(string path, IReadOnlyDictionary<string, string> comments)
+    {
+        CommentCsvPath = path;
+        _commentCsvComments.Clear();
+        foreach (var (address, comment) in comments)
+        {
+            foreach (var key in GetCommentAddressKeys(address))
+            {
+                _commentCsvComments[key] = comment;
+            }
+        }
+    }
+
+    private BlockReadResult ApplyCsvComments(BlockReadResult result)
+    {
+        if (_commentCsvComments.Count == 0)
+            return result;
+
+        var comments = new Dictionary<string, string>(result.Comments, StringComparer.OrdinalIgnoreCase);
+        foreach (var address in result.ElementAddresses)
+        {
+            if (!comments.ContainsKey(address) && _commentCsvComments.TryGetValue(address, out var comment))
+                comments[address] = comment;
+        }
+
+        return result with { Comments = comments };
+    }
+
+    private IEnumerable<string> GetCommentAddressKeys(string rawAddress)
+    {
+        var cleaned = rawAddress.Trim().ToUpperInvariant();
+        if (cleaned.Length == 0)
+            yield break;
+
+        yield return cleaned;
+
+        var families = ProtocolCatalog.GetDeviceFamilies(SelectedProtocol, ConnectionSettings.KeyenceDeviceMode)
+            .OrderByDescending(family => family.Code.Length);
+        foreach (var family in families)
+        {
+            if (!DeviceAddressRangeProvider.TryParseAddress(cleaned, family, out var address))
+                continue;
+
+            yield return address.FormatOffset(0);
+            yield return (address with { Width = 1 }).FormatOffset(0);
+            yield break;
+        }
+    }
 
     private void RefreshDisplayModes()
     {
@@ -1285,8 +1375,42 @@ public partial class MainWindowViewModel : ObservableObject
 
     private string InferDefaultStartAddress()
     {
-        var family = SelectedProtocol.DefaultWordFamily;
-        return $"{family.Code}0";
+        var family = ProtocolCatalog.GetDefaultWordFamily(SelectedProtocol, ConnectionSettings.KeyenceDeviceMode);
+        return DeviceAddressRangeProvider.GetDefaultAddress(family);
+    }
+
+    private void RefreshAvailableDeviceFamilies(ProtocolDefinition protocol, DeviceFamilyDefinition? preferredFamily = null)
+    {
+        var families = ProtocolCatalog.GetDeviceFamilies(protocol, ConnectionSettings.KeyenceDeviceMode);
+        AvailableDeviceFamilies.Clear();
+        foreach (var family in families)
+        {
+            AvailableDeviceFamilies.Add(family);
+        }
+
+        SelectedDeviceFamily = ResolveSelectableDeviceFamily(protocol, families, preferredFamily, ConnectionSettings.KeyenceDeviceMode);
+    }
+
+    private static DeviceFamilyDefinition ResolveSelectableDeviceFamily(
+        ProtocolDefinition protocol,
+        IReadOnlyList<DeviceFamilyDefinition> families,
+        DeviceFamilyDefinition? preferredFamily,
+        KeyenceDeviceMode keyenceDeviceMode)
+    {
+        if (preferredFamily is not null)
+        {
+            var match = families.FirstOrDefault(family =>
+                string.Equals(family.Code, preferredFamily.Code, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+                return match;
+        }
+
+        var defaultFamily = ProtocolCatalog.GetDefaultWordFamily(protocol, keyenceDeviceMode);
+        return families.FirstOrDefault(family =>
+            string.Equals(family.Code, defaultFamily.Code, StringComparison.OrdinalIgnoreCase))
+            ?? families.FirstOrDefault(family => family.Kind == DeviceKind.Word)
+            ?? families.FirstOrDefault()
+            ?? protocol.DefaultWordFamily;
     }
 
     private void RestartTimer()
@@ -1318,13 +1442,7 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnSelectedProtocolChanged(ProtocolDefinition value)
     {
         _deviceRangeCatalog = null;
-        AvailableDeviceFamilies.Clear();
-        foreach (var family in value.DeviceFamilies)
-        {
-            AvailableDeviceFamilies.Add(family);
-        }
-
-        SelectedDeviceFamily = value.DefaultWordFamily;
+        RefreshAvailableDeviceFamilies(value);
         RefreshDisplayModes();
         ConnectionSettings = ConnectionSettings with { Protocol = value.Kind };
         StartAddress = InferDefaultStartAddress();
@@ -1343,7 +1461,7 @@ public partial class MainWindowViewModel : ObservableObject
         RefreshDisplayModes();
         StartAddress = DeviceAddressRangeProvider.TryRebaseAddress(StartAddress, SelectedProtocol, value, out var rebasedAddress)
             ? rebasedAddress
-            : $"{value.Code}0";
+            : DeviceAddressRangeProvider.GetDefaultAddress(value);
         _lastSnapshot = null;
         RefreshLayoutNow();
     }
@@ -1354,6 +1472,9 @@ public partial class MainWindowViewModel : ObservableObject
             return;
 
         var normalizedValue = value.ToUpperInvariant();
+        if (DeviceAddressRangeProvider.TryParseAddress(normalizedValue, SelectedDeviceFamily, out var parsedAddress))
+            normalizedValue = parsedAddress.FormatOffset(0);
+
         if (!string.Equals(value, normalizedValue, StringComparison.Ordinal))
         {
             _isNormalizingStartAddress = true;

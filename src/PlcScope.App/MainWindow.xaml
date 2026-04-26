@@ -375,6 +375,7 @@
       <MenuItem Header="ファイル">
         <MenuItem Header="新規プロジェクト" Click="NewProjectMenuItem_Click" />
         <MenuItem Header="開く" Click="OpenProjectMenuItem_Click" />
+        <MenuItem Header="コメントCSV読込" Click="ImportCommentCsvMenuItem_Click" />
         <MenuItem Header="保存" Click="SaveProjectMenuItem_Click" />
         <MenuItem Header="名前を付けて保存" Click="SaveProjectAsMenuItem_Click" />
       </MenuItem>

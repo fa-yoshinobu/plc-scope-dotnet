@@ -4,6 +4,16 @@ using PlcScope.Core.Models;
 
 public static class ProtocolCatalog
 {
+    private static readonly string[] HostLinkNormalDeviceFamilyCodes =
+    [
+        "R", "B", "MR", "LR", "CR", "DM", "EM", "FM", "ZF", "W", "TM", "CM",
+    ];
+
+    private static readonly string[] HostLinkXymDeviceFamilyCodes =
+    [
+        "B", "CR", "ZF", "W", "TM", "CM", "X", "Y", "M", "L", "D", "E", "F",
+    ];
+
     private static readonly IReadOnlyList<ProtocolDefinition> Definitions =
     [
         new(
@@ -45,7 +55,8 @@ public static class ProtocolCatalog
             [
                 Word("DM"), Word("EM"), Word("FM"), Word("ZF"), Word("W"), Word("TM"), Word("Z"), Word("TC"),
                 Word("TS"), Word("CC"), Word("CS"), Word("CM"), Word("VM"), Word("D"), Word("E"), Word("F"),
-                Bit("R"), Bit("B"), Bit("MR"), Bit("LR"), Bit("CR"), Bit("VB"), Bit("X"), Bit("Y"), Bit("M"), Bit("L"),
+                KeyenceBitBank("R"), Bit("B"), KeyenceBitBank("MR"), KeyenceBitBank("LR"), KeyenceBitBank("CR"),
+                Bit("VB"), Bit("X"), Bit("Y"), Bit("M"), Bit("L"),
             ],
             DefaultWordFamilyCode: "DM",
             DefaultBitFamilyCode: "R"),
@@ -73,9 +84,48 @@ public static class ProtocolCatalog
     public static ProtocolDefinition Get(ProtocolKind protocol) =>
         Definitions.First(definition => definition.Kind == protocol);
 
+    public static IReadOnlyList<DeviceFamilyDefinition> GetDeviceFamilies(
+        ProtocolDefinition definition,
+        KeyenceDeviceMode keyenceDeviceMode)
+    {
+        if (definition.Kind != ProtocolKind.HostLink)
+            return definition.DeviceFamilies;
+
+        var codes = keyenceDeviceMode == KeyenceDeviceMode.Xym
+            ? HostLinkXymDeviceFamilyCodes
+            : HostLinkNormalDeviceFamilyCodes;
+        return codes
+            .Select(code => definition.FindFamily(code))
+            .OfType<DeviceFamilyDefinition>()
+            .ToArray();
+    }
+
+    public static DeviceFamilyDefinition GetDefaultWordFamily(
+        ProtocolDefinition definition,
+        KeyenceDeviceMode keyenceDeviceMode)
+    {
+        if (definition.Kind == ProtocolKind.HostLink && keyenceDeviceMode == KeyenceDeviceMode.Xym)
+            return definition.FindFamily("D") ?? definition.DefaultWordFamily;
+
+        return definition.DefaultWordFamily;
+    }
+
+    public static DeviceFamilyDefinition GetDefaultBitFamily(
+        ProtocolDefinition definition,
+        KeyenceDeviceMode keyenceDeviceMode)
+    {
+        if (definition.Kind == ProtocolKind.HostLink && keyenceDeviceMode == KeyenceDeviceMode.Xym)
+            return definition.FindFamily("X") ?? definition.DefaultBitFamily;
+
+        return definition.DefaultBitFamily;
+    }
+
     private static DeviceFamilyDefinition Word(string code, bool usesHex = false) =>
         new(code, code, DeviceKind.Word, usesHex);
 
     private static DeviceFamilyDefinition Bit(string code, bool usesHex = false) =>
         new(code, code, DeviceKind.Bit, usesHex);
+
+    private static DeviceFamilyDefinition KeyenceBitBank(string code) =>
+        new(code, code, DeviceKind.Bit, false, DeviceAddressDisplayRule.KeyenceBitBank);
 }

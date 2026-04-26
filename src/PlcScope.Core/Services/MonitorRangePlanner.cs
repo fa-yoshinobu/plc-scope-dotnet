@@ -37,20 +37,19 @@ public static class MonitorRangePlanner
         error = null;
 
         var requiredPoints = GetMinimumPointCount(protocol, family, displayMode);
-        var rangePointCount = checked(rangeBounds.UpperBound - rangeBounds.LowerBound + 1);
+        var rangeLower = startAddress.ToLogicalNumber(rangeBounds.LowerBound);
+        var rangeUpper = startAddress.ToLogicalNumber(rangeBounds.UpperBound);
+        var rangePointCount = checked(rangeUpper - rangeLower + 1);
         if (rangePointCount < requiredPoints)
         {
             error = $"{family.Code} は現在の表示形式に必要な範囲がありません。";
             return false;
         }
 
-        var maxStartNumber = rangeBounds.UpperBound - (uint)(requiredPoints - 1);
-        var clampedNumber = Math.Clamp(startAddress.Number, rangeBounds.LowerBound, maxStartNumber);
-        normalizedStartAddress = startAddress with
-        {
-            Prefix = family.Code,
-            Number = clampedNumber,
-        };
+        var startLogical = startAddress.ToLogicalNumber(startAddress.Number);
+        var maxStart = rangeUpper - (uint)(requiredPoints - 1);
+        var clampedNumber = Math.Clamp(startLogical, rangeLower, maxStart);
+        normalizedStartAddress = startAddress.WithLogicalNumber(clampedNumber) with { Prefix = family.Code };
         return true;
     }
 
@@ -70,16 +69,20 @@ public static class MonitorRangePlanner
             displayMode,
             preferredRowsBeforeStartAddress,
             out var startAddressRowIndex);
-        var generatedStartAddress = startAddress with { Number = startAddress.Number - (uint)pointOffsetBeforeStartAddress };
+        var generatedStartAddress = startAddress.WithLogicalNumber(
+            startAddress.ToLogicalNumber(startAddress.Number) - (uint)pointOffsetBeforeStartAddress);
         return new MonitorRowAddressLayout(generatedStartAddress, startAddressRowIndex);
     }
 
     public static int GetAvailablePointCount(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
     {
-        if (startAddress.Number < rangeBounds.LowerBound || startAddress.Number > rangeBounds.UpperBound)
+        var start = startAddress.ToLogicalNumber(startAddress.Number);
+        var lower = startAddress.ToLogicalNumber(rangeBounds.LowerBound);
+        var upper = startAddress.ToLogicalNumber(rangeBounds.UpperBound);
+        if (start < lower || start > upper)
             return 0;
 
-        var remaining = rangeBounds.UpperBound - startAddress.Number + 1;
+        var remaining = upper - start + 1;
         return remaining > int.MaxValue ? int.MaxValue : (int)remaining;
     }
 
@@ -142,8 +145,10 @@ public static class MonitorRangePlanner
         int preferredRowsBeforeStartAddress,
         out int startAddressRowIndex)
     {
-        var availableBeforeStart = startAddress.Number > rangeBounds.LowerBound
-            ? startAddress.Number - rangeBounds.LowerBound
+        var start = startAddress.ToLogicalNumber(startAddress.Number);
+        var lower = startAddress.ToLogicalNumber(rangeBounds.LowerBound);
+        var availableBeforeStart = start > lower
+            ? start - lower
             : 0;
 
         if (family.Kind == DeviceKind.Word && displayMode == BlockDisplayMode.BitExpand)

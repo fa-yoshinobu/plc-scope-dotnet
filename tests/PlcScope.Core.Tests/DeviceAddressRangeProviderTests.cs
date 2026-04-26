@@ -56,6 +56,43 @@ public sealed class DeviceAddressRangeProviderTests
     }
 
     [Theory]
+    [InlineData("R0", "R000", "R015", "R100")]
+    [InlineData("R015", "R015", "R114", "R115")]
+    [InlineData("MR100", "MR100", "MR115", "MR200")]
+    [InlineData("CR0", "CR000", "CR015", "CR100")]
+    public void TryParseAddress_KeyenceBitBankFormatsDisplayAddress(
+        string input,
+        string expectedStart,
+        string expectedPlus15,
+        string expectedPlus16)
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.HostLink);
+        var familyCode = new string(input.TakeWhile(char.IsLetter).ToArray());
+        var family = protocol.FindFamily(familyCode)!;
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out var address);
+
+        Assert.True(parsed);
+        Assert.Equal(expectedStart, address.FormatOffset(0));
+        Assert.Equal(expectedPlus15, address.FormatOffset(15));
+        Assert.Equal(expectedPlus16, address.FormatOffset(16));
+    }
+
+    [Theory]
+    [InlineData("R016", "R")]
+    [InlineData("MR116", "MR")]
+    [InlineData("LR99916", "LR")]
+    [InlineData("CR7916", "CR")]
+    public void TryParseAddress_KeyenceBitBankRejectsInvalidLowerTwoDigits(string input, string familyCode)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.HostLink).FindFamily(familyCode)!;
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out _);
+
+        Assert.False(parsed);
+    }
+
+    [Theory]
     [InlineData("R100", "RD")]
     [InlineData("ZR100", "RD")]
     [InlineData("RD100", "R")]
@@ -113,5 +150,17 @@ public sealed class DeviceAddressRangeProviderTests
         var rebased = DeviceAddressRangeProvider.TryRebaseAddress("UNKNOWN100", protocol, targetFamily, out _);
 
         Assert.False(rebased);
+    }
+
+    [Fact]
+    public void TryRebaseAddress_KeyenceBitBankUsesCanonicalDisplayAddress()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.HostLink);
+        var targetFamily = protocol.FindFamily("R")!;
+
+        var rebased = DeviceAddressRangeProvider.TryRebaseAddress("DM0", protocol, targetFamily, out var address);
+
+        Assert.True(rebased);
+        Assert.Equal("R000", address);
     }
 }

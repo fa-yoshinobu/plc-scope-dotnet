@@ -7,6 +7,7 @@ using PlcScope.Core.Services;
 internal sealed class HostLinkSession : PlcSessionBase
 {
     private KvHostLinkClient? _client;
+    private DeviceRangeCatalog? _deviceRangeCatalog;
 
     public HostLinkSession(ConnectionSettings settings)
         : base(settings, ProtocolCatalog.Get(ProtocolKind.HostLink))
@@ -24,7 +25,7 @@ internal sealed class HostLinkSession : PlcSessionBase
             Settings.Transport == TransportMode.Tcp ? HostLinkTransportMode.Tcp : HostLinkTransportMode.Udp)
         {
             Timeout = Settings.Timeout,
-            AppendLfOnSend = Settings.HostLinkAppendLfOnSend,
+            AppendLfOnSend = false,
         };
 
         _client.TraceHook = frame => EmitTrace(new TraceEntry(
@@ -47,6 +48,7 @@ internal sealed class HostLinkSession : PlcSessionBase
 
             await _client.DisposeAsync().ConfigureAwait(false);
             _client = null;
+            _deviceRangeCatalog = null;
             ClearCpuStateCache();
             IsConnected = false;
         }, cancellationToken).ConfigureAwait(false);
@@ -55,7 +57,7 @@ internal sealed class HostLinkSession : PlcSessionBase
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)
     {
         var expanded = ExpandAddress(rawAddress, family);
-        return KvHostLinkDevice.ParseDevice(expanded, allowOmittedType: false).ToText();
+        return FormatHostLinkAddress(KvHostLinkDevice.ParseDevice(expanded, allowOmittedType: false));
     }
 
     public override async Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
@@ -79,17 +81,6 @@ internal sealed class HostLinkSession : PlcSessionBase
 
                 elementAddresses = BuildWordAddresses(normalizedStart, wordCount);
                 words = await _client!.ReadWordsAsync(normalizedStart, wordCount, cancellationToken).ConfigureAwait(false);
-
-                foreach (var address in elementAddresses.Distinct(StringComparer.OrdinalIgnoreCase))
-                {
-                    try
-                    {
-                        comments[address] = await _client!.ReadCommentsAsync(address, stripPadding: true, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                    }
-                }
             }
             else
             {
@@ -159,6 +150,20 @@ internal sealed class HostLinkSession : PlcSessionBase
             cancellationToken).ConfigureAwait(false);
     }
 
+    public override async Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        if (_deviceRangeCatalog is not null)
+            return _deviceRangeCatalog;
+
+        var catalog = await ExecuteSerializedAsync(
+            () => _client!.ReadDeviceRangeCatalogAsync(cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+
+        _deviceRangeCatalog = MapDeviceRangeCatalog(catalog);
+        return _deviceRangeCatalog;
+    }
+
     public override async Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
@@ -182,11 +187,61 @@ internal sealed class HostLinkSession : PlcSessionBase
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
-            addresses[index] = (start with { Number = checked(start.Number + index), Suffix = string.Empty }).ToText();
+            addresses[index] = FormatHostLinkAddress(OffsetHostLinkAddress(start, index));
         }
 
         return addresses;
     }
+
+    private static KvDeviceAddress OffsetHostLinkAddress(KvDeviceAddress start, int offset)
+    {
+        if (!UsesKeyenceBitBankAddress(start.DeviceType))
+            return start with { Number = checked(start.Number + offset), Suffix = string.Empty };
+
+        ValidateKeyenceBitBankNumber(start.DeviceType, start.Number);
+        var logical = checked((start.Number / 100 * 16) + (start.Number % 100) + offset);
+        var physical = checked((logical / 16 * 100) + (logical % 16));
+        return start with { Number = physical, Suffix = string.Empty };
+    }
+
+    private static string FormatHostLinkAddress(KvDeviceAddress address)
+    {
+        if (!UsesKeyenceBitBankAddress(address.DeviceType))
+            return address.ToText();
+
+        ValidateKeyenceBitBankNumber(address.DeviceType, address.Number);
+        var bank = address.Number / 100;
+        var bit = address.Number % 100;
+        return $"{address.DeviceType}{bank.ToString(System.Globalization.CultureInfo.InvariantCulture)}{bit.ToString("D2", System.Globalization.CultureInfo.InvariantCulture)}{address.Suffix}";
+    }
+
+    private static bool UsesKeyenceBitBankAddress(string deviceType) =>
+        deviceType is "R" or "MR" or "LR" or "CR";
+
+    private static void ValidateKeyenceBitBankNumber(string deviceType, int number)
+    {
+        if (number < 0 || number % 100 > 15)
+            throw new ArgumentOutOfRangeException(nameof(number), number, $"{deviceType} の下2桁は 00..15 で指定してください。");
+    }
+
+    private static DeviceRangeCatalog MapDeviceRangeCatalog(KvDeviceRangeCatalog catalog) =>
+        new(
+            catalog.Model,
+            catalog.ResolvedModel,
+            catalog.Entries
+                .Select(entry => new DeviceRangeEntry(
+                    entry.Device,
+                    entry.Category.ToString(),
+                    entry.IsBitDevice,
+                    entry.Supported,
+                    entry.LowerBound,
+                    entry.UpperBound,
+                    entry.PointCount,
+                    entry.AddressRange ?? string.Empty,
+                    entry.Notation.ToString(),
+                    entry.Source,
+                    entry.Notes ?? string.Empty))
+                .ToArray());
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)
     {

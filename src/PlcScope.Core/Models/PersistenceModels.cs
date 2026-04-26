@@ -8,6 +8,7 @@ public sealed record ProjectFile
     public ConnectionSettings Connection { get; init; } = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
     public List<BlockQuery> Blocks { get; init; } = [CreateDefaultBlock()];
     public string? SelectedBlockId { get; init; }
+    public string? CommentCsvPath { get; init; }
 
     public static BlockQuery CreateDefaultBlock() => new()
     {

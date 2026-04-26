@@ -69,6 +69,27 @@ public sealed class MonitorRangePlannerTests
     }
 
     [Fact]
+    public void BuildRowAddressLayout_KeyenceBitBankSkipsInvalidLowerTwoDigits()
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.HostLink).FindFamily("R")!;
+        Assert.True(DeviceAddressRangeProvider.TryParseAddress("R100", family, out var startAddress));
+        var range = new DeviceDisplayRangeBounds(0, 199915, "R:0:199915");
+
+        var layout = MonitorRangePlanner.BuildRowAddressLayout(
+            startAddress,
+            range,
+            ProtocolKind.HostLink,
+            family,
+            BlockDisplayMode.BitExpand,
+            preferredRowsBeforeStartAddress: 20);
+
+        Assert.Equal("R000", layout.GeneratedStartAddress.FormatOffset(0));
+        Assert.Equal(16, layout.StartAddressRowIndex);
+        Assert.Equal("R015", layout.GeneratedStartAddress.FormatOffset(15));
+        Assert.Equal("R100", layout.GeneratedStartAddress.FormatOffset(16));
+    }
+
+    [Fact]
     public void BuildRowAddressLayout_BitExpandMapsOneWordToSeventeenRows()
     {
         var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);

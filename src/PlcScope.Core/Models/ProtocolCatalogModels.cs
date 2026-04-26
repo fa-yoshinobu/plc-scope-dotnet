@@ -13,7 +13,8 @@ public sealed record DeviceFamilyDefinition(
     string Code,
     string DisplayName,
     DeviceKind Kind,
-    bool UsesHexAddressing = false);
+    bool UsesHexAddressing = false,
+    DeviceAddressDisplayRule AddressDisplayRule = DeviceAddressDisplayRule.Default);
 
 public sealed record ProtocolDefinition(
     ProtocolKind Kind,

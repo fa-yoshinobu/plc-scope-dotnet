@@ -4,8 +4,48 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
 
+public sealed record KeyenceDeviceModeOption(KeyenceDeviceMode Mode, string Label);
+
 public partial class ConnectionDialogViewModel : ObservableObject
 {
+    private static readonly string[] DefaultHostLinkModels =
+    [
+        "KV-8000A",
+        "KV-8000",
+        "KV-7500",
+        "KV-7300",
+        "KV-5500",
+        "KV-5000",
+        "KV-3000",
+        "KV-1000",
+        "KV-700 (With expansion memory)",
+        "KV-700 (No expansion memory)",
+        "KV-X550",
+        "KV-X530",
+        "KV-X520",
+        "KV-X500",
+        "KV-X310",
+        "KV-N60nn",
+        "KV-N40nn",
+        "KV-N24nn",
+        "KV-NC32T",
+    ];
+
+    private static readonly string[] DefaultToyopucDeviceProfiles =
+    [
+        "Generic",
+        "TOYOPUC-Plus:Plus Standard mode",
+        "TOYOPUC-Plus:Plus Extended mode",
+        "Nano 10GX:Nano 10GX mode",
+        "Nano 10GX:Compatible mode",
+        "PC10G:PC10 standard/PC3JG mode",
+        "PC10G:PC10 mode",
+        "PC3JX:PC3 separate mode",
+        "PC3JX:Plus expansion mode",
+        "PC3JG:PC3JG mode",
+        "PC3JG:PC3 separate mode",
+    ];
+
     public ConnectionDialogViewModel(ConnectionSettings settings)
     {
         SelectedProtocol = Protocols.First(protocol => protocol.Kind == settings.Protocol);
@@ -19,7 +59,10 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpModuleIo = settings.SlmpModuleIo;
         SlmpMultidrop = settings.SlmpMultidrop;
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
-        HostLinkAppendLfOnSend = settings.HostLinkAppendLfOnSend;
+        HostLinkPlcModelName = string.IsNullOrWhiteSpace(settings.HostLinkPlcModelName)
+            ? "KV-7500"
+            : settings.HostLinkPlcModelName;
+        SelectedKeyenceDeviceMode = KeyenceDeviceModes.First(option => option.Mode == settings.KeyenceDeviceMode);
         ToyopucDeviceProfile = settings.ToyopucDeviceProfile ?? string.Empty;
         ToyopucRelayHops = settings.ToyopucRelayHops ?? string.Empty;
         ToyopucLocalPort = settings.ToyopucLocalPort;
@@ -29,6 +72,14 @@ public partial class ConnectionDialogViewModel : ObservableObject
 
     public IReadOnlyList<ProtocolDefinition> Protocols { get; } = ProtocolCatalog.All;
     public IReadOnlyList<string> SlmpFamilies { get; } = ["IqR", "IqF", "IqL", "QnU", "QnUDV", "MxR", "MxF"];
+    public IReadOnlyList<string> HostLinkModels { get; } = DefaultHostLinkModels;
+    public IReadOnlyList<KeyenceDeviceModeOption> KeyenceDeviceModes { get; } =
+    [
+        new(KeyenceDeviceMode.Normal, "通常"),
+        new(KeyenceDeviceMode.Xym, "XYM"),
+    ];
+
+    public IReadOnlyList<string> ToyopucDeviceProfiles { get; } = DefaultToyopucDeviceProfiles;
     public IReadOnlyList<TransportMode> TransportModes { get; } = Enum.GetValues<TransportMode>();
 
     [ObservableProperty]
@@ -65,7 +116,10 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private ushort slmpMonitoringTimer = 0x0010;
 
     [ObservableProperty]
-    private bool hostLinkAppendLfOnSend;
+    private string hostLinkPlcModelName = "KV-7500";
+
+    [ObservableProperty]
+    private KeyenceDeviceModeOption selectedKeyenceDeviceMode = new(KeyenceDeviceMode.Normal, "通常");
 
     [ObservableProperty]
     private string toyopucDeviceProfile = "TOYOPUC-Plus:Plus Extended mode";
@@ -99,7 +153,8 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpModuleIo = SlmpModuleIo,
         SlmpMultidrop = SlmpMultidrop,
         SlmpMonitoringTimer = SlmpMonitoringTimer,
-        HostLinkAppendLfOnSend = HostLinkAppendLfOnSend,
+        HostLinkPlcModelName = string.IsNullOrWhiteSpace(HostLinkPlcModelName) ? "KV-7500" : HostLinkPlcModelName,
+        KeyenceDeviceMode = SelectedKeyenceDeviceMode.Mode,
         ToyopucDeviceProfile = string.IsNullOrWhiteSpace(ToyopucDeviceProfile) ? null : ToyopucDeviceProfile,
         ToyopucRelayHops = string.IsNullOrWhiteSpace(ToyopucRelayHops) ? null : ToyopucRelayHops,
         ToyopucLocalPort = ToyopucLocalPort,

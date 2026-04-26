@@ -91,9 +91,26 @@
         </GroupBox>
 
         <GroupBox Header="Host Link" Visibility="{Binding IsHostLinkSelected, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,0,0,12">
-          <StackPanel Margin="8">
-            <CheckBox Content="送信時に LF を付加" IsChecked="{Binding HostLinkAppendLfOnSend}" />
-          </StackPanel>
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="180" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="機種" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding HostLinkModels}"
+                      SelectedItem="{Binding HostLinkPlcModelName}" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="デバイスモード" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{Binding KeyenceDeviceModes}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedKeyenceDeviceMode}" />
+          </Grid>
         </GroupBox>
 
         <GroupBox Header="TOYOPUC" Visibility="{Binding IsToyopucSelected, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -108,8 +125,11 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="デバイスプロファイル" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucDeviceProfile}" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="機種" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding ToyopucDeviceProfiles}"
+                      SelectedItem="{Binding ToyopucDeviceProfile}" />
             <TextBlock Grid.Row="1" Grid.Column="0" Text="中継ホップ" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucRelayHops}" />
             <TextBlock Grid.Row="2" Grid.Column="0" Text="ローカルポート" VerticalAlignment="Center" Margin="0,0,8,8" />

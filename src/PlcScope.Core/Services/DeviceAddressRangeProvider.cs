@@ -3,16 +3,47 @@ namespace PlcScope.Core.Services;
 using System.Globalization;
 using PlcScope.Core.Models;
 
-public sealed record SequentialDeviceAddress(string Prefix, uint Number, int Width, bool UsesHexAddressing)
+public sealed record SequentialDeviceAddress(
+    string Prefix,
+    uint Number,
+    int Width,
+    bool UsesHexAddressing,
+    DeviceAddressDisplayRule AddressDisplayRule = DeviceAddressDisplayRule.Default)
 {
     public string FormatOffset(int offset)
     {
         if (offset < 0)
             throw new ArgumentOutOfRangeException(nameof(offset), offset, "Offset must be non-negative.");
 
-        var next = checked(Number + (uint)offset);
+        var next = FromLogicalNumber(checked(ToLogicalNumber(Number) + (uint)offset));
+        if (AddressDisplayRule == DeviceAddressDisplayRule.KeyenceBitBank)
+            return $"{Prefix}{FormatKeyenceBitBankNumber(next)}";
+
         var format = UsesHexAddressing ? $"X{Width}" : $"D{Width}";
         return $"{Prefix}{next.ToString(format, CultureInfo.InvariantCulture)}";
+    }
+
+    public uint ToLogicalNumber(uint physicalNumber) =>
+        AddressDisplayRule == DeviceAddressDisplayRule.KeyenceBitBank
+            ? checked((physicalNumber / 100 * 16) + (physicalNumber % 100))
+            : physicalNumber;
+
+    public uint FromLogicalNumber(uint logicalNumber) =>
+        AddressDisplayRule == DeviceAddressDisplayRule.KeyenceBitBank
+            ? checked((logicalNumber / 16 * 100) + (logicalNumber % 16))
+            : logicalNumber;
+
+    public bool IsValidPhysicalNumber(uint physicalNumber) =>
+        AddressDisplayRule != DeviceAddressDisplayRule.KeyenceBitBank || physicalNumber % 100 <= 15;
+
+    public SequentialDeviceAddress WithLogicalNumber(uint logicalNumber) =>
+        this with { Number = FromLogicalNumber(logicalNumber) };
+
+    private static string FormatKeyenceBitBankNumber(uint physicalNumber)
+    {
+        var bank = physicalNumber / 100;
+        var bit = physicalNumber % 100;
+        return bank.ToString(CultureInfo.InvariantCulture) + bit.ToString("D2", CultureInfo.InvariantCulture);
     }
 }
 
@@ -22,9 +53,12 @@ public static class DeviceAddressRangeProvider
     // and the app can switch to a fully virtual data source.
     public const int MaxGeneratedDisplayRows = 1_048_576;
 
+    public static string GetDefaultAddress(DeviceFamilyDefinition family) =>
+        FormatAddress(family, 0, 1);
+
     public static bool TryParseAddress(string rawAddress, DeviceFamilyDefinition family, out SequentialDeviceAddress address)
     {
-        address = new SequentialDeviceAddress(family.Code, 0, 1, family.UsesHexAddressing);
+        address = new SequentialDeviceAddress(family.Code, 0, 1, family.UsesHexAddressing, family.AddressDisplayRule);
 
         if (string.IsNullOrWhiteSpace(rawAddress))
             return false;
@@ -38,7 +72,10 @@ public static class DeviceAddressRangeProvider
             var numberText = expanded[familyCode.Length..];
             if (TryParseNumber(numberText, family.UsesHexAddressing, out var number))
             {
-                address = new SequentialDeviceAddress(familyCode, number, numberText.Length, family.UsesHexAddressing);
+                address = new SequentialDeviceAddress(familyCode, number, numberText.Length, family.UsesHexAddressing, family.AddressDisplayRule);
+                if (!address.IsValidPhysicalNumber(number))
+                    return false;
+
                 return true;
             }
         }
@@ -52,7 +89,7 @@ public static class DeviceAddressRangeProvider
         DeviceFamilyDefinition targetFamily,
         out string rebasedAddress)
     {
-        rebasedAddress = $"{targetFamily.Code}0";
+        rebasedAddress = FormatAddress(targetFamily, 0, 1);
         if (string.IsNullOrWhiteSpace(rawAddress))
             return false;
 
@@ -68,9 +105,18 @@ public static class DeviceAddressRangeProvider
                 continue;
 
             if (TryExtractNumberText(rawAddress, family, out var numberText)
-                && TryParseNumber(numberText, targetFamily.UsesHexAddressing, out _))
+                && TryParseNumber(numberText, targetFamily.UsesHexAddressing, out var targetNumber))
             {
-                rebasedAddress = $"{targetFamily.Code}{numberText.ToUpperInvariant()}";
+                var candidate = new SequentialDeviceAddress(
+                    targetFamily.Code,
+                    targetNumber,
+                    numberText.Length,
+                    targetFamily.UsesHexAddressing,
+                    targetFamily.AddressDisplayRule);
+                if (!candidate.IsValidPhysicalNumber(targetNumber))
+                    return false;
+
+                rebasedAddress = candidate.FormatOffset(0);
                 return true;
             }
 
@@ -78,7 +124,11 @@ public static class DeviceAddressRangeProvider
             {
                 Prefix = targetFamily.Code,
                 UsesHexAddressing = targetFamily.UsesHexAddressing,
+                AddressDisplayRule = targetFamily.AddressDisplayRule,
             };
+            if (!rebased.IsValidPhysicalNumber(rebased.Number))
+                return false;
+
             rebasedAddress = rebased.FormatOffset(0);
             return true;
         }
@@ -138,4 +188,12 @@ public static class DeviceAddressRangeProvider
         usesHexAddressing
             ? character is >= '0' and <= '9' or >= 'A' and <= 'F'
             : character is >= '0' and <= '9';
+
+    private static string FormatAddress(DeviceFamilyDefinition family, uint number, int width) =>
+        new SequentialDeviceAddress(
+            family.Code,
+            number,
+            width,
+            family.UsesHexAddressing,
+            family.AddressDisplayRule).FormatOffset(0);
 }

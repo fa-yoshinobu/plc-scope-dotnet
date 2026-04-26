@@ -95,6 +95,26 @@ public partial class MainWindow : Window
             await ViewModel.SaveProjectAsync(dialog.FileName).ConfigureAwait(true);
     }
 
+    private async void ImportCommentCsvMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "コメントCSV (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt|すべてのファイル (*.*)|*.*",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            await ViewModel.ImportCommentCsvAsync(dialog.FileName).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "コメントCSVを読めません", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private async void TraceLogMenuItem_Click(object sender, RoutedEventArgs e)
     {
         try

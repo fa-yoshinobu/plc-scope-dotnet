@@ -13,6 +13,18 @@ public enum TransportMode
     Udp,
 }
 
+public enum KeyenceDeviceMode
+{
+    Normal,
+    Xym,
+}
+
+public enum DeviceAddressDisplayRule
+{
+    Default,
+    KeyenceBitBank,
+}
+
 public enum DeviceKind
 {
     Word,
