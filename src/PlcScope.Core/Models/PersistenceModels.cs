@@ -8,8 +8,6 @@ public sealed record ProjectFile
     public ConnectionSettings Connection { get; init; } = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
     public List<BlockQuery> Blocks { get; init; } = [CreateDefaultBlock()];
     public string? SelectedBlockId { get; init; }
-    public bool ConfirmBeforeWrite { get; init; }
-    public bool WriteLockEnabled { get; init; }
 
     public static BlockQuery CreateDefaultBlock() => new()
     {
@@ -23,16 +21,8 @@ public sealed record ProjectFile
     };
 }
 
-public sealed record RecentProject(
-    string Path,
-    DateTimeOffset OpenedAtUtc);
-
 public sealed record AppSettings
 {
-    public bool ConfirmBeforeWrite { get; init; }
-    public bool StartWithWriteLockEnabled { get; init; }
-    public List<RecentProject> RecentProjects { get; init; } = [];
-    public string? LastProjectPath { get; init; }
     public string? LastSelectedProtocol { get; init; }
     public double UiFontSize { get; init; } = 14;
     public string UiTheme { get; init; } = "Dark";

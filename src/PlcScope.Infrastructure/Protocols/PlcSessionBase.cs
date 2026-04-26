@@ -21,6 +21,7 @@ internal abstract class PlcSessionBase : IPlcSession
     public bool IsConnected { get; protected set; }
 
     public event EventHandler<TraceEntry>? TraceReceived;
+    public event EventHandler<ErrorEntry>? ErrorReceived;
 
     public abstract Task ConnectAsync(CancellationToken cancellationToken = default);
     public abstract Task DisconnectAsync(CancellationToken cancellationToken = default);
@@ -29,6 +30,9 @@ internal abstract class PlcSessionBase : IPlcSession
     public abstract Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default);
     public abstract Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default);
     public abstract Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default);
+    public virtual Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException($"{Definition.DisplayName} はデバイス範囲カタログに未対応です。");
+
     public abstract Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default);
     public abstract ValueTask DisposeAsync();
 
@@ -71,6 +75,7 @@ internal abstract class PlcSessionBase : IPlcSession
         };
 
     protected void EmitTrace(TraceEntry traceEntry) => TraceReceived?.Invoke(this, traceEntry);
+    protected void EmitError(ErrorEntry errorEntry) => ErrorReceived?.Invoke(this, errorEntry);
 
     protected static Stopwatch StartTimer() => Stopwatch.StartNew();
 

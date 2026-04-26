@@ -29,6 +29,7 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private const int DefaultVisibleRowCount = 24;
     private const int ReadBufferRows = 0;
+    private const int PreferredGeneratedRowsBeforeStartAddress = DeviceAddressRangeProvider.MaxGeneratedDisplayRows / 2;
     private static readonly TimeSpan ScrollResumeDelay = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan LayoutRefreshDelay = TimeSpan.FromMilliseconds(250);
 
@@ -46,9 +47,14 @@ public partial class MainWindowViewModel : ObservableObject
     private bool _settingsPersistenceEnabled;
     private bool _isScrollReadPaused;
     private bool _isInlineEditing;
+    private bool _isNormalizingStartAddress;
     private int _communicationFrameCount;
     private int _visibleStartIndex;
     private int _visibleRowCount = DefaultVisibleRowCount;
+    private int _startAddressRowIndex;
+    private SequentialDeviceAddress? _generatedStartAddress;
+    private DeviceRangeCatalog? _deviceRangeCatalog;
+    private string? _inlineEditingAddress;
     private string _rowLayoutKey = string.Empty;
 
     public MainWindowViewModel(
@@ -89,8 +95,6 @@ public partial class MainWindowViewModel : ObservableObject
         DisplayRadix = DisplayRadix.Decimal;
         SelectedWriteDataType = ValueDataType.UInt16;
         WriteRadix = DisplayRadix.Decimal;
-        WriteLockEnabled = false;
-        ConfirmBeforeWrite = false;
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync);
         DisconnectCommand = new AsyncRelayCommand(DisconnectAsync);
@@ -120,8 +124,8 @@ public partial class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand CpuRunCommand { get; }
     public IAsyncRelayCommand CpuStopCommand { get; }
 
-    public Func<string, Task<bool>>? ConfirmWriteAsync { get; set; }
     public Func<string, Task<string?>>? RequestPasswordAsync { get; set; }
+    public Action<int>? RequestMonitorScrollToRowIndex { get; set; }
 
     [ObservableProperty]
     private ConnectionSettings connectionSettings;
@@ -193,12 +197,6 @@ public partial class MainWindowViewModel : ObservableObject
     private DisplayRadix writeRadix;
 
     [ObservableProperty]
-    private bool writeLockEnabled;
-
-    [ObservableProperty]
-    private bool confirmBeforeWrite;
-
-    [ObservableProperty]
     private string currentProjectPath = string.Empty;
 
     [ObservableProperty]
@@ -229,8 +227,6 @@ public partial class MainWindowViewModel : ObservableObject
     public async Task InitializeAsync()
     {
         AppSettings = await _settingsStore.LoadAsync().ConfigureAwait(true);
-        ConfirmBeforeWrite = false;
-        WriteLockEnabled = false;
         SelectedFontSizeOption = FindFontSizeOption(AppSettings.UiFontSize);
         SelectedThemeOption = FindThemeOption(AppSettings.UiTheme);
 
@@ -266,7 +262,6 @@ public partial class MainWindowViewModel : ObservableObject
         await _projectStore.SaveAsync(path, project).ConfigureAwait(true);
         CurrentProjectPath = path;
         ProjectName = Path.GetFileNameWithoutExtension(path);
-        await UpdateRecentProjectsAsync(path).ConfigureAwait(true);
     }
 
     public async Task LoadProjectAsync(string path)
@@ -278,8 +273,6 @@ public partial class MainWindowViewModel : ObservableObject
     public async Task ApplyProjectAsync(ProjectFile project, string? path = null)
     {
         ProjectName = project.Name;
-        ConfirmBeforeWrite = false;
-        WriteLockEnabled = false;
         CurrentProjectPath = path ?? string.Empty;
 
         var activeBlock = project.Blocks.FirstOrDefault() ?? ProjectFile.CreateDefaultBlock();
@@ -294,9 +287,6 @@ public partial class MainWindowViewModel : ObservableObject
         DisplayRadix = activeBlock.DisplayRadix;
         AutoRefreshEnabled = true;
         AutoRefreshIntervalMs = activeBlock.AutoRefreshIntervalMs;
-
-        if (!string.IsNullOrWhiteSpace(path))
-            await UpdateRecentProjectsAsync(path).ConfigureAwait(true);
     }
 
     public void NewProject()
@@ -330,6 +320,23 @@ public partial class MainWindowViewModel : ObservableObject
     public Task<IReadOnlyList<ErrorEntry>> LoadErrorEntriesAsync(int maxCount = 500) =>
         _logStore.LoadRecentErrorsAsync(maxCount);
 
+    public Task ClearTraceEntriesAsync() =>
+        _logStore.ClearTraceAsync();
+
+    public Task ClearErrorEntriesAsync() =>
+        _logStore.ClearErrorsAsync();
+
+    public async Task<DeviceRangeCatalog> LoadDeviceRangeCatalogAsync()
+    {
+        if (_session is null || ConnectionState != ConnectionState.Connected)
+            throw new InvalidOperationException("PLC に接続してからデバイス範囲を表示してください。");
+
+        _deviceRangeCatalog = await _session.ReadDeviceRangeCatalogAsync().ConfigureAwait(true);
+        _rowLayoutKey = string.Empty;
+        EnsureRowsForCurrentLayout();
+        return _deviceRangeCatalog;
+    }
+
     public void NotifyMonitorScrollActivity()
     {
         if (ConnectionState != ConnectionState.Connected)
@@ -355,18 +362,26 @@ public partial class MainWindowViewModel : ObservableObject
             _ = ReadOnceAsync();
     }
 
-    public void BeginInlineEdit()
+    public void RequestScrollToStartAddress() =>
+        RequestMonitorScrollToRowIndex?.Invoke(_startAddressRowIndex);
+
+    public void BeginInlineEdit(MonitorRowViewModel? row = null)
     {
         _isInlineEditing = true;
+        _inlineEditingAddress = row?.Address ?? _inlineEditingAddress;
         _refreshTimer.Stop();
     }
 
-    public void EndInlineEdit()
+    public void EndInlineEdit(MonitorRowViewModel? row = null, bool force = false)
     {
         if (!_isInlineEditing)
             return;
 
+        if (!force && row is IInlineEditableRow { HasPendingEdit: true })
+            return;
+
         _isInlineEditing = false;
+        _inlineEditingAddress = null;
         RestartTimer();
 
         if (ConnectionState == ConnectionState.Connected)
@@ -413,8 +428,10 @@ public partial class MainWindowViewModel : ObservableObject
             ErrorText = string.Empty;
             _session = await _sessionFactory.CreateAsync(ConnectionSettings).ConfigureAwait(true);
             _session.TraceReceived += OnTraceReceived;
+            _session.ErrorReceived += OnSessionErrorReceived;
             await _session.ConnectAsync().ConfigureAwait(true);
             ConnectionState = ConnectionState.Connected;
+            await RefreshDeviceRangeCatalogForDisplayAsync().ConfigureAwait(true);
             ResetCommunicationRate();
             _communicationRateTimer.Start();
             StatusText = $"接続済み: {SelectedProtocol.DisplayName}";
@@ -438,6 +455,7 @@ public partial class MainWindowViewModel : ObservableObject
         _communicationRateTimer.Stop();
         ResetCommunicationRate();
         _isScrollReadPaused = false;
+        _deviceRangeCatalog = null;
         if (_session is null)
         {
             ConnectionState = ConnectionState.Disconnected;
@@ -464,6 +482,9 @@ public partial class MainWindowViewModel : ObservableObject
         {
             IsBusy = true;
             var result = await _session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
+            if (_isInlineEditing)
+                return;
+
             _lastSnapshot = BlockDataBuilder.Build(result);
             if (string.Equals(plan.LayoutKey, _rowLayoutKey, StringComparison.Ordinal))
                 ReplaceRows(plan.ReplacementStartIndex, _lastSnapshot.Rows);
@@ -592,36 +613,91 @@ public partial class MainWindowViewModel : ObservableObject
     {
         for (var index = 0; index < rows.Count && startIndex + index < Rows.Count; index++)
         {
-            Rows[startIndex + index] = CreateRowViewModel(rows[index]);
+            var rowIndex = startIndex + index;
+            if (ShouldKeepExistingRowDuringRefresh(Rows[rowIndex], rows[index]))
+                continue;
+
+            Rows[rowIndex] = CreateRowViewModel(rows[index]);
         }
+    }
+
+    private bool ShouldKeepExistingRowDuringRefresh(MonitorRowViewModel existingRow, MonitorRow nextRow)
+    {
+        if (!string.Equals(existingRow.Address, nextRow.Address, StringComparison.Ordinal))
+            return false;
+
+        if (!_isInlineEditing)
+            return false;
+
+        if (existingRow is IInlineEditableRow editable && editable.HasPendingEdit)
+            return true;
+
+        if (ReferenceEquals(existingRow, SelectedRow) && existingRow is IInlineEditableRow)
+            return true;
+
+        return _inlineEditingAddress is not null
+            && string.Equals(existingRow.Address, _inlineEditingAddress, StringComparison.Ordinal);
     }
 
     private void EnsureRowsForCurrentLayout()
     {
+        if (!DeviceAddressRangeProvider.TryParseAddress(StartAddress, SelectedDeviceFamily, out var startAddress))
+        {
+            Rows.Clear();
+            _rowLayoutKey = string.Empty;
+            _generatedStartAddress = null;
+            _startAddressRowIndex = 0;
+            ErrorText = "先頭アドレスを確認してください。";
+            return;
+        }
+
+        if (!TryNormalizeStartAddressToRange(startAddress, out var normalizedStartAddress, out var rangeBounds, out var rangeError))
+        {
+            Rows.Clear();
+            _rowLayoutKey = string.Empty;
+            _generatedStartAddress = null;
+            _startAddressRowIndex = 0;
+            ErrorText = rangeError ?? "デバイス範囲を確認してください。";
+            return;
+        }
+
+        if (normalizedStartAddress.Number != startAddress.Number
+            || !string.Equals(normalizedStartAddress.Prefix, startAddress.Prefix, StringComparison.Ordinal)
+            || normalizedStartAddress.Width != startAddress.Width)
+        {
+            _isNormalizingStartAddress = true;
+            StartAddress = normalizedStartAddress.FormatOffset(0);
+            _isNormalizingStartAddress = false;
+            startAddress = normalizedStartAddress;
+        }
+
         var layoutKey = BuildRowLayoutKey();
         if (Rows.Count > 0 && string.Equals(layoutKey, _rowLayoutKey, StringComparison.Ordinal))
             return;
 
         Rows.Clear();
         _rowLayoutKey = layoutKey;
+        _generatedStartAddress = null;
+        _startAddressRowIndex = 0;
 
-        if (!DeviceAddressRangeProvider.TryParseAddress(StartAddress, SelectedDeviceFamily, out var startAddress))
-        {
-            ErrorText = "先頭アドレスを確認してください。";
-            return;
-        }
+        var rowAddressLayout = BuildRowAddressLayout(startAddress, rangeBounds);
+        _generatedStartAddress = rowAddressLayout.GeneratedStartAddress;
+        _startAddressRowIndex = rowAddressLayout.StartAddressRowIndex;
 
-        var availablePoints = DeviceAddressRangeProvider.GetAvailablePointCount(
-            SelectedProtocol.Kind,
-            SelectedDeviceFamily,
-            StartAddress);
+        var availablePoints = GetAvailablePointCount(_generatedStartAddress, rangeBounds);
         var displayRows = Math.Min(
             CalculateDisplayRowCount(availablePoints),
             DeviceAddressRangeProvider.MaxGeneratedDisplayRows);
 
         for (var rowIndex = 0; rowIndex < displayRows; rowIndex++)
         {
-            Rows.Add(CreatePlaceholderRow(rowIndex, startAddress));
+            Rows.Add(CreatePlaceholderRow(rowIndex, _generatedStartAddress));
+        }
+
+        if (Rows.Count > 0)
+        {
+            _visibleStartIndex = Math.Clamp(_startAddressRowIndex, 0, Rows.Count - 1);
+            RequestScrollToStartAddress();
         }
     }
 
@@ -631,15 +707,15 @@ public partial class MainWindowViewModel : ObservableObject
         if (Rows.Count == 0)
             return false;
 
-        if (!DeviceAddressRangeProvider.TryParseAddress(StartAddress, SelectedDeviceFamily, out var startAddress))
+        if (_generatedStartAddress is null)
             return false;
 
         var firstRow = Math.Clamp(_visibleStartIndex - ReadBufferRows, 0, Rows.Count - 1);
         var lastRow = Math.Clamp(_visibleStartIndex + _visibleRowCount + ReadBufferRows - 1, firstRow, Rows.Count - 1);
-        var availablePoints = DeviceAddressRangeProvider.GetAvailablePointCount(
-            SelectedProtocol.Kind,
-            SelectedDeviceFamily,
-            StartAddress);
+        if (!TryResolveDisplayRangeBounds(out var rangeBounds, out _))
+            return false;
+
+        var availablePoints = GetAvailablePointCount(_generatedStartAddress, rangeBounds);
 
         var deviceOffset = 0;
         var itemCount = 0;
@@ -657,7 +733,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
             else if (DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32)
             {
-                deviceOffset = firstRow * 2;
+                deviceOffset = firstRow * GetDevicePointsPerGeneratedRow(DisplayMode);
                 itemCount = lastRow - firstRow + 1;
             }
             else
@@ -682,12 +758,184 @@ public partial class MainWindowViewModel : ObservableObject
         if (itemCount <= 0)
             return false;
 
-        var queryStartAddress = startAddress.FormatOffset(deviceOffset);
+        var queryStartAddress = _generatedStartAddress.FormatOffset(deviceOffset);
         plan = new VisibleReadPlan(
             BuildBlockQuery(queryStartAddress, itemCount),
             replacementStartIndex,
             _rowLayoutKey);
         return true;
+    }
+
+    private async Task RefreshDeviceRangeCatalogForDisplayAsync()
+    {
+        _deviceRangeCatalog = null;
+        if (_session is null)
+            return;
+
+        try
+        {
+            _deviceRangeCatalog = await _session.ReadDeviceRangeCatalogAsync().ConfigureAwait(true);
+            _rowLayoutKey = string.Empty;
+        }
+        catch (NotSupportedException)
+        {
+        }
+        catch (Exception exception)
+        {
+            await LogErrorAsync("Device range catalog", exception).ConfigureAwait(true);
+        }
+    }
+
+    private bool TryNormalizeStartAddressToRange(
+        SequentialDeviceAddress startAddress,
+        out SequentialDeviceAddress normalizedStartAddress,
+        out DeviceDisplayRangeBounds rangeBounds,
+        out string? error)
+    {
+        normalizedStartAddress = startAddress;
+        if (!TryResolveDisplayRangeBounds(out rangeBounds, out error))
+            return false;
+
+        var requiredPoints = GetMinimumPointCountForStartAddress();
+        var rangePointCount = checked(rangeBounds.UpperBound - rangeBounds.LowerBound + 1);
+        if (rangePointCount < requiredPoints)
+        {
+            error = $"{SelectedDeviceFamily.Code} は現在の表示形式に必要な範囲がありません。";
+            return false;
+        }
+
+        var maxStartNumber = rangeBounds.UpperBound - (uint)(requiredPoints - 1);
+        var clampedNumber = Math.Clamp(startAddress.Number, rangeBounds.LowerBound, maxStartNumber);
+        normalizedStartAddress = startAddress with
+        {
+            Prefix = SelectedDeviceFamily.Code,
+            Number = clampedNumber,
+        };
+        return true;
+    }
+
+    private bool TryResolveDisplayRangeBounds(out DeviceDisplayRangeBounds rangeBounds, out string? error)
+    {
+        error = null;
+        if (TryGetSelectedDeviceRangeEntry(out var entry))
+        {
+            if (!entry.Supported)
+            {
+                rangeBounds = new DeviceDisplayRangeBounds(0, 0, "unsupported");
+                error = $"{entry.Device} は現在選択中の PLC では未対応です。";
+                return false;
+            }
+
+            if (entry.PointCount is 0)
+            {
+                rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{entry.Device}:0");
+                error = $"{entry.Device} は現在の PLC 設定で 0 点です。";
+                return false;
+            }
+
+            var upperBound = ResolveUpperBound(entry);
+            if (upperBound < entry.LowerBound)
+            {
+                rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{entry.Device}:invalid");
+                error = $"{entry.Device} のデバイス範囲が不正です。";
+                return false;
+            }
+
+            rangeBounds = new DeviceDisplayRangeBounds(
+                entry.LowerBound,
+                upperBound,
+                $"{entry.Device}:{entry.LowerBound}:{upperBound}:{entry.PointCount}");
+            return true;
+        }
+
+        rangeBounds = new DeviceDisplayRangeBounds(
+            0,
+            GetFallbackUpperBound(),
+            $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:fallback");
+        return true;
+    }
+
+    private bool TryGetSelectedDeviceRangeEntry(out DeviceRangeEntry entry)
+    {
+        entry = null!;
+        if (_deviceRangeCatalog is null)
+            return false;
+
+        var match = _deviceRangeCatalog.Entries.FirstOrDefault(item =>
+            string.Equals(item.Device, SelectedDeviceFamily.Code, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+            return false;
+
+        entry = match;
+        return true;
+    }
+
+    private uint ResolveUpperBound(DeviceRangeEntry entry)
+    {
+        if (entry.UpperBound is { } upperBound)
+            return upperBound;
+
+        if (entry.PointCount is { } pointCount && pointCount > 0)
+            return checked(entry.LowerBound + pointCount - 1);
+
+        return GetFallbackUpperBound();
+    }
+
+    private uint GetFallbackUpperBound()
+    {
+        var count = DeviceAddressRangeProvider.GetAvailablePointCount(
+            SelectedProtocol.Kind,
+            SelectedDeviceFamily,
+            $"{SelectedDeviceFamily.Code}0");
+        return count <= 0 ? 0 : (uint)(count - 1);
+    }
+
+    private int GetAvailablePointCount(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
+    {
+        if (startAddress.Number < rangeBounds.LowerBound || startAddress.Number > rangeBounds.UpperBound)
+            return 0;
+
+        var remaining = rangeBounds.UpperBound - startAddress.Number + 1;
+        return remaining > int.MaxValue ? int.MaxValue : (int)remaining;
+    }
+
+    private int GetMinimumPointCountForStartAddress()
+    {
+        if (SelectedDeviceFamily.Kind == DeviceKind.Word
+            && !IsSlmpLongCurrentValueFamily()
+            && DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32)
+        {
+            return 2;
+        }
+
+        return 1;
+    }
+
+    private RowAddressLayout BuildRowAddressLayout(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
+    {
+        var pointOffsetBeforeStartAddress = CalculatePointOffsetBeforeStartAddress(startAddress, rangeBounds, out var startAddressRowIndex);
+        var generatedStartAddress = startAddress with { Number = startAddress.Number - (uint)pointOffsetBeforeStartAddress };
+        return new RowAddressLayout(generatedStartAddress, startAddressRowIndex);
+    }
+
+    private int CalculatePointOffsetBeforeStartAddress(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds, out int startAddressRowIndex)
+    {
+        var availableBeforeStart = startAddress.Number > rangeBounds.LowerBound
+            ? startAddress.Number - rangeBounds.LowerBound
+            : 0;
+
+        if (SelectedDeviceFamily.Kind == DeviceKind.Word && DisplayMode == BlockDisplayMode.BitExpand)
+        {
+            var preferredWordCount = PreferredGeneratedRowsBeforeStartAddress / 17;
+            var wordCount = (int)Math.Min(availableBeforeStart, (uint)preferredWordCount);
+            startAddressRowIndex = wordCount * 17;
+            return wordCount;
+        }
+
+        var pointsPerRow = GetDevicePointsPerGeneratedRow(DisplayMode);
+        var rowCount = (int)Math.Min((uint)PreferredGeneratedRowsBeforeStartAddress, availableBeforeStart / (uint)pointsPerRow);
+        startAddressRowIndex = rowCount;
+        return checked(rowCount * pointsPerRow);
     }
 
     private MonitorRowViewModel CreatePlaceholderRow(int rowIndex, SequentialDeviceAddress startAddress)
@@ -726,7 +974,7 @@ public partial class MainWindowViewModel : ObservableObject
                 null);
         }
 
-        var wordStep = DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32 ? 2 : 1;
+        var wordStep = GetDevicePointsPerGeneratedRow(DisplayMode);
         var address = startAddress.FormatOffset(rowIndex * wordStep);
         var canEdit = CanEditPlaceholderRows();
         return DisplayMode switch
@@ -767,6 +1015,9 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (SelectedDeviceFamily.Kind == DeviceKind.Word)
         {
+            if (IsSlmpLongCurrentValueFamily())
+                return availablePoints;
+
             return DisplayMode switch
             {
                 BlockDisplayMode.DWord or BlockDisplayMode.Float32 => Math.Max(1, availablePoints / 2),
@@ -787,8 +1038,26 @@ public partial class MainWindowViewModel : ObservableObject
             _ => 16,
         };
 
-    private string BuildRowLayoutKey() =>
-        $"{SelectedProtocol.Kind}|{SelectedDeviceFamily.Code}|{SelectedDeviceFamily.Kind}|{SelectedDeviceFamily.UsesHexAddressing}|{StartAddress}|{DisplayMode}";
+    private int GetDevicePointsPerGeneratedRow(BlockDisplayMode displayMode)
+    {
+        if (SelectedDeviceFamily.Kind == DeviceKind.Word)
+        {
+            if (IsSlmpLongCurrentValueFamily())
+                return 1;
+
+            return displayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32 ? 2 : 1;
+        }
+
+        return GetBitDevicePointsPerRow(displayMode);
+    }
+
+    private string BuildRowLayoutKey()
+    {
+        var rangeKey = TryResolveDisplayRangeBounds(out var rangeBounds, out _)
+            ? rangeBounds.LayoutKey
+            : "range-error";
+        return $"{SelectedProtocol.Kind}|{SelectedDeviceFamily.Code}|{SelectedDeviceFamily.Kind}|{SelectedDeviceFamily.UsesHexAddressing}|{StartAddress}|{DisplayMode}|{rangeKey}";
+    }
 
     private MonitorRowViewModel CreateRowViewModel(MonitorRow row) =>
         row switch
@@ -819,13 +1088,7 @@ public partial class MainWindowViewModel : ObservableObject
                 dword.Value,
                 NumericFormatter.FormatDWord(dword.Value, DisplayRadix),
                 $"0x{dword.Value:X8}",
-                dword.Bits.Select(bit => new BitCellViewModel(
-                    bit.Index,
-                    bit.Value,
-                    bit.Address,
-                    true,
-                    CreateNumericBitToggle(dword.Address, bit),
-                    CreateWordBitLabel(bit))),
+                dword.Bits.Select(bit => CreateNumericBitCell(dword.Address, bit)),
                 true,
                 dword.Comment),
             FloatMonitorRow @float => new FloatRowViewModel(
@@ -833,13 +1096,7 @@ public partial class MainWindowViewModel : ObservableObject
                 @float.Value,
                 NumericFormatter.FormatFloat(@float.Value),
                 $"0x{@float.RawBits:X8}",
-                @float.Bits.Select(bit => new BitCellViewModel(
-                    bit.Index,
-                    bit.Value,
-                    bit.Address,
-                    true,
-                    CreateNumericBitToggle(@float.Address, bit),
-                    CreateWordBitLabel(bit))),
+                @float.Bits.Select(bit => CreateNumericBitCell(@float.Address, bit)),
                 true,
                 @float.Comment),
             ExpandedWordHeaderMonitorRow header => new ExpandedWordHeaderRowViewModel(
@@ -869,6 +1126,18 @@ public partial class MainWindowViewModel : ObservableObject
             ? next => ToggleDirectBitAsync(bit.Address, next)
             : next => ToggleDWordBitAsync(rowAddress, bit.Index, next);
 
+    private BitCellViewModel CreateNumericBitCell(string rowAddress, BitCellState bit)
+    {
+        var canToggle = !IsSlmpLongCurrentValueFamily();
+        return new BitCellViewModel(
+            bit.Index,
+            bit.Value,
+            bit.Address,
+            canToggle,
+            canToggle ? CreateNumericBitToggle(rowAddress, bit) : null,
+            CreateWordBitLabel(bit));
+    }
+
     private string? CreateWordBitLabel(BitCellState bit) =>
         SelectedDeviceFamily.Kind == DeviceKind.Bit
             ? $"b{bit.Index + 1}"
@@ -876,6 +1145,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     private Task ToggleDWordBitAsync(string rowAddress, int bitIndex, bool nextValue)
     {
+        if (IsSlmpLongCurrentValueFamily())
+        {
+            ErrorText = "LTN/LSTN/LCN の現在値は 32-bit 値として書き込んでください。";
+            return Task.CompletedTask;
+        }
+
         if (!DeviceAddressRangeProvider.TryParseAddress(rowAddress, SelectedDeviceFamily, out var address))
         {
             ErrorText = "ビット書込み先アドレスを解釈できません。";
@@ -908,25 +1183,6 @@ public partial class MainWindowViewModel : ObservableObject
             return;
 
         await WriteInternalAsync(new WriteRequest(address, ValueDataType.Bit, nextValue)).ConfigureAwait(true);
-    }
-
-    private async Task UpdateRecentProjectsAsync(string path)
-    {
-        var recent = AppSettings.RecentProjects
-            .Where(project => !string.Equals(project.Path, path, StringComparison.OrdinalIgnoreCase))
-            .Take(9)
-            .ToList();
-        recent.Insert(0, new RecentProject(path, DateTimeOffset.UtcNow));
-        AppSettings = AppSettings with
-        {
-            LastProjectPath = path,
-            RecentProjects = recent,
-            ConfirmBeforeWrite = false,
-            StartWithWriteLockEnabled = false,
-            UiFontSize = SelectedFontSizeOption.Size,
-            UiTheme = SelectedThemeOption.Key,
-        };
-        await _settingsStore.SaveAsync(AppSettings).ConfigureAwait(true);
     }
 
     private async Task LogErrorAsync(string operation, Exception exception)
@@ -985,6 +1241,9 @@ public partial class MainWindowViewModel : ObservableObject
         _ = _logStore.AppendTraceAsync(traceEntry);
     }
 
+    private void OnSessionErrorReceived(object? sender, ErrorEntry errorEntry) =>
+        _ = _logStore.AppendErrorAsync(errorEntry);
+
     private void ResetCommunicationRate()
     {
         Interlocked.Exchange(ref _communicationFrameCount, 0);
@@ -1014,8 +1273,6 @@ public partial class MainWindowViewModel : ObservableObject
         Name = ProjectName,
         Connection = ConnectionSettings,
         Blocks = [BuildProjectBlockQuery()],
-        ConfirmBeforeWrite = false,
-        WriteLockEnabled = false,
     };
 
     private void RefreshDisplayModes()
@@ -1023,16 +1280,20 @@ public partial class MainWindowViewModel : ObservableObject
         if (SelectedDeviceFamily is null)
             return;
 
+        var modes = IsSlmpLongCurrentValueFamily()
+            ? new[] { BlockDisplayMode.DWord }
+            : new[]
+            {
+                BlockDisplayMode.Word,
+                BlockDisplayMode.DWord,
+                BlockDisplayMode.Float32,
+                BlockDisplayMode.BitExpand,
+            };
         var current = NormalizeDisplayMode(DisplayMode);
-        DisplayModes.Clear();
-        BlockDisplayMode[] modes =
-        [
-            BlockDisplayMode.Word,
-            BlockDisplayMode.DWord,
-            BlockDisplayMode.Float32,
-            BlockDisplayMode.BitExpand,
-        ];
+        if (!modes.Contains(current))
+            current = modes[0];
 
+        DisplayModes.Clear();
         foreach (var mode in modes)
         {
             DisplayModes.Add(mode);
@@ -1040,9 +1301,18 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (DisplayMode != current)
             DisplayMode = current;
+        else
+            OnPropertyChanged(nameof(DisplayMode));
     }
 
-    private static BlockDisplayMode NormalizeDisplayMode(BlockDisplayMode mode) => mode;
+    private BlockDisplayMode NormalizeDisplayMode(BlockDisplayMode mode) =>
+        IsSlmpLongCurrentValueFamily()
+            ? BlockDisplayMode.DWord
+            : mode;
+
+    private bool IsSlmpLongCurrentValueFamily() =>
+        SelectedProtocol.Kind == ProtocolKind.Slmp
+        && SelectedDeviceFamily.Code is "LTN" or "LSTN" or "LCN";
 
     private string InferDefaultStartAddress()
     {
@@ -1080,6 +1350,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnSelectedProtocolChanged(ProtocolDefinition value)
     {
+        _deviceRangeCatalog = null;
         AvailableDeviceFamilies.Clear();
         foreach (var family in value.DeviceFamilies)
         {
@@ -1110,6 +1381,17 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnStartAddressChanged(string value)
     {
+        if (_isNormalizingStartAddress)
+            return;
+
+        var normalizedValue = value.ToUpperInvariant();
+        if (!string.Equals(value, normalizedValue, StringComparison.Ordinal))
+        {
+            _isNormalizingStartAddress = true;
+            StartAddress = normalizedValue;
+            _isNormalizingStartAddress = false;
+        }
+
         _lastSnapshot = null;
         ScheduleLayoutRefresh();
     }
@@ -1167,19 +1449,6 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnAutoRefreshEnabledChanged(bool value) => RestartTimer();
 
     partial void OnAutoRefreshIntervalMsChanged(int value) => RestartTimer();
-
-    partial void OnWriteLockEnabledChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanUseWritePanel));
-        OnPropertyChanged(nameof(CanIssueCpuControl));
-        OnPropertyChanged(nameof(CpuControlHint));
-        _ = PersistUiSettingsAsync();
-    }
-
-    partial void OnConfirmBeforeWriteChanged(bool value)
-    {
-        _ = PersistUiSettingsAsync();
-    }
 
     partial void OnSelectedFontSizeOptionChanged(FontSizeOption value)
     {
@@ -1255,6 +1524,7 @@ public partial class MainWindowViewModel : ObservableObject
             return;
 
         _session.TraceReceived -= OnTraceReceived;
+        _session.ErrorReceived -= OnSessionErrorReceived;
         await _session.DisposeAsync().ConfigureAwait(true);
         _session = null;
     }
@@ -1268,8 +1538,6 @@ public partial class MainWindowViewModel : ObservableObject
         {
             AppSettings = AppSettings with
             {
-                ConfirmBeforeWrite = false,
-                StartWithWriteLockEnabled = false,
                 LastSelectedProtocol = SelectedProtocol.Kind.ToString(),
                 UiFontSize = SelectedFontSizeOption.Size,
                 UiTheme = SelectedThemeOption.Key,
@@ -1313,5 +1581,7 @@ public partial class MainWindowViewModel : ObservableObject
     private static ThemeOption FindThemeOption(string? key) =>
         ThemeOption.All.FirstOrDefault(option => string.Equals(option.Key, key, StringComparison.OrdinalIgnoreCase)) ?? ThemeOption.Dark;
 
+    private sealed record DeviceDisplayRangeBounds(uint LowerBound, uint UpperBound, string LayoutKey);
+    private sealed record RowAddressLayout(SequentialDeviceAddress GeneratedStartAddress, int StartAddressRowIndex);
     private sealed record VisibleReadPlan(BlockQuery Query, int ReplacementStartIndex, string LayoutKey);
 }

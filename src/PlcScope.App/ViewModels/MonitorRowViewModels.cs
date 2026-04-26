@@ -8,6 +8,7 @@ using PlcScope.Core.Models;
 public interface IInlineEditableRow
 {
     string EditableValueText { get; set; }
+    bool HasPendingEdit { get; }
     void ResetEditableValue();
 }
 
@@ -94,8 +95,14 @@ public sealed class WordRowViewModel : MonitorRowViewModel, IInlineEditableRow
     public string EditableValueText
     {
         get => _editableValueText;
-        set => SetProperty(ref _editableValueText, value);
+        set
+        {
+            if (SetProperty(ref _editableValueText, value))
+                OnPropertyChanged(nameof(HasPendingEdit));
+        }
     }
+
+    public bool HasPendingEdit => !string.Equals(EditableValueText, _originalText, StringComparison.Ordinal);
 
     public void ResetEditableValue() => EditableValueText = _originalText;
 }
@@ -162,8 +169,14 @@ public sealed class DWordRowViewModel : MonitorRowViewModel, IInlineEditableRow
     public string EditableValueText
     {
         get => _editableValueText;
-        set => SetProperty(ref _editableValueText, value);
+        set
+        {
+            if (SetProperty(ref _editableValueText, value))
+                OnPropertyChanged(nameof(HasPendingEdit));
+        }
     }
+
+    public bool HasPendingEdit => !string.Equals(EditableValueText, _originalText, StringComparison.Ordinal);
 
     public void ResetEditableValue() => EditableValueText = _originalText;
 }
@@ -191,8 +204,14 @@ public sealed class FloatRowViewModel : MonitorRowViewModel, IInlineEditableRow
     public string EditableValueText
     {
         get => _editableValueText;
-        set => SetProperty(ref _editableValueText, value);
+        set
+        {
+            if (SetProperty(ref _editableValueText, value))
+                OnPropertyChanged(nameof(HasPendingEdit));
+        }
     }
+
+    public bool HasPendingEdit => !string.Equals(EditableValueText, _originalText, StringComparison.Ordinal);
 
     public void ResetEditableValue() => EditableValueText = _originalText;
 }

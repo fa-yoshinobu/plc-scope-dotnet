@@ -6,10 +6,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PlcScope.Core\PlcScope.Core.csproj" />
+    <ProjectReference Include="..\..\..\plc-comm-slmp-dotnet\src\PlcComm.Slmp\PlcComm.Slmp.csproj" Condition="Exists('..\..\..\plc-comm-slmp-dotnet\src\PlcComm.Slmp\PlcComm.Slmp.csproj')" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="PlcComm.Slmp" />
+    <PackageReference Include="PlcComm.Slmp" Condition="!Exists('..\..\..\plc-comm-slmp-dotnet\src\PlcComm.Slmp\PlcComm.Slmp.csproj')" />
     <PackageReference Include="PlcComm.KvHostLink" />
     <PackageReference Include="PlcComm.Toyopuc" />
   </ItemGroup>

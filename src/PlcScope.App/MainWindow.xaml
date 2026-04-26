@@ -79,6 +79,7 @@
       <Setter Property="FontFamily" Value="Consolas" />
       <Setter Property="HorizontalContentAlignment" Value="Right" />
       <Setter Property="ToolTip" Value="Enter で書込み、Esc で元に戻します。" />
+      <EventSetter Event="PreviewMouseDown" Handler="InlineValueTextBox_PreviewMouseDown" />
       <EventSetter Event="GotKeyboardFocus" Handler="InlineValueTextBox_GotKeyboardFocus" />
       <EventSetter Event="LostKeyboardFocus" Handler="InlineValueTextBox_LostKeyboardFocus" />
     </Style>
@@ -100,6 +101,39 @@
           <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
           <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
           <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ReadOnlyBitCellBorderStyle" TargetType="{x:Type Border}">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Margin" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource AppBitOffBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBitOffBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding CanToggle}" Value="True">
+          <Setter Property="Visibility" Value="Collapsed" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsOn}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ReadOnlyBitCellTextStyle" TargetType="{x:Type TextBlock}">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontFamily" Value="Consolas" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundMutedBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsOn}" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
           <Setter Property="FontWeight" Value="SemiBold" />
         </DataTrigger>
       </Style.Triggers>
@@ -158,11 +192,18 @@
     </Style>
 
     <DataTemplate x:Key="BitCellTemplate" DataType="{x:Type vm:BitCellViewModel}">
-      <Button Style="{StaticResource BitButtonStyle}"
-              Command="{Binding ToggleCommand}"
-              IsEnabled="{Binding CanToggle}"
-              ToolTip="{Binding Address}"
-              Content="{Binding Label}" />
+      <Grid>
+        <Button Style="{StaticResource BitButtonStyle}"
+                Command="{Binding ToggleCommand}"
+                Visibility="{Binding CanToggle, Converter={StaticResource BoolToVisibilityConverter}}"
+                ToolTip="{Binding Address}"
+                Content="{Binding Label}" />
+        <Border Style="{StaticResource ReadOnlyBitCellBorderStyle}"
+                ToolTip="{Binding Address}">
+          <TextBlock Style="{StaticResource ReadOnlyBitCellTextStyle}"
+                     Text="{Binding Label}" />
+        </Border>
+      </Grid>
     </DataTemplate>
 
     <DataTemplate x:Key="WordRowTemplate" DataType="{x:Type vm:WordRowViewModel}">
@@ -333,14 +374,16 @@
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="ファイル">
         <MenuItem Header="新規プロジェクト" Click="NewProjectMenuItem_Click" />
-        <MenuItem Header="開く..." Click="OpenProjectMenuItem_Click" />
+        <MenuItem Header="開く" Click="OpenProjectMenuItem_Click" />
         <MenuItem Header="保存" Click="SaveProjectMenuItem_Click" />
-        <MenuItem Header="名前を付けて保存..." Click="SaveProjectAsMenuItem_Click" />
+        <MenuItem Header="名前を付けて保存" Click="SaveProjectAsMenuItem_Click" />
       </MenuItem>
       <MenuItem Header="接続">
-        <MenuItem Header="接続設定..." Click="ConnectionSettingsMenuItem_Click" />
+        <MenuItem Header="接続設定" Click="ConnectionSettingsMenuItem_Click" />
       </MenuItem>
       <MenuItem Header="CPU">
+        <MenuItem Header="デバイス範囲" Click="DeviceRangeMenuItem_Click" />
+        <Separator />
         <MenuItem Header="CPU RUN"
                   Command="{Binding CpuRunCommand}"
                   IsEnabled="{Binding CanIssueCpuControl}"
@@ -351,8 +394,8 @@
                   ToolTip="{Binding CpuControlHint}" />
       </MenuItem>
       <MenuItem Header="ツール">
-        <MenuItem Header="通信ログ..." Click="TraceLogMenuItem_Click" />
-        <MenuItem Header="エラー履歴..." Click="ErrorHistoryMenuItem_Click" />
+        <MenuItem Header="通信ログ" Click="TraceLogMenuItem_Click" />
+        <MenuItem Header="エラー履歴" Click="ErrorHistoryMenuItem_Click" />
       </MenuItem>
       <MenuItem Header="ヘルプ">
         <MenuItem Header="バージョン情報" Click="AboutMenuItem_Click" />
