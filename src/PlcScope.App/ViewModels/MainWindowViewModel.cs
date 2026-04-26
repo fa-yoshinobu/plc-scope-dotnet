@@ -1,9 +1,6 @@
 namespace PlcScope.App.ViewModels;
 
-using System.Collections;
-using System.Collections.Specialized;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -707,7 +704,7 @@ public partial class MainWindowViewModel : ObservableObject
         _generatedStartAddress = rowAddressLayout.GeneratedStartAddress;
         _startAddressRowIndex = rowAddressLayout.StartAddressRowIndex;
 
-        var availablePoints = GetAvailablePointCount(_generatedStartAddress, rangeBounds);
+        var availablePoints = MonitorRangePlanner.GetAvailablePointCount(_generatedStartAddress, rangeBounds);
         var displayRows = Math.Min(
             CalculateDisplayRowCount(availablePoints),
             DeviceAddressRangeProvider.MaxGeneratedDisplayRows);
@@ -735,7 +732,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (!TryResolveDisplayRangeBounds(out var rangeBounds, out _))
             return false;
 
-        var availablePoints = GetAvailablePointCount(_generatedStartAddress, rangeBounds);
+        var availablePoints = MonitorRangePlanner.GetAvailablePointCount(_generatedStartAddress, rangeBounds);
 
         var deviceOffset = 0;
         var itemCount = 0;
@@ -816,22 +813,14 @@ public partial class MainWindowViewModel : ObservableObject
         if (!TryResolveDisplayRangeBounds(out rangeBounds, out error))
             return false;
 
-        var requiredPoints = GetMinimumPointCountForStartAddress();
-        var rangePointCount = checked(rangeBounds.UpperBound - rangeBounds.LowerBound + 1);
-        if (rangePointCount < requiredPoints)
-        {
-            error = $"{SelectedDeviceFamily.Code} は現在の表示形式に必要な範囲がありません。";
-            return false;
-        }
-
-        var maxStartNumber = rangeBounds.UpperBound - (uint)(requiredPoints - 1);
-        var clampedNumber = Math.Clamp(startAddress.Number, rangeBounds.LowerBound, maxStartNumber);
-        normalizedStartAddress = startAddress with
-        {
-            Prefix = SelectedDeviceFamily.Code,
-            Number = clampedNumber,
-        };
-        return true;
+        return MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            rangeBounds,
+            SelectedProtocol.Kind,
+            SelectedDeviceFamily,
+            DisplayMode,
+            out normalizedStartAddress,
+            out error);
     }
 
     private bool TryResolveDisplayRangeBounds(out DeviceDisplayRangeBounds rangeBounds, out string? error)
@@ -910,53 +899,14 @@ public partial class MainWindowViewModel : ObservableObject
         return count <= 0 ? 0 : (uint)(count - 1);
     }
 
-    private int GetAvailablePointCount(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
-    {
-        if (startAddress.Number < rangeBounds.LowerBound || startAddress.Number > rangeBounds.UpperBound)
-            return 0;
-
-        var remaining = rangeBounds.UpperBound - startAddress.Number + 1;
-        return remaining > int.MaxValue ? int.MaxValue : (int)remaining;
-    }
-
-    private int GetMinimumPointCountForStartAddress()
-    {
-        if (SelectedDeviceFamily.Kind == DeviceKind.Word
-            && !IsSlmpDWordOnlyFamily()
-            && DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32)
-        {
-            return 2;
-        }
-
-        return 1;
-    }
-
-    private RowAddressLayout BuildRowAddressLayout(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
-    {
-        var pointOffsetBeforeStartAddress = CalculatePointOffsetBeforeStartAddress(startAddress, rangeBounds, out var startAddressRowIndex);
-        var generatedStartAddress = startAddress with { Number = startAddress.Number - (uint)pointOffsetBeforeStartAddress };
-        return new RowAddressLayout(generatedStartAddress, startAddressRowIndex);
-    }
-
-    private int CalculatePointOffsetBeforeStartAddress(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds, out int startAddressRowIndex)
-    {
-        var availableBeforeStart = startAddress.Number > rangeBounds.LowerBound
-            ? startAddress.Number - rangeBounds.LowerBound
-            : 0;
-
-        if (SelectedDeviceFamily.Kind == DeviceKind.Word && DisplayMode == BlockDisplayMode.BitExpand)
-        {
-            var preferredWordCount = PreferredGeneratedRowsBeforeStartAddress / 17;
-            var wordCount = (int)Math.Min(availableBeforeStart, (uint)preferredWordCount);
-            startAddressRowIndex = wordCount * 17;
-            return wordCount;
-        }
-
-        var pointsPerRow = GetDevicePointsPerGeneratedRow(DisplayMode);
-        var rowCount = (int)Math.Min((uint)PreferredGeneratedRowsBeforeStartAddress, availableBeforeStart / (uint)pointsPerRow);
-        startAddressRowIndex = rowCount;
-        return checked(rowCount * pointsPerRow);
-    }
+    private MonitorRowAddressLayout BuildRowAddressLayout(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds) =>
+        MonitorRangePlanner.BuildRowAddressLayout(
+            startAddress,
+            rangeBounds,
+            SelectedProtocol.Kind,
+            SelectedDeviceFamily,
+            DisplayMode,
+            PreferredGeneratedRowsBeforeStartAddress);
 
     private MonitorRowViewModel CreatePlaceholderRow(int rowIndex, SequentialDeviceAddress startAddress)
     {
@@ -1028,48 +978,21 @@ public partial class MainWindowViewModel : ObservableObject
     private bool CanEditPlaceholderRows() =>
         SelectedProtocol.Capabilities.SupportsWrite;
 
-    private int CalculateDisplayRowCount(int availablePoints)
-    {
-        if (availablePoints <= 0)
-            return 0;
-
-        if (SelectedDeviceFamily.Kind == DeviceKind.Word)
-        {
-            if (IsSlmpDWordOnlyFamily())
-                return availablePoints;
-
-            return DisplayMode switch
-            {
-                BlockDisplayMode.DWord or BlockDisplayMode.Float32 => Math.Max(1, availablePoints / 2),
-                BlockDisplayMode.BitExpand => availablePoints > int.MaxValue / 17 ? int.MaxValue : availablePoints * 17,
-                _ => availablePoints,
-            };
-        }
-
-        var pointsPerRow = GetBitDevicePointsPerRow(DisplayMode);
-        return (availablePoints + pointsPerRow - 1) / pointsPerRow;
-    }
+    private int CalculateDisplayRowCount(int availablePoints) =>
+        MonitorRangePlanner.CalculateDisplayRowCount(
+            availablePoints,
+            SelectedProtocol.Kind,
+            SelectedDeviceFamily,
+            DisplayMode);
 
     private static int GetBitDevicePointsPerRow(BlockDisplayMode displayMode) =>
-        displayMode switch
-        {
-            BlockDisplayMode.DWord or BlockDisplayMode.Float32 => 32,
-            BlockDisplayMode.BitExpand => 1,
-            _ => 16,
-        };
+        MonitorRangePlanner.GetBitDevicePointsPerRow(displayMode);
 
-    private int GetDevicePointsPerGeneratedRow(BlockDisplayMode displayMode)
-    {
-        if (SelectedDeviceFamily.Kind == DeviceKind.Word)
-        {
-            if (IsSlmpDWordOnlyFamily())
-                return 1;
-
-            return displayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32 ? 2 : 1;
-        }
-
-        return GetBitDevicePointsPerRow(displayMode);
-    }
+    private int GetDevicePointsPerGeneratedRow(BlockDisplayMode displayMode) =>
+        MonitorRangePlanner.GetDevicePointsPerGeneratedRow(
+            SelectedProtocol.Kind,
+            SelectedDeviceFamily,
+            displayMode);
 
     private string BuildRowLayoutKey()
     {
@@ -1358,8 +1281,7 @@ public partial class MainWindowViewModel : ObservableObject
             : mode;
 
     private bool IsSlmpDWordOnlyFamily() =>
-        SelectedProtocol.Kind == ProtocolKind.Slmp
-        && SelectedDeviceFamily.Code is "LTN" or "LSTN" or "LCN" or "LZ";
+        MonitorRangePlanner.IsDWordOnlyFamily(SelectedProtocol.Kind, SelectedDeviceFamily);
 
     private string InferDefaultStartAddress()
     {
@@ -1419,7 +1341,9 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnSelectedDeviceFamilyChanged(DeviceFamilyDefinition value)
     {
         RefreshDisplayModes();
-        StartAddress = $"{value.Code}0";
+        StartAddress = DeviceAddressRangeProvider.TryRebaseAddress(StartAddress, SelectedProtocol, value, out var rebasedAddress)
+            ? rebasedAddress
+            : $"{value.Code}0";
         _lastSnapshot = null;
         RefreshLayoutNow();
     }
@@ -1626,168 +1550,7 @@ public partial class MainWindowViewModel : ObservableObject
     private static ThemeOption FindThemeOption(string? key) =>
         ThemeOption.All.FirstOrDefault(option => string.Equals(option.Key, key, StringComparison.OrdinalIgnoreCase)) ?? ThemeOption.Dark;
 
-    private sealed record DeviceDisplayRangeBounds(uint LowerBound, uint UpperBound, string LayoutKey);
-    private sealed record RowAddressLayout(SequentialDeviceAddress GeneratedStartAddress, int StartAddressRowIndex);
     private sealed record VisibleReadPlan(BlockQuery Query, int ReplacementStartIndex, string LayoutKey);
-
-    private sealed class MonitorRowCollection :
-        IList<MonitorRowViewModel>,
-        IList,
-        INotifyCollectionChanged,
-        INotifyPropertyChanged
-    {
-        private readonly Dictionary<int, MonitorRowViewModel> _items = [];
-        private Func<int, MonitorRowViewModel>? _itemFactory;
-        private int _count;
-
-        public event NotifyCollectionChangedEventHandler? CollectionChanged;
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public int Count => _count;
-        public bool IsReadOnly => false;
-        public bool IsFixedSize => true;
-        public bool IsSynchronized => false;
-        public object SyncRoot => this;
-
-        public MonitorRowViewModel this[int index]
-        {
-            get => GetItem(index);
-            set => Replace(index, value);
-        }
-
-        object? IList.this[int index]
-        {
-            get => this[index];
-            set
-            {
-                if (value is not MonitorRowViewModel row)
-                    throw new ArgumentException("Value must be a monitor row.", nameof(value));
-
-                this[index] = row;
-            }
-        }
-
-        public void Configure(int count, Func<int, MonitorRowViewModel> itemFactory)
-        {
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count), count, "Count must be non-negative.");
-
-            _items.Clear();
-            _count = count;
-            _itemFactory = itemFactory;
-            NotifyReset();
-        }
-
-        public void Clear()
-        {
-            if (_count == 0 && _items.Count == 0)
-                return;
-
-            _items.Clear();
-            _count = 0;
-            _itemFactory = null;
-            NotifyReset();
-        }
-
-        public bool Contains(MonitorRowViewModel item) =>
-            IndexOf(item) >= 0;
-
-        public int IndexOf(MonitorRowViewModel item)
-        {
-            foreach (var (index, row) in _items)
-            {
-                if (ReferenceEquals(row, item))
-                    return index;
-            }
-
-            return -1;
-        }
-
-        public void CopyTo(MonitorRowViewModel[] array, int arrayIndex)
-        {
-            ArgumentNullException.ThrowIfNull(array);
-
-            for (var index = 0; index < _count; index++)
-            {
-                array[arrayIndex + index] = this[index];
-            }
-        }
-
-        public IEnumerator<MonitorRowViewModel> GetEnumerator()
-        {
-            for (var index = 0; index < _count; index++)
-            {
-                yield return this[index];
-            }
-        }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public int Add(object? value) => throw new NotSupportedException("Monitor rows are virtualized.");
-        public void Add(MonitorRowViewModel item) => throw new NotSupportedException("Monitor rows are virtualized.");
-        public void Insert(int index, object? value) => throw new NotSupportedException("Monitor rows are virtualized.");
-        public void Insert(int index, MonitorRowViewModel item) => throw new NotSupportedException("Monitor rows are virtualized.");
-        public void Remove(object? value) => throw new NotSupportedException("Monitor rows are virtualized.");
-        public bool Remove(MonitorRowViewModel item) => throw new NotSupportedException("Monitor rows are virtualized.");
-        public void RemoveAt(int index) => throw new NotSupportedException("Monitor rows are virtualized.");
-
-        public bool Contains(object? value) =>
-            value is MonitorRowViewModel row && Contains(row);
-
-        public int IndexOf(object? value) =>
-            value is MonitorRowViewModel row ? IndexOf(row) : -1;
-
-        public void CopyTo(Array array, int index)
-        {
-            ArgumentNullException.ThrowIfNull(array);
-
-            for (var rowIndex = 0; rowIndex < _count; rowIndex++)
-            {
-                array.SetValue(this[rowIndex], index + rowIndex);
-            }
-        }
-
-        private MonitorRowViewModel GetItem(int index)
-        {
-            ValidateIndex(index);
-            if (_items.TryGetValue(index, out var row))
-                return row;
-
-            if (_itemFactory is null)
-                throw new InvalidOperationException("Monitor rows are not configured.");
-
-            row = _itemFactory(index);
-            _items[index] = row;
-            return row;
-        }
-
-        private void Replace(int index, MonitorRowViewModel row)
-        {
-            ValidateIndex(index);
-            var old = GetItem(index);
-            if (ReferenceEquals(old, row))
-                return;
-
-            _items[index] = row;
-            CollectionChanged?.Invoke(
-                this,
-                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, row, old, index));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
-        }
-
-        private void ValidateIndex(int index)
-        {
-            if ((uint)index >= (uint)_count)
-                throw new ArgumentOutOfRangeException(nameof(index), index, "Index is outside the monitor row range.");
-        }
-
-        private void NotifyReset()
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-        }
-    }
 
     private void SetLayoutError(string message)
     {

@@ -54,6 +54,7 @@ internal sealed class ToyopucSession : PlcSessionBase
 
             await _client.DisposeAsync().ConfigureAwait(false);
             _client = null;
+            ClearCpuStateCache();
             IsConnected = false;
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -95,7 +96,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             CpuState? cpuState = null;
             try
             {
-                cpuState = await ReadCpuStateInternalAsync(cancellationToken).ConfigureAwait(false);
+                cpuState = await ReadCpuStateForBlockAsync(ReadCpuStateInternalAsync, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
@@ -148,7 +149,9 @@ internal sealed class ToyopucSession : PlcSessionBase
     public override async Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
-        return await ExecuteSerializedAsync(() => ReadCpuStateInternalAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+        return await ExecuteSerializedAsync(
+            async () => RememberCpuState(await ReadCpuStateInternalAsync(cancellationToken).ConfigureAwait(false)),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public override Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default) =>

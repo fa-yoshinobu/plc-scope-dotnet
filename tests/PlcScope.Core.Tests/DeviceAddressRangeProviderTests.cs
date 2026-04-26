@@ -67,4 +67,51 @@ public sealed class DeviceAddressRangeProviderTests
 
         Assert.False(parsed);
     }
+
+    [Fact]
+    public void TryRebaseAddress_PreservesNumberWhenDeviceFamilyChanges()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var targetFamily = protocol.FindFamily("R")!;
+
+        var rebased = DeviceAddressRangeProvider.TryRebaseAddress("D00100", protocol, targetFamily, out var address);
+
+        Assert.True(rebased);
+        Assert.Equal("R00100", address);
+    }
+
+    [Fact]
+    public void TryRebaseAddress_PreservesNumberTextWhenTargetFamilyCanUseIt()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var targetFamily = protocol.FindFamily("W")!;
+
+        var rebased = DeviceAddressRangeProvider.TryRebaseAddress("D00100", protocol, targetFamily, out var address);
+
+        Assert.True(rebased);
+        Assert.Equal("W00100", address);
+    }
+
+    [Fact]
+    public void TryRebaseAddress_ConvertsNumberWhenTargetFamilyCannotUseSourceNumberText()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var targetFamily = protocol.FindFamily("D")!;
+
+        var rebased = DeviceAddressRangeProvider.TryRebaseAddress("W000A", protocol, targetFamily, out var address);
+
+        Assert.True(rebased);
+        Assert.Equal("D0010", address);
+    }
+
+    [Fact]
+    public void TryRebaseAddress_DoesNotInventAddressForUnknownDeviceName()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var targetFamily = protocol.FindFamily("D")!;
+
+        var rebased = DeviceAddressRangeProvider.TryRebaseAddress("UNKNOWN100", protocol, targetFamily, out _);
+
+        Assert.False(rebased);
+    }
 }

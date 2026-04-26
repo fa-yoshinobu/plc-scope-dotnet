@@ -19,11 +19,24 @@ public sealed class FileLogStore : ILogStore, IDisposable
     private readonly object _bufferGate = new();
     private readonly SemaphoreSlim _fileGate = new(1, 1);
     private readonly Queue<string> _traceBuffer = [];
+    private readonly Dictionary<string, int> _knownRecordCounts = [];
     private readonly Timer _flushTimer;
+    private readonly string _traceLogFile;
+    private readonly string _errorLogFile;
     private bool _disposed;
 
     public FileLogStore()
+        : this(AppDataPaths.TraceLogFile, AppDataPaths.ErrorLogFile)
     {
+    }
+
+    public FileLogStore(string traceLogFile, string errorLogFile)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(traceLogFile);
+        ArgumentException.ThrowIfNullOrWhiteSpace(errorLogFile);
+
+        _traceLogFile = traceLogFile;
+        _errorLogFile = errorLogFile;
         _flushTimer = new Timer(FlushTimerOnTick, null, TraceFlushInterval, TraceFlushInterval);
     }
 
@@ -31,24 +44,24 @@ public sealed class FileLogStore : ILogStore, IDisposable
         EnqueueTraceAsync(traceEntry, cancellationToken);
 
     public Task AppendErrorAsync(ErrorEntry errorEntry, CancellationToken cancellationToken = default) =>
-        WriteLineImmediatelyAsync(AppDataPaths.ErrorLogFile, errorEntry, cancellationToken);
+        WriteLineImmediatelyAsync(_errorLogFile, errorEntry, cancellationToken);
 
     public async Task<IReadOnlyList<TraceEntry>> LoadRecentTraceAsync(int maxCount, CancellationToken cancellationToken = default)
     {
-        await FlushBufferAsync(AppDataPaths.TraceLogFile, _traceBuffer, cancellationToken).ConfigureAwait(false);
-        return await LoadRecentAsync<TraceEntry>(AppDataPaths.TraceLogFile, maxCount, cancellationToken).ConfigureAwait(false);
+        await FlushBufferAsync(_traceLogFile, _traceBuffer, cancellationToken).ConfigureAwait(false);
+        return await LoadRecentAsync<TraceEntry>(_traceLogFile, maxCount, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ErrorEntry>> LoadRecentErrorsAsync(int maxCount, CancellationToken cancellationToken = default)
     {
-        return await LoadRecentAsync<ErrorEntry>(AppDataPaths.ErrorLogFile, maxCount, cancellationToken).ConfigureAwait(false);
+        return await LoadRecentAsync<ErrorEntry>(_errorLogFile, maxCount, cancellationToken).ConfigureAwait(false);
     }
 
     public Task ClearTraceAsync(CancellationToken cancellationToken = default) =>
-        ClearLogAsync(AppDataPaths.TraceLogFile, _traceBuffer, cancellationToken);
+        ClearLogAsync(_traceLogFile, _traceBuffer, cancellationToken);
 
     public Task ClearErrorsAsync(CancellationToken cancellationToken = default) =>
-        ClearLogAsync(AppDataPaths.ErrorLogFile, null, cancellationToken);
+        ClearLogAsync(_errorLogFile, null, cancellationToken);
 
     public void Dispose()
     {
@@ -139,7 +152,7 @@ public sealed class FileLogStore : ILogStore, IDisposable
 
         try
         {
-            await FlushBufferCoreAsync(AppDataPaths.TraceLogFile, _traceBuffer, cancellationToken).ConfigureAwait(false);
+            await FlushBufferCoreAsync(_traceLogFile, _traceBuffer, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -175,13 +188,21 @@ public sealed class FileLogStore : ILogStore, IDisposable
         await WriteLinesCoreAsync(path, lines, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task WriteLinesCoreAsync(string path, IReadOnlyCollection<string> lines, CancellationToken cancellationToken)
+    private async Task WriteLinesCoreAsync(string path, IReadOnlyCollection<string> lines, CancellationToken cancellationToken)
     {
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path) ?? Environment.CurrentDirectory);
             await File.AppendAllLinesAsync(path, lines, cancellationToken).ConfigureAwait(false);
-            await TrimLogFileAsync(path, cancellationToken).ConfigureAwait(false);
+
+            var recordCount = _knownRecordCounts.TryGetValue(path, out var knownCount)
+                ? knownCount + lines.Count
+                : await CountLogRecordsAsync(path, cancellationToken).ConfigureAwait(false);
+
+            if (recordCount > MaxLogRecords)
+                recordCount = await TrimLogFileAsync(path, cancellationToken).ConfigureAwait(false);
+
+            _knownRecordCounts[path] = recordCount;
         }
         catch (Exception exception) when (IsFileAccessFailure(exception))
         {
@@ -203,6 +224,7 @@ public sealed class FileLogStore : ILogStore, IDisposable
             }
 
             await DeleteFileAsync(path, cancellationToken).ConfigureAwait(false);
+            _knownRecordCounts[path] = 0;
         }
         finally
         {
@@ -250,21 +272,31 @@ public sealed class FileLogStore : ILogStore, IDisposable
         return items;
     }
 
-    private static async Task TrimLogFileAsync(string path, CancellationToken cancellationToken)
+    private static async Task<int> CountLogRecordsAsync(string path, CancellationToken cancellationToken)
     {
         if (!File.Exists(path))
-            return;
+            return 0;
+
+        var lines = await File.ReadAllLinesAsync(path, cancellationToken).ConfigureAwait(false);
+        return ReadJsonRecords(lines).Count();
+    }
+
+    private static async Task<int> TrimLogFileAsync(string path, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+            return 0;
 
         var lines = await File.ReadAllLinesAsync(path, cancellationToken).ConfigureAwait(false);
         var records = ReadJsonRecords(lines).ToArray();
         if (records.Length <= MaxLogRecords)
-            return;
+            return records.Length;
 
         var recentRecords = records
             .Skip(records.Length - MaxLogRecords)
             .Select(record => record.TrimEnd('\r', '\n'))
             .ToArray();
         await File.WriteAllLinesAsync(path, recentRecords, cancellationToken).ConfigureAwait(false);
+        return recentRecords.Length;
     }
 
     private static Task DeleteFileAsync(string path, CancellationToken cancellationToken)

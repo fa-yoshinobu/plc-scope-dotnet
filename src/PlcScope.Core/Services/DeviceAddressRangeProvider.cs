@@ -46,6 +46,61 @@ public static class DeviceAddressRangeProvider
         return false;
     }
 
+    public static bool TryRebaseAddress(
+        string rawAddress,
+        ProtocolDefinition protocol,
+        DeviceFamilyDefinition targetFamily,
+        out string rebasedAddress)
+    {
+        rebasedAddress = $"{targetFamily.Code}0";
+        if (string.IsNullOrWhiteSpace(rawAddress))
+            return false;
+
+        if (TryParseAddress(rawAddress, targetFamily, out var targetAddress))
+        {
+            rebasedAddress = targetAddress.FormatOffset(0);
+            return true;
+        }
+
+        foreach (var family in protocol.DeviceFamilies.OrderByDescending(device => device.Code.Length))
+        {
+            if (!TryParseAddress(rawAddress, family, out var sourceAddress))
+                continue;
+
+            if (TryExtractNumberText(rawAddress, family, out var numberText)
+                && TryParseNumber(numberText, targetFamily.UsesHexAddressing, out _))
+            {
+                rebasedAddress = $"{targetFamily.Code}{numberText.ToUpperInvariant()}";
+                return true;
+            }
+
+            var rebased = sourceAddress with
+            {
+                Prefix = targetFamily.Code,
+                UsesHexAddressing = targetFamily.UsesHexAddressing,
+            };
+            rebasedAddress = rebased.FormatOffset(0);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryExtractNumberText(string rawAddress, DeviceFamilyDefinition family, out string numberText)
+    {
+        numberText = string.Empty;
+        var expanded = AddressInput.Expand(rawAddress, family).Trim().ToUpperInvariant();
+        var familyCode = family.Code.ToUpperInvariant();
+        if (!expanded.StartsWith(familyCode, StringComparison.OrdinalIgnoreCase)
+            || expanded.Length <= familyCode.Length)
+        {
+            return false;
+        }
+
+        numberText = expanded[familyCode.Length..];
+        return TryParseNumber(numberText, family.UsesHexAddressing, out _);
+    }
+
     public static int GetAvailablePointCount(ProtocolKind protocol, DeviceFamilyDefinition family, string startAddress)
     {
         if (!TryParseAddress(startAddress, family, out var parsed))

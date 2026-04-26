@@ -8,7 +8,10 @@ using PlcScope.Core.Services;
 
 internal abstract class PlcSessionBase : IPlcSession
 {
+    private static readonly TimeSpan BlockCpuStatePollInterval = TimeSpan.FromSeconds(1);
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private CpuState? _cachedCpuState;
+    private DateTimeOffset _lastBlockCpuStateAttemptUtc = DateTimeOffset.MinValue;
 
     protected PlcSessionBase(ConnectionSettings settings, ProtocolDefinition definition)
     {
@@ -78,6 +81,33 @@ internal abstract class PlcSessionBase : IPlcSession
     protected void EmitError(ErrorEntry errorEntry) => ErrorReceived?.Invoke(this, errorEntry);
 
     protected static Stopwatch StartTimer() => Stopwatch.StartNew();
+
+    protected async Task<CpuState?> ReadCpuStateForBlockAsync(
+        Func<CancellationToken, Task<CpuState>> readCpuState,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastBlockCpuStateAttemptUtc < BlockCpuStatePollInterval)
+            return _cachedCpuState;
+
+        _lastBlockCpuStateAttemptUtc = now;
+        var state = await readCpuState(cancellationToken).ConfigureAwait(false);
+        _cachedCpuState = state;
+        return state;
+    }
+
+    protected CpuState RememberCpuState(CpuState state)
+    {
+        _cachedCpuState = state;
+        _lastBlockCpuStateAttemptUtc = DateTimeOffset.UtcNow;
+        return state;
+    }
+
+    protected void ClearCpuStateCache()
+    {
+        _cachedCpuState = null;
+        _lastBlockCpuStateAttemptUtc = DateTimeOffset.MinValue;
+    }
 
     protected async Task ExecuteSerializedAsync(Func<Task> operation, CancellationToken cancellationToken = default)
     {

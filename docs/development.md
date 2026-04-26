@@ -16,11 +16,11 @@ WPF アプリのため、macOS / Linux では `PlcScope.App` をビルドでき�
 - `src/PlcScope.Infrastructure`
   PLC 通信アダプタ、JSON 保存、ログ保存
 - `tests/PlcScope.Core.Tests`
-  Core の単体テスト
+  Core / Infrastructure の単体テスト
 
 ## 使用ライブラリ
 
-- `PlcComm.Slmp` `0.1.5`
+- `PlcComm.Slmp` `0.1.11`
 - `PlcComm.KvHostLink` `0.1.3`
 - `PlcComm.Toyopuc` `0.1.3`
 - `CommunityToolkit.Mvvm` `8.4.0`

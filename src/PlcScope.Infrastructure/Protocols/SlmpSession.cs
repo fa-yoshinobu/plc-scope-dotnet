@@ -61,6 +61,7 @@ internal sealed class SlmpSession : PlcSessionBase
             _client = null;
             _deviceRangeCatalog = null;
             _reportedReadWarnings.Clear();
+            ClearCpuStateCache();
             IsConnected = false;
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -118,7 +119,7 @@ internal sealed class SlmpSession : PlcSessionBase
             CpuState? cpuState = null;
             try
             {
-                cpuState = await ReadCpuStateInternalAsync(cancellationToken).ConfigureAwait(false);
+                cpuState = await ReadCpuStateForBlockAsync(ReadCpuStateInternalAsync, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
@@ -193,7 +194,9 @@ internal sealed class SlmpSession : PlcSessionBase
     public override async Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
-        return await ExecuteSerializedAsync(() => ReadCpuStateInternalAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+        return await ExecuteSerializedAsync(
+            async () => RememberCpuState(await ReadCpuStateInternalAsync(cancellationToken).ConfigureAwait(false)),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public override async Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default)
@@ -227,6 +230,8 @@ internal sealed class SlmpSession : PlcSessionBase
                     await _client!.ExecuteAsync(inner => inner.RemoteRunAsync(false, 2, cancellationToken), cancellationToken).ConfigureAwait(false);
                 else
                     await _client!.ExecuteAsync(inner => inner.RemoteStopAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+
+                ClearCpuStateCache();
             }
             finally
             {
