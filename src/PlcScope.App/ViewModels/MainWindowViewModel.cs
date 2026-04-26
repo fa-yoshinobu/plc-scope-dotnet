@@ -1,6 +1,9 @@
 namespace PlcScope.App.ViewModels;
 
+using System.Collections;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -43,6 +46,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly DispatcherTimer _communicationRateTimer;
     private IPlcSession? _session;
     private BlockSnapshot? _lastSnapshot;
+    private readonly MonitorRowCollection _rows = new();
     private bool _refreshInFlight;
     private bool _settingsPersistenceEnabled;
     private bool _isScrollReadPaused;
@@ -55,6 +59,7 @@ public partial class MainWindowViewModel : ObservableObject
     private SequentialDeviceAddress? _generatedStartAddress;
     private DeviceRangeCatalog? _deviceRangeCatalog;
     private string? _inlineEditingAddress;
+    private string? _layoutErrorText;
     private string _rowLayoutKey = string.Empty;
 
     public MainWindowViewModel(
@@ -88,7 +93,7 @@ public partial class MainWindowViewModel : ObservableObject
         SelectedProtocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
         SelectedDeviceFamily = SelectedProtocol.DefaultWordFamily;
         RefreshDisplayModes();
-        StartAddress = "D100";
+        StartAddress = InferDefaultStartAddress();
         ItemCount = 16;
         DisplayMode = BlockDisplayMode.Word;
         BitDisplayMode = BitDisplayMode.Packed16;
@@ -108,7 +113,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<ProtocolDefinition> AvailableProtocols { get; }
     public ObservableCollection<DeviceFamilyDefinition> AvailableDeviceFamilies { get; } = [];
-    public ObservableCollection<MonitorRowViewModel> Rows { get; } = [];
+    public IList<MonitorRowViewModel> Rows => _rows;
 
     public IReadOnlyList<FontSizeOption> FontSizeOptions { get; }
     public IReadOnlyList<ThemeOption> ThemeOptions { get; }
@@ -388,31 +393,41 @@ public partial class MainWindowViewModel : ObservableObject
             _ = ReadOnceAsync();
     }
 
-    public async Task CommitInlineEditAsync(MonitorRowViewModel row, string valueText)
+    public async Task<bool> CommitInlineEditAsync(MonitorRowViewModel row, string valueText)
     {
-        switch (row)
+        try
         {
-            case WordRowViewModel word:
-                var wordValue = NumericFormatter.ParseWord(valueText, DisplayRadix);
-                if (SelectedDeviceFamily.Kind == DeviceKind.Bit && DisplayMode == BlockDisplayMode.Word)
-                    await WriteBitValuesAsync(word.Address, word.Bits, 16, wordValue, "Bit word write").ConfigureAwait(true);
-                else
-                    await WriteInternalAsync(new WriteRequest(word.Address, ValueDataType.UInt16, wordValue, DisplayRadix)).ConfigureAwait(true);
-                break;
-            case DWordRowViewModel dword:
-                var dwordValue = NumericFormatter.ParseDWord(valueText, DisplayRadix);
-                if (SelectedDeviceFamily.Kind == DeviceKind.Bit)
-                    await WriteBitValuesAsync(dword.Address, dword.Bits, 32, dwordValue, "Bit dword write").ConfigureAwait(true);
-                else
-                    await WriteInternalAsync(new WriteRequest(dword.Address, ValueDataType.UInt32, dwordValue, DisplayRadix)).ConfigureAwait(true);
-                break;
-            case FloatRowViewModel @float:
-                var floatValue = (float)NumericFormatter.ParseByType(valueText, ValueDataType.Float32, DisplayRadix);
-                if (SelectedDeviceFamily.Kind == DeviceKind.Bit)
-                    await WriteBitValuesAsync(@float.Address, @float.Bits, 32, NumericFormatter.FloatToRawBits(floatValue), "Bit float write").ConfigureAwait(true);
-                else
-                    await WriteInternalAsync(new WriteRequest(@float.Address, ValueDataType.Float32, floatValue, DisplayRadix)).ConfigureAwait(true);
-                break;
+            switch (row)
+            {
+                case WordRowViewModel word:
+                    var wordValue = NumericFormatter.ParseWord(valueText, DisplayRadix);
+                    if (SelectedDeviceFamily.Kind == DeviceKind.Bit && DisplayMode == BlockDisplayMode.Word)
+                        await WriteBitValuesAsync(word.Address, word.Bits, 16, wordValue, "Bit word write").ConfigureAwait(true);
+                    else
+                        await WriteInternalAsync(new WriteRequest(word.Address, ValueDataType.UInt16, wordValue, DisplayRadix)).ConfigureAwait(true);
+                    break;
+                case DWordRowViewModel dword:
+                    var dwordValue = NumericFormatter.ParseDWord(valueText, DisplayRadix);
+                    if (SelectedDeviceFamily.Kind == DeviceKind.Bit)
+                        await WriteBitValuesAsync(dword.Address, dword.Bits, 32, dwordValue, "Bit dword write").ConfigureAwait(true);
+                    else
+                        await WriteInternalAsync(new WriteRequest(dword.Address, ValueDataType.UInt32, dwordValue, DisplayRadix)).ConfigureAwait(true);
+                    break;
+                case FloatRowViewModel @float:
+                    var floatValue = (float)NumericFormatter.ParseByType(valueText, ValueDataType.Float32, DisplayRadix);
+                    if (SelectedDeviceFamily.Kind == DeviceKind.Bit)
+                        await WriteBitValuesAsync(@float.Address, @float.Bits, 32, NumericFormatter.FloatToRawBits(floatValue), "Bit float write").ConfigureAwait(true);
+                    else
+                        await WriteInternalAsync(new WriteRequest(@float.Address, ValueDataType.Float32, floatValue, DisplayRadix)).ConfigureAwait(true);
+                    break;
+            }
+
+            return true;
+        }
+        catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
+        {
+            ErrorText = FormatInputError(row, exception);
+            return false;
         }
     }
 
@@ -456,22 +471,22 @@ public partial class MainWindowViewModel : ObservableObject
         ResetCommunicationRate();
         _isScrollReadPaused = false;
         _deviceRangeCatalog = null;
+        ConnectionState = ConnectionState.Disconnected;
         if (_session is null)
         {
-            ConnectionState = ConnectionState.Disconnected;
             StatusText = "未接続";
             return;
         }
 
         await DisposeSessionAsync().ConfigureAwait(true);
-        ConnectionState = ConnectionState.Disconnected;
         StatusText = "未接続";
         CpuStateText = "不明";
     }
 
     private async Task ReadOnceAsync()
     {
-        if (_session is null || ConnectionState != ConnectionState.Connected || IsBusy || _isInlineEditing)
+        var session = _session;
+        if (session is null || ConnectionState != ConnectionState.Connected || IsBusy || _isInlineEditing)
             return;
 
         EnsureRowsForCurrentLayout();
@@ -481,8 +496,8 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            var result = await _session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
-            if (_isInlineEditing)
+            var result = await session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
+            if (_isInlineEditing || !ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
                 return;
 
             _lastSnapshot = BlockDataBuilder.Build(result);
@@ -496,6 +511,9 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception exception)
         {
+            if (!ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
+                return;
+
             await LogErrorAsync("Read", exception).ConfigureAwait(true);
             StatusText = "読込み失敗";
         }
@@ -513,8 +531,15 @@ public partial class MainWindowViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(WriteAddress))
             return;
 
-        var value = NumericFormatter.ParseByType(WriteValueText, SelectedWriteDataType, WriteRadix);
-        await WriteInternalAsync(new WriteRequest(WriteAddress, SelectedWriteDataType, value, WriteRadix)).ConfigureAwait(true);
+        try
+        {
+            var value = NumericFormatter.ParseByType(WriteValueText, SelectedWriteDataType, WriteRadix);
+            await WriteInternalAsync(new WriteRequest(WriteAddress, SelectedWriteDataType, value, WriteRadix)).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
+        {
+            ErrorText = FormatInputError(SelectedWriteDataType, exception);
+        }
     }
 
     private async Task ExecuteCpuCommandAsync(CpuCommand command)
@@ -602,11 +627,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RebuildRows(BlockSnapshot snapshot)
     {
-        Rows.Clear();
-        foreach (var row in snapshot.Rows)
-        {
-            Rows.Add(CreateRowViewModel(row));
-        }
+        _rows.Configure(snapshot.Rows.Count, rowIndex => CreateRowViewModel(snapshot.Rows[rowIndex]));
     }
 
     private void ReplaceRows(int startIndex, IReadOnlyList<MonitorRow> rows)
@@ -647,7 +668,7 @@ public partial class MainWindowViewModel : ObservableObject
             _rowLayoutKey = string.Empty;
             _generatedStartAddress = null;
             _startAddressRowIndex = 0;
-            ErrorText = "先頭アドレスを確認してください。";
+            SetLayoutError("先頭アドレスを確認してください。");
             return;
         }
 
@@ -657,9 +678,11 @@ public partial class MainWindowViewModel : ObservableObject
             _rowLayoutKey = string.Empty;
             _generatedStartAddress = null;
             _startAddressRowIndex = 0;
-            ErrorText = rangeError ?? "デバイス範囲を確認してください。";
+            SetLayoutError(rangeError ?? "デバイス範囲を確認してください。");
             return;
         }
+
+        ClearLayoutError();
 
         if (normalizedStartAddress.Number != startAddress.Number
             || !string.Equals(normalizedStartAddress.Prefix, startAddress.Prefix, StringComparison.Ordinal)
@@ -689,10 +712,7 @@ public partial class MainWindowViewModel : ObservableObject
             CalculateDisplayRowCount(availablePoints),
             DeviceAddressRangeProvider.MaxGeneratedDisplayRows);
 
-        for (var rowIndex = 0; rowIndex < displayRows; rowIndex++)
-        {
-            Rows.Add(CreatePlaceholderRow(rowIndex, _generatedStartAddress));
-        }
+        _rows.Configure(displayRows, rowIndex => CreatePlaceholderRow(rowIndex, _generatedStartAddress!));
 
         if (Rows.Count > 0)
         {
@@ -902,7 +922,7 @@ public partial class MainWindowViewModel : ObservableObject
     private int GetMinimumPointCountForStartAddress()
     {
         if (SelectedDeviceFamily.Kind == DeviceKind.Word
-            && !IsSlmpLongCurrentValueFamily()
+            && !IsSlmpDWordOnlyFamily()
             && DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32)
         {
             return 2;
@@ -1015,7 +1035,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (SelectedDeviceFamily.Kind == DeviceKind.Word)
         {
-            if (IsSlmpLongCurrentValueFamily())
+            if (IsSlmpDWordOnlyFamily())
                 return availablePoints;
 
             return DisplayMode switch
@@ -1042,7 +1062,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (SelectedDeviceFamily.Kind == DeviceKind.Word)
         {
-            if (IsSlmpLongCurrentValueFamily())
+            if (IsSlmpDWordOnlyFamily())
                 return 1;
 
             return displayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32 ? 2 : 1;
@@ -1128,7 +1148,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private BitCellViewModel CreateNumericBitCell(string rowAddress, BitCellState bit)
     {
-        var canToggle = !IsSlmpLongCurrentValueFamily();
+        var canToggle = !IsSlmpDWordOnlyFamily();
         return new BitCellViewModel(
             bit.Index,
             bit.Value,
@@ -1145,9 +1165,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     private Task ToggleDWordBitAsync(string rowAddress, int bitIndex, bool nextValue)
     {
-        if (IsSlmpLongCurrentValueFamily())
+        if (IsSlmpDWordOnlyFamily())
         {
-            ErrorText = "LTN/LSTN/LCN の現在値は 32-bit 値として書き込んでください。";
+            ErrorText = "LTN/LSTN/LCN/LZ は 32-bit 値として書き込んでください。";
             return Task.CompletedTask;
         }
 
@@ -1183,6 +1203,33 @@ public partial class MainWindowViewModel : ObservableObject
             return;
 
         await WriteInternalAsync(new WriteRequest(address, ValueDataType.Bit, nextValue)).ConfigureAwait(true);
+    }
+
+    private static string FormatInputError(MonitorRowViewModel row, Exception exception) =>
+        row switch
+        {
+            WordRowViewModel => FormatInputError(ValueDataType.UInt16, exception),
+            DWordRowViewModel => FormatInputError(ValueDataType.UInt32, exception),
+            FloatRowViewModel => FormatInputError(ValueDataType.Float32, exception),
+            _ => "入力値を確認してください。",
+        };
+
+    private static string FormatInputError(ValueDataType dataType, Exception exception)
+    {
+        var message = dataType switch
+        {
+            ValueDataType.Bit => "Bit は 0/1、ON/OFF、TRUE/FALSE で入力してください。",
+            ValueDataType.Int16 => "Int16 は -32768～32767 の範囲で入力してください。",
+            ValueDataType.UInt16 => "Word は 0～65535 の範囲で入力してください。DWord 値を書き込む場合は表示形式を DWord にしてください。",
+            ValueDataType.Int32 => "Int32 は -2147483648～2147483647 の範囲で入力してください。",
+            ValueDataType.UInt32 => "DWord は 0～4294967295 の範囲で入力してください。",
+            ValueDataType.Float32 => "Float32 は小数表記で入力してください。",
+            _ => "入力値を確認してください。",
+        };
+
+        return exception is FormatException
+            ? $"入力値の形式が正しくありません。{message}"
+            : message;
     }
 
     private async Task LogErrorAsync(string operation, Exception exception)
@@ -1280,7 +1327,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (SelectedDeviceFamily is null)
             return;
 
-        var modes = IsSlmpLongCurrentValueFamily()
+        var modes = IsSlmpDWordOnlyFamily()
             ? new[] { BlockDisplayMode.DWord }
             : new[]
             {
@@ -1306,20 +1353,18 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private BlockDisplayMode NormalizeDisplayMode(BlockDisplayMode mode) =>
-        IsSlmpLongCurrentValueFamily()
+        IsSlmpDWordOnlyFamily()
             ? BlockDisplayMode.DWord
             : mode;
 
-    private bool IsSlmpLongCurrentValueFamily() =>
+    private bool IsSlmpDWordOnlyFamily() =>
         SelectedProtocol.Kind == ProtocolKind.Slmp
-        && SelectedDeviceFamily.Code is "LTN" or "LSTN" or "LCN";
+        && SelectedDeviceFamily.Code is "LTN" or "LSTN" or "LCN" or "LZ";
 
     private string InferDefaultStartAddress()
     {
         var family = SelectedProtocol.DefaultWordFamily;
-        return family.Kind == DeviceKind.Word
-            ? $"{family.Code}100"
-            : $"{family.Code}0";
+        return $"{family.Code}0";
     }
 
     private void RestartTimer()
@@ -1374,7 +1419,7 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnSelectedDeviceFamilyChanged(DeviceFamilyDefinition value)
     {
         RefreshDisplayModes();
-        StartAddress = $"{value.Code}{(value.Kind == DeviceKind.Word ? "100" : "0")}";
+        StartAddress = $"{value.Code}0";
         _lastSnapshot = null;
         RefreshLayoutNow();
     }
@@ -1584,4 +1629,177 @@ public partial class MainWindowViewModel : ObservableObject
     private sealed record DeviceDisplayRangeBounds(uint LowerBound, uint UpperBound, string LayoutKey);
     private sealed record RowAddressLayout(SequentialDeviceAddress GeneratedStartAddress, int StartAddressRowIndex);
     private sealed record VisibleReadPlan(BlockQuery Query, int ReplacementStartIndex, string LayoutKey);
+
+    private sealed class MonitorRowCollection :
+        IList<MonitorRowViewModel>,
+        IList,
+        INotifyCollectionChanged,
+        INotifyPropertyChanged
+    {
+        private readonly Dictionary<int, MonitorRowViewModel> _items = [];
+        private Func<int, MonitorRowViewModel>? _itemFactory;
+        private int _count;
+
+        public event NotifyCollectionChangedEventHandler? CollectionChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public int Count => _count;
+        public bool IsReadOnly => false;
+        public bool IsFixedSize => true;
+        public bool IsSynchronized => false;
+        public object SyncRoot => this;
+
+        public MonitorRowViewModel this[int index]
+        {
+            get => GetItem(index);
+            set => Replace(index, value);
+        }
+
+        object? IList.this[int index]
+        {
+            get => this[index];
+            set
+            {
+                if (value is not MonitorRowViewModel row)
+                    throw new ArgumentException("Value must be a monitor row.", nameof(value));
+
+                this[index] = row;
+            }
+        }
+
+        public void Configure(int count, Func<int, MonitorRowViewModel> itemFactory)
+        {
+            if (count < 0)
+                throw new ArgumentOutOfRangeException(nameof(count), count, "Count must be non-negative.");
+
+            _items.Clear();
+            _count = count;
+            _itemFactory = itemFactory;
+            NotifyReset();
+        }
+
+        public void Clear()
+        {
+            if (_count == 0 && _items.Count == 0)
+                return;
+
+            _items.Clear();
+            _count = 0;
+            _itemFactory = null;
+            NotifyReset();
+        }
+
+        public bool Contains(MonitorRowViewModel item) =>
+            IndexOf(item) >= 0;
+
+        public int IndexOf(MonitorRowViewModel item)
+        {
+            foreach (var (index, row) in _items)
+            {
+                if (ReferenceEquals(row, item))
+                    return index;
+            }
+
+            return -1;
+        }
+
+        public void CopyTo(MonitorRowViewModel[] array, int arrayIndex)
+        {
+            ArgumentNullException.ThrowIfNull(array);
+
+            for (var index = 0; index < _count; index++)
+            {
+                array[arrayIndex + index] = this[index];
+            }
+        }
+
+        public IEnumerator<MonitorRowViewModel> GetEnumerator()
+        {
+            for (var index = 0; index < _count; index++)
+            {
+                yield return this[index];
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public int Add(object? value) => throw new NotSupportedException("Monitor rows are virtualized.");
+        public void Add(MonitorRowViewModel item) => throw new NotSupportedException("Monitor rows are virtualized.");
+        public void Insert(int index, object? value) => throw new NotSupportedException("Monitor rows are virtualized.");
+        public void Insert(int index, MonitorRowViewModel item) => throw new NotSupportedException("Monitor rows are virtualized.");
+        public void Remove(object? value) => throw new NotSupportedException("Monitor rows are virtualized.");
+        public bool Remove(MonitorRowViewModel item) => throw new NotSupportedException("Monitor rows are virtualized.");
+        public void RemoveAt(int index) => throw new NotSupportedException("Monitor rows are virtualized.");
+
+        public bool Contains(object? value) =>
+            value is MonitorRowViewModel row && Contains(row);
+
+        public int IndexOf(object? value) =>
+            value is MonitorRowViewModel row ? IndexOf(row) : -1;
+
+        public void CopyTo(Array array, int index)
+        {
+            ArgumentNullException.ThrowIfNull(array);
+
+            for (var rowIndex = 0; rowIndex < _count; rowIndex++)
+            {
+                array.SetValue(this[rowIndex], index + rowIndex);
+            }
+        }
+
+        private MonitorRowViewModel GetItem(int index)
+        {
+            ValidateIndex(index);
+            if (_items.TryGetValue(index, out var row))
+                return row;
+
+            if (_itemFactory is null)
+                throw new InvalidOperationException("Monitor rows are not configured.");
+
+            row = _itemFactory(index);
+            _items[index] = row;
+            return row;
+        }
+
+        private void Replace(int index, MonitorRowViewModel row)
+        {
+            ValidateIndex(index);
+            var old = GetItem(index);
+            if (ReferenceEquals(old, row))
+                return;
+
+            _items[index] = row;
+            CollectionChanged?.Invoke(
+                this,
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, row, old, index));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
+        }
+
+        private void ValidateIndex(int index)
+        {
+            if ((uint)index >= (uint)_count)
+                throw new ArgumentOutOfRangeException(nameof(index), index, "Index is outside the monitor row range.");
+        }
+
+        private void NotifyReset()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+    }
+
+    private void SetLayoutError(string message)
+    {
+        _layoutErrorText = message;
+        ErrorText = message;
+    }
+
+    private void ClearLayoutError()
+    {
+        if (_layoutErrorText is not null && string.Equals(ErrorText, _layoutErrorText, StringComparison.Ordinal))
+            ErrorText = string.Empty;
+
+        _layoutErrorText = null;
+    }
 }

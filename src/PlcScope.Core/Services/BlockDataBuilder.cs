@@ -121,14 +121,20 @@ public static class BlockDataBuilder
             }
 
             var label = $"{result.ElementAddresses[offset]} +{slice.Count - 1}";
-            rows.Add(new PackedBitMonitorRow(label, slice));
+            rows.Add(new PackedBitMonitorRow(label, slice, result.Comments.GetValueOrDefault(result.ElementAddresses[offset])));
         }
 
         return rows;
     }
 
     private static IReadOnlyList<MonitorRow> BuildSingleBits(BlockReadResult result) =>
-        result.BitValues.Select((value, index) => (MonitorRow)new SingleBitMonitorRow(result.ElementAddresses[index], value)).ToArray();
+        result.BitValues
+            .Select((value, index) =>
+            {
+                var address = result.ElementAddresses[index];
+                return (MonitorRow)new SingleBitMonitorRow(address, value, result.Comments.GetValueOrDefault(address));
+            })
+            .ToArray();
 
     private static IReadOnlyList<MonitorRow> BuildBitWordRows(BlockReadResult result)
     {
@@ -229,12 +235,16 @@ public static class BlockDataBuilder
     private static IReadOnlyList<BitCellState> BuildDWordBits(string lowWordAddress, string highWordAddress, uint value)
     {
         var bits = new List<BitCellState>(32);
+        var usesSingleDWordAddress = string.Equals(lowWordAddress, highWordAddress, StringComparison.Ordinal);
         for (var bitIndex = 31; bitIndex >= 0; bitIndex--)
         {
             var localBitIndex = bitIndex % 16;
             var wordAddress = bitIndex >= 16 ? highWordAddress : lowWordAddress;
+            var bitAddress = usesSingleDWordAddress
+                ? $"{lowWordAddress}.{bitIndex}"
+                : $"{wordAddress}.{localBitIndex}";
             var isOn = ((value >> bitIndex) & 0x1) == 1;
-            bits.Add(new BitCellState(bitIndex, isOn, $"{wordAddress}.{localBitIndex}"));
+            bits.Add(new BitCellState(bitIndex, isOn, bitAddress));
         }
 
         return bits;

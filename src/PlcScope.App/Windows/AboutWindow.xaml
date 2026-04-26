@@ -19,18 +19,30 @@
     </Grid.RowDefinitions>
 
     <Border BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" Padding="10">
-      <StackPanel>
-        <TextBlock Text="PLC Scope" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AppForegroundStrongBrush}" />
-        <TextBlock x:Name="VersionTextBlock" Margin="0,4,0,0" />
-        <TextBlock Margin="0,2,0,0" Text="Author: fa-yoshinobu" />
-        <TextBlock Margin="0,6,0,0">
-          <Run Text="GitHub: " />
-          <Hyperlink NavigateUri="https://github.com/fa-yoshinobu/plc-scope-dotnet"
-                     RequestNavigate="Hyperlink_RequestNavigate">
-            https://github.com/fa-yoshinobu/plc-scope-dotnet
-          </Hyperlink>
-        </TextBlock>
-      </StackPanel>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="56" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Image Grid.Column="0"
+               Width="40"
+               Height="40"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Top"
+               Source="/icon.ico" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="PLC Scope" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AppForegroundStrongBrush}" />
+          <TextBlock x:Name="VersionTextBlock" Margin="0,4,0,0" />
+          <TextBlock Margin="0,2,0,0" Text="Author: fa-yoshinobu" />
+          <TextBlock Margin="0,6,0,0">
+            <Run Text="GitHub: " />
+            <Hyperlink NavigateUri="https://github.com/fa-yoshinobu/plc-scope-dotnet"
+                       RequestNavigate="Hyperlink_RequestNavigate">
+              https://github.com/fa-yoshinobu/plc-scope-dotnet
+            </Hyperlink>
+          </TextBlock>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <TabControl Grid.Row="2">

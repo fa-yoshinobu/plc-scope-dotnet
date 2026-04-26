@@ -20,7 +20,7 @@ public static class DeviceAddressRangeProvider
 {
     // Temporary UI guard until each protocol library exposes exact device ranges
     // and the app can switch to a fully virtual data source.
-    public const int MaxGeneratedDisplayRows = 65_536;
+    public const int MaxGeneratedDisplayRows = 1_048_576;
 
     public static bool TryParseAddress(string rawAddress, DeviceFamilyDefinition family, out SequentialDeviceAddress address)
     {
@@ -43,7 +43,7 @@ public static class DeviceAddressRangeProvider
             }
         }
 
-        return TryParseTrailingNumber(expanded, family.UsesHexAddressing, out address);
+        return false;
     }
 
     public static int GetAvailablePointCount(ProtocolKind protocol, DeviceFamilyDefinition family, string startAddress)
@@ -69,30 +69,6 @@ public static class DeviceAddressRangeProvider
             ProtocolKind.Toyopuc => 9_999,
             _ => 999_999,
         };
-    }
-
-    private static bool TryParseTrailingNumber(
-        string text,
-        bool usesHexAddressing,
-        out SequentialDeviceAddress address)
-    {
-        address = new SequentialDeviceAddress(string.Empty, 0, 1, usesHexAddressing);
-        var index = text.Length - 1;
-        while (index >= 0 && IsNumberCharacter(text[index], usesHexAddressing))
-        {
-            index--;
-        }
-
-        if (index >= text.Length - 1)
-            return false;
-
-        var prefix = text[..(index + 1)];
-        var numberText = text[(index + 1)..];
-        if (string.IsNullOrWhiteSpace(prefix) || !TryParseNumber(numberText, usesHexAddressing, out var number))
-            return false;
-
-        address = new SequentialDeviceAddress(prefix, number, numberText.Length, usesHexAddressing);
-        return true;
     }
 
     private static bool TryParseNumber(string numberText, bool usesHexAddressing, out uint number)

@@ -221,8 +221,9 @@ public partial class MainWindow : Window
 
         if (e.Key == Key.Enter)
         {
-            await ViewModel.CommitInlineEditAsync(row, textBox.Text).ConfigureAwait(true);
-            ViewModel.EndInlineEdit(force: true);
+            var committed = await ViewModel.CommitInlineEditAsync(row, textBox.Text).ConfigureAwait(true);
+            if (committed)
+                ViewModel.EndInlineEdit(force: true);
             e.Handled = true;
         }
         else if (e.Key == Key.Escape && row is IInlineEditableRow editable)

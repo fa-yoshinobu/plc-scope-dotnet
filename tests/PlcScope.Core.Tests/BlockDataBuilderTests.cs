@@ -63,6 +63,34 @@ public sealed class BlockDataBuilderTests
     }
 
     [Fact]
+    public void Build_BitDeviceRows_CopiesComments()
+    {
+        var query = new BlockQuery
+        {
+            Protocol = ProtocolKind.Slmp,
+            DeviceKind = DeviceKind.Bit,
+            DeviceFamilyCode = "LTS",
+            StartAddress = "LTS0",
+            ItemCount = 1,
+            DisplayMode = BlockDisplayMode.BitExpand,
+        };
+        var result = new BlockReadResult(
+            query,
+            ["LTS0"],
+            [],
+            [false],
+            new Dictionary<string, string> { ["LTS0"] = "読取不可" },
+            DateTimeOffset.UtcNow,
+            5,
+            null);
+
+        var snapshot = BlockDataBuilder.Build(result);
+
+        var row = Assert.IsType<SingleBitMonitorRow>(Assert.Single(snapshot.Rows));
+        Assert.Equal("読取不可", row.Comment);
+    }
+
+    [Fact]
     public void Build_FloatRows_UsesPairsOfWords()
     {
         var query = new BlockQuery
@@ -121,6 +149,38 @@ public sealed class BlockDataBuilderTests
         Assert.Equal("D101.15", row.Bits[0].Address);
         Assert.True(row.Bits[0].Value);
         Assert.Equal("D100.0", row.Bits[^1].Address);
+        Assert.True(row.Bits[^1].Value);
+    }
+
+    [Fact]
+    public void Build_DWordRows_UsesFullBitIndexForSingleDWordAddress()
+    {
+        var query = new BlockQuery
+        {
+            Protocol = ProtocolKind.Slmp,
+            DeviceKind = DeviceKind.Word,
+            DeviceFamilyCode = "LZ",
+            StartAddress = "LZ0",
+            ItemCount = 1,
+            DisplayMode = BlockDisplayMode.DWord,
+        };
+
+        var result = new BlockReadResult(
+            query,
+            ["LZ0", "LZ0"],
+            [0x0001, 0x8000],
+            [],
+            new Dictionary<string, string>(),
+            DateTimeOffset.UtcNow,
+            4,
+            null);
+
+        var snapshot = BlockDataBuilder.Build(result);
+
+        var row = Assert.IsType<DWordMonitorRow>(Assert.Single(snapshot.Rows));
+        Assert.Equal("LZ0.31", row.Bits[0].Address);
+        Assert.True(row.Bits[0].Value);
+        Assert.Equal("LZ0.0", row.Bits[^1].Address);
         Assert.True(row.Bits[^1].Value);
     }
 

@@ -10,6 +10,7 @@ internal sealed class SlmpSession : PlcSessionBase
     private QueuedSlmpClient? _client;
     private SlmpPlcFamily _plcFamily = SlmpPlcFamily.IqR;
     private SlmpDeviceRangeCatalog? _deviceRangeCatalog;
+    private readonly HashSet<string> _reportedReadWarnings = [];
 
     public SlmpSession(ConnectionSettings settings)
         : base(settings, ProtocolCatalog.Get(ProtocolKind.Slmp))
@@ -51,13 +52,17 @@ internal sealed class SlmpSession : PlcSessionBase
 
     public override async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        if (_client is null)
-            return;
+        await ExecuteSerializedAsync(async () =>
+        {
+            if (_client is null)
+                return;
 
-        await _client.DisposeAsync().ConfigureAwait(false);
-        _client = null;
-        _deviceRangeCatalog = null;
-        IsConnected = false;
+            await _client.DisposeAsync().ConfigureAwait(false);
+            _client = null;
+            _deviceRangeCatalog = null;
+            _reportedReadWarnings.Clear();
+            IsConnected = false;
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)
@@ -77,15 +82,18 @@ internal sealed class SlmpSession : PlcSessionBase
             IReadOnlyList<string> elementAddresses;
             ushort[] words = [];
             bool[] bits = [];
+            var comments = new Dictionary<string, string>();
 
             if (query.DeviceKind == DeviceKind.Word)
             {
                 var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
-                if (IsLongCurrentValueDevice(start.Code))
+                if (IsLongCurrentValueDevice(start.Code) || IsDWordAddressedDevice(start.Code))
                 {
                     ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
-                    elementAddresses = BuildLongCurrentElementAddresses(start, query.EffectiveItemCount);
-                    words = await ReadLongCurrentValuesAsync(start, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
+                    elementAddresses = BuildDWordElementAddresses(start, query.EffectiveItemCount);
+                    words = IsLongCurrentValueDevice(start.Code)
+                        ? await ReadLongCurrentValuesAsync(start, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false)
+                        : await ReadDWordAddressedValuesAsync(start, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -99,9 +107,12 @@ internal sealed class SlmpSession : PlcSessionBase
             }
             else
             {
-                ValidateDeviceRange(SlmpAddress.Parse(normalizedStart, _plcFamily), query.EffectiveItemCount, "Read");
+                var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
+                ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
                 elementAddresses = BuildAddresses(normalizedStart, query.EffectiveItemCount);
-                bits = await ReadBitsChunkedInternalAsync(normalizedStart, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
+                bits = IsLongTimerBitDevice(start.Code)
+                    ? await ReadLongTimerBitsAsync(start, query.EffectiveItemCount, comments, cancellationToken).ConfigureAwait(false)
+                    : await ReadBitsChunkedInternalAsync(normalizedStart, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
             }
 
             CpuState? cpuState = null;
@@ -125,7 +136,7 @@ internal sealed class SlmpSession : PlcSessionBase
                 elementAddresses,
                 words,
                 bits,
-                new Dictionary<string, string>(),
+                comments,
                 DateTimeOffset.UtcNow,
                 timer.Elapsed.TotalMilliseconds,
                 cpuState);
@@ -144,6 +155,16 @@ internal sealed class SlmpSession : PlcSessionBase
             if (IsLongCurrentValueDevice(parsedAddress.Code))
             {
                 await WriteLongCurrentValueAsync(parsedAddress, request, cancellationToken).ConfigureAwait(false);
+            }
+            else if (IsDWordAddressedDevice(parsedAddress.Code))
+            {
+                await WriteDWordAddressedValueAsync(parsedAddress, request, cancellationToken).ConfigureAwait(false);
+            }
+            else if (request.DataType == ValueDataType.Bit && IsLongTimerBitDevice(parsedAddress.Code))
+            {
+                // Long-family state writes must go through the library typed route so
+                // 0x1402 random bit write is selected instead of 0x1401.
+                await _client!.WriteTypedAsync(parsedAddress, "BIT", ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
             }
             else if (request.DataType == ValueDataType.Bit)
             {
@@ -241,7 +262,7 @@ internal sealed class SlmpSession : PlcSessionBase
         return addresses;
     }
 
-    private IReadOnlyList<string> BuildLongCurrentElementAddresses(SlmpDeviceAddress start, int count)
+    private IReadOnlyList<string> BuildDWordElementAddresses(SlmpDeviceAddress start, int count)
     {
         var addresses = new string[checked(count * 2)];
         for (var index = 0; index < count; index++)
@@ -288,6 +309,36 @@ internal sealed class SlmpSession : PlcSessionBase
         return values.ToArray();
     }
 
+    private async Task<bool[]> ReadLongTimerBitsAsync(
+        SlmpDeviceAddress start,
+        int count,
+        IDictionary<string, string> comments,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return start.Code switch
+            {
+                SlmpDeviceCode.LTS => await _client!.ReadLtsStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
+                SlmpDeviceCode.LTC => await _client!.ReadLtcStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
+                SlmpDeviceCode.LSTS => await _client!.ReadLstsStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
+                SlmpDeviceCode.LSTC => await _client!.ReadLstcStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
+                SlmpDeviceCode.LCS or SlmpDeviceCode.LCC => await ReadBitsChunkedInternalAsync(FormatAddress(start), count, cancellationToken).ConfigureAwait(false),
+                _ => throw new NotSupportedException($"Unsupported long state bit device: {start.Code}"),
+            };
+        }
+        catch (SlmpError exception) when (IsUnsupportedLongTimerBitRead(exception))
+        {
+            var message = $"{start.Code} は現在の PLC/SLMP 経路で bit 読取りできません。end_code=0x{exception.EndCode:X4}";
+            AddReadUnavailableComments(start, count, message, comments);
+            EmitReadWarningOnce(
+                $"long-timer-bit:{start.Code}:0x{exception.EndCode:X4}:0x{exception.Command:X4}:0x{exception.Subcommand:X4}",
+                message,
+                FormatSlmpErrorDetails(exception));
+            return new bool[count];
+        }
+    }
+
     private async Task<ushort[]> ReadLongCurrentValuesAsync(SlmpDeviceAddress start, int count, CancellationToken cancellationToken)
     {
         var values = start.Code switch
@@ -298,21 +349,41 @@ internal sealed class SlmpSession : PlcSessionBase
             SlmpDeviceCode.LSTN => (await _client!.ReadLongRetentiveTimerAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false))
                 .Select(timer => timer.CurrentValue)
                 .ToArray(),
-            SlmpDeviceCode.LCN => await ReadLongCounterCurrentValuesAsync(start, count, cancellationToken).ConfigureAwait(false),
+            SlmpDeviceCode.LCN => await ReadRandomDWordValuesAsync(start, count, cancellationToken).ConfigureAwait(false),
             _ => throw new NotSupportedException($"Unsupported long current value device: {start.Code}"),
         };
 
         return PackDWordValues(values);
     }
 
-    private async Task<uint[]> ReadLongCounterCurrentValuesAsync(SlmpDeviceAddress start, int count, CancellationToken cancellationToken)
+    private async Task<ushort[]> ReadDWordAddressedValuesAsync(SlmpDeviceAddress start, int count, CancellationToken cancellationToken)
+    {
+        var values = start.Code switch
+        {
+            SlmpDeviceCode.LZ => await ReadRandomDWordValuesAsync(start, count, cancellationToken).ConfigureAwait(false),
+            _ => throw new NotSupportedException($"Unsupported DWord-addressed device: {start.Code}"),
+        };
+
+        return PackDWordValues(values);
+    }
+
+    private async Task<uint[]> ReadRandomDWordValuesAsync(SlmpDeviceAddress start, int count, CancellationToken cancellationToken)
     {
         var values = new uint[count];
-        for (var index = 0; index < count; index++)
+        var offset = 0;
+        while (offset < count)
         {
-            var address = start with { Number = checked(start.Number + (uint)index) };
-            var words = await _client!.ReadWordsRawAsync(address, 4, cancellationToken).ConfigureAwait(false);
-            values[index] = words[0] | ((uint)words[1] << 16);
+            var chunkCount = Math.Min(64, count - offset);
+            var devices = Enumerable.Range(0, chunkCount)
+                .Select(index => start with { Number = checked(start.Number + (uint)(offset + index)) })
+                .ToArray();
+            var (_, dwords) = await _client!.ReadRandomAsync([], devices, cancellationToken).ConfigureAwait(false);
+            for (var index = 0; index < dwords.Length; index++)
+            {
+                values[offset + index] = dwords[index];
+            }
+
+            offset += chunkCount;
         }
 
         return values;
@@ -354,6 +425,16 @@ internal sealed class SlmpSession : PlcSessionBase
             ValueDataType.UInt16 => _client!.WriteTypedAsync(address, "D", Convert.ToUInt16(request.Value, CultureInfo.InvariantCulture), cancellationToken),
             ValueDataType.UInt32 => _client!.WriteTypedAsync(address, "D", Convert.ToUInt32(request.Value, CultureInfo.InvariantCulture), cancellationToken),
             _ => throw new NotSupportedException($"{address.Code} は 32-bit 現在値デバイスです。UInt32 または Int32 で書き込んでください。"),
+        };
+    }
+
+    private Task WriteDWordAddressedValueAsync(SlmpDeviceAddress address, WriteRequest request, CancellationToken cancellationToken)
+    {
+        return request.DataType switch
+        {
+            ValueDataType.Int32 => _client!.WriteTypedAsync(address, "L", Convert.ToInt32(request.Value, CultureInfo.InvariantCulture), cancellationToken),
+            ValueDataType.UInt32 => _client!.WriteTypedAsync(address, "D", Convert.ToUInt32(request.Value, CultureInfo.InvariantCulture), cancellationToken),
+            _ => throw new NotSupportedException($"{address.Code} は 32-bit デバイスです。UInt32 または Int32 で書き込んでください。"),
         };
     }
 
@@ -411,7 +492,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private static int GetWritePointCount(SlmpDeviceAddress address, WriteRequest request)
     {
-        if (IsLongCurrentValueDevice(address.Code) || request.DataType == ValueDataType.Bit)
+        if (IsLongCurrentValueDevice(address.Code) || IsDWordAddressedDevice(address.Code) || request.DataType == ValueDataType.Bit)
             return 1;
 
         return request.DataType is ValueDataType.Int32 or ValueDataType.UInt32 or ValueDataType.Float32
@@ -421,6 +502,27 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private string FormatAddress(SlmpDeviceAddress address) =>
         SlmpAddress.Format(address, _plcFamily);
+
+    private void AddReadUnavailableComments(
+        SlmpDeviceAddress start,
+        int count,
+        string message,
+        IDictionary<string, string> comments)
+    {
+        for (var index = 0; index < count; index++)
+        {
+            var address = SlmpAddress.Format(start with { Number = checked(start.Number + (uint)index) }, _plcFamily);
+            comments[address] = message;
+        }
+    }
+
+    private void EmitReadWarningOnce(string key, string message, string details)
+    {
+        if (_reportedReadWarnings.Add(key))
+        {
+            EmitError(new ErrorEntry(DateTimeOffset.UtcNow, "Read", message, details));
+        }
+    }
 
     private static DeviceRangeCatalog MapDeviceRangeCatalog(SlmpDeviceRangeCatalog catalog) =>
         new(
@@ -443,6 +545,17 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private static bool IsLongCurrentValueDevice(SlmpDeviceCode code) =>
         code is SlmpDeviceCode.LTN or SlmpDeviceCode.LSTN or SlmpDeviceCode.LCN;
+
+    private static bool IsDWordAddressedDevice(SlmpDeviceCode code) =>
+        code is SlmpDeviceCode.LZ;
+
+    private static bool IsLongTimerBitDevice(SlmpDeviceCode code) =>
+        code is SlmpDeviceCode.LTS or SlmpDeviceCode.LTC or SlmpDeviceCode.LSTS or SlmpDeviceCode.LSTC or SlmpDeviceCode.LCS or SlmpDeviceCode.LCC;
+
+    private static bool IsUnsupportedLongTimerBitRead(SlmpError exception) =>
+        exception.Command == SlmpCommand.DeviceRead
+        && exception.Subcommand == 0x0003
+        && exception.EndCode is 0x4030 or 0x4032;
 
     private static string FormatSlmpErrorDetails(Exception exception)
     {

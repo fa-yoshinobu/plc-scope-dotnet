@@ -1,125 +1,86 @@
-# plc-scope-dotnet
+# PLC Scope
 
-[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/9.0)
+Windows 向けの PLC I/O モニターです。PLC のデバイス値を周期読込みしながら、画面上で確認・書込みできます。
 
-PLC Scope is a Windows desktop PLC I/O monitor built with .NET WPF.
-
-## Version
-
-- `0.1.0`
-
-## License
-
-MIT License. See [LICENSE](LICENSE).
-
-## Overview
-
-Windows 向けの PLC I/O モニターです。  
-`.NET 9` / `WPF` で実装しており、PLC のデバイス値を周期読込みしながら、画面上で確認・書込みできます。
-
-## Supported Protocols
+## 対応プロトコル
 
 - Mitsubishi MELSEC `SLMP`
 - KEYENCE KV `Host Link`
 - JTEKT TOYOPUC `Computer Link`
 
-## Main Features
+## 基本的な使い方
 
-- 日本語 UI
+1. `接続設定` で PLC のプロトコル、IP アドレス、ポートなどを設定します。
+2. `接続` を押して PLC に接続します。
+3. 監視したいデバイスと先頭アドレスを指定します。
+4. 表示形式と表示基数を選びます。
+5. 一覧に表示された値を確認します。
+6. 書込みが必要な場合は、値セルに入力して `Enter` で書き込みます。
+
+先頭アドレスは `d0` のように小文字で入力しても `D0` に正規化されます。接続後にデバイス範囲を取得できた場合、範囲外のアドレスは有効範囲内へ移動します。
+
+## 監視
+
+画面に見えている行だけを周期読込みします。スクロール中は通信を一時停止し、スクロール停止後に再開します。
+
+デバイス範囲が取得できている場合、範囲外にはスクロールできません。0 点のデバイスは監視行を表示しません。
+
+## 書込み
+
+一覧の値セルに直接入力して書き込みます。
+
+- `Enter`: 入力値を書込み
+- `Esc`: 入力を取り消し
+- 入力中は周期読込みを一時停止
+
+`LTN` / `LSTN` / `LCN` は 32 bit 現在値、`LZ` は 32 bit デバイスとして扱います。bit 表示はできますが読取り専用です。
+`LTS` / `LTC` は bit デバイスとして扱い、書込みは SLMP random bit write (`0x1402`) 経路を使用します。通常の direct bit write (`0x1401`) はライブラリ側で送信前に拒否します。
+
+## CPU 操作
+
+CPU メニューから `CPU RUN` / `CPU STOP` を実行できます。対応していないプロトコルでは無効になります。
+
+SLMP 接続時は CPU メニューの `デバイス範囲` で、現在の PLC 設定に基づくデバイス範囲を確認できます。
+
+## ログ
+
+ツールメニューから `通信ログ` と `エラー履歴` を開けます。
+
+各画面では以下を実行できます。
+
+- `選択コピー`
+- `全コピー`
+- `履歴削除`
+
+ログファイルは EXE と同じフォルダに保存します。
+
+- `trace.log.jsonl`: 通信ログ
+- `error.log.jsonl`: エラー履歴
+
+どちらも最新 500 件だけを保持します。書込み権限がない場合は保存しません。
+
+## プロジェクト
+
+ファイルメニューからプロジェクトを JSON 形式で保存 / 読込みできます。接続設定、監視デバイス、表示形式などを保存します。
+
+## 表示設定
+
 - ライト / ダークテーマ切替
 - 文字サイズ切替
-- JSON 形式のプロジェクト保存 / 読込み
-- CPU 状態表示
-- CPU RUN / STOP 操作
-- デバイス範囲表示
-- 通信ログ / エラー履歴表示、コピー、履歴削除
-- 画面に見えている行だけを周期読込み
-- 先頭アドレスの大文字正規化と範囲内移動
-- デバイス範囲内に制限したスクロール
-- `LTN` / `LSTN` / `LCN` の 32 bit 現在値表示
+- 表示基数切替
 
-## Documentation
+設定ファイルは `%LOCALAPPDATA%\PlcScope\settings.json` に保存します。
 
-細かい仕様は [docs/specification.md](docs/specification.md) を参照してください。
+## 詳細ドキュメント
 
-残件は [TODO.md](TODO.md) に記録しています。
+- 仕様: [docs/specification.md](docs/specification.md)
+- 開発・ビルド手順: [docs/development.md](docs/development.md)
+- 残件: [TODO.md](TODO.md)
 
-## Project Layout
+## バージョン
 
-- `src/PlcScope.App`
-  WPF アプリ本体
-- `src/PlcScope.Core`
-  モデル、表示変換、アドレス範囲、ブロックデータ構築
-- `src/PlcScope.Infrastructure`
-  PLC 通信アダプタ、JSON 保存、ログ保存
-- `tests/PlcScope.Core.Tests`
-  Core の単体テスト
+- `0.1.0`
 
-## Libraries
+## ライセンス
 
-- `PlcComm.Slmp` `0.1.5`
-- `PlcComm.KvHostLink` `0.1.3`
-- `PlcComm.Toyopuc` `0.1.3`
-- `CommunityToolkit.Mvvm` `8.4.0`
-
-パッケージの集中管理は [Directory.Packages.props](Directory.Packages.props) で行っています。
-
-## Requirements
-
-- Windows
-- .NET 9 SDK
-
-WPF アプリのため、macOS / Linux では `PlcScope.App` をビルドできません。
-
-## Build
-
-```powershell
-dotnet restore .\src\PlcScope.App\PlcScope.App.csproj
-dotnet build .\src\PlcScope.App\PlcScope.App.csproj -c Release
-```
-
-ソリューション全体を Visual Studio で開く場合は [PlcScopeDotNet.sln](PlcScopeDotNet.sln) を使用します。
-
-## Publish Single EXE
-
-`build.bat` で `win-x64` の自己完結型 single-file EXE を作成できます。
-
-```cmd
-build.bat
-```
-
-または構成を指定します。
-
-```cmd
-build.bat Release
-```
-
-出力先:
-
-```text
-src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.App.exe
-```
-
-ビルドログ:
-
-```text
-build.log
-```
-
-手動で発行する場合は、先に Runtime Identifier 付きで restore してください。これを行わないと `NETSDK1047` が出る場合があります。
-
-```powershell
-dotnet restore .\src\PlcScope.App\PlcScope.App.csproj -r win-x64
-dotnet publish .\src\PlcScope.App\PlcScope.App.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false
-```
-
-## Test
-
-```powershell
-dotnet test .\tests\PlcScope.Core.Tests\PlcScope.Core.Tests.csproj
-```
-
-## Current Limitations
-
-- `TOYOPUC` は現状 CPU RUN / STOP 未対応で、CPU 状態表示のみです。
-- 実 PLC との最終動作確認は Windows 環境で実施してください。
+MIT License。詳細は [LICENSE](LICENSE) を参照してください。

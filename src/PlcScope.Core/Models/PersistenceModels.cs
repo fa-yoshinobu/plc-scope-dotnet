@@ -15,7 +15,7 @@ public sealed record ProjectFile
         Protocol = ProtocolKind.Slmp,
         DeviceFamilyCode = "D",
         DeviceKind = DeviceKind.Word,
-        StartAddress = "D100",
+        StartAddress = "D0",
         ItemCount = 16,
         DisplayMode = BlockDisplayMode.Word,
     };

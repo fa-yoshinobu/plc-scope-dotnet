@@ -107,6 +107,7 @@ internal abstract class PlcSessionBase : IPlcSession
 
     protected void DisposeSynchronization()
     {
-        _gate.Dispose();
+        // A UI-initiated disconnect can race with an already-started periodic read.
+        // Keeping the gate alive avoids ObjectDisposedException from a late Release().
     }
 }

@@ -47,12 +47,15 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     public override async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        if (_client is null)
-            return;
+        await ExecuteSerializedAsync(async () =>
+        {
+            if (_client is null)
+                return;
 
-        await _client.DisposeAsync().ConfigureAwait(false);
-        _client = null;
-        IsConnected = false;
+            await _client.DisposeAsync().ConfigureAwait(false);
+            _client = null;
+            IsConnected = false;
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)

@@ -7,7 +7,7 @@ public sealed record BlockQuery
     public ProtocolKind Protocol { get; init; } = ProtocolKind.Slmp;
     public string DeviceFamilyCode { get; init; } = "D";
     public DeviceKind DeviceKind { get; init; } = DeviceKind.Word;
-    public string StartAddress { get; init; } = "D100";
+    public string StartAddress { get; init; } = "D0";
     public int ItemCount { get; init; } = 16;
     public BlockDisplayMode DisplayMode { get; init; } = BlockDisplayMode.Word;
     public BitDisplayMode BitDisplayMode { get; init; } = BitDisplayMode.Packed16;

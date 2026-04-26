@@ -497,7 +497,7 @@
           </StackPanel>
           <StackPanel Grid.Column="1" Style="{StaticResource FieldGroupStyle}">
             <TextBlock Text="先頭アドレス" Style="{StaticResource FieldLabelTextStyle}" />
-            <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" ToolTip="例: D100、M0。デバイス記号つきで入力します。" />
+            <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" ToolTip="例: D0、M0。デバイス記号つきで入力します。" />
           </StackPanel>
           <StackPanel Grid.Column="2" Style="{StaticResource FieldGroupStyle}">
             <TextBlock Text="表示形式" Style="{StaticResource FieldLabelTextStyle}" />
