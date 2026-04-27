@@ -46,6 +46,26 @@ public sealed class DeviceAddressRangeProviderTests
         Assert.Equal(expectedCount, count);
     }
 
+    [Theory]
+    [InlineData("D", "D0", 65535)]
+    [InlineData("E", "E0", 65535)]
+    [InlineData("F", "F0", 32768)]
+    [InlineData("M", "M0", 64000)]
+    [InlineData("L", "L0", 16000)]
+    [InlineData("X", "X0", 32000)]
+    [InlineData("Y", "Y0", 32000)]
+    public void GetAvailablePointCount_HostLinkXymFallbackUsesDeviceRange(
+        string familyCode,
+        string startAddress,
+        int expectedCount)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.HostLink).FindFamily(familyCode)!;
+
+        var count = DeviceAddressRangeProvider.GetAvailablePointCount(ProtocolKind.HostLink, family, startAddress);
+
+        Assert.Equal(expectedCount, count);
+    }
+
     [Fact]
     public void TryParseAddress_UsesFamilyCodeBeforeHexParsing()
     {
@@ -55,6 +75,60 @@ public sealed class DeviceAddressRangeProviderTests
 
         Assert.True(parsed);
         Assert.Equal("SB11", address.FormatOffset(1));
+    }
+
+    [Theory]
+    [InlineData("B", "B0", 16, "B10")]
+    [InlineData("B", "B90", 16, "BA0")]
+    [InlineData("W", "W000F", 1, "W0010")]
+    [InlineData("VB", "VB00FF", 1, "VB0100")]
+    public void TryParseAddress_HostLinkHexFamiliesUseHexAddressing(
+        string familyCode,
+        string input,
+        int offset,
+        string expected)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.HostLink).FindFamily(familyCode)!;
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out var address);
+
+        Assert.True(parsed);
+        Assert.Equal(expected, address.FormatOffset(offset));
+    }
+
+    [Theory]
+    [InlineData("X30", "X3F", "X40")]
+    [InlineData("X390", "X39F", "X400")]
+    [InlineData("X400", "X40F", "X410")]
+    [InlineData("Y19990", "Y1999F", "Y20000")]
+    public void TryParseAddress_KeyenceXymBitFormatsDisplayAddress(
+        string input,
+        string expectedPlus15,
+        string expectedPlus16)
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.HostLink);
+        var familyCode = input[0].ToString();
+        var family = protocol.FindFamily(familyCode)!;
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out var address);
+
+        Assert.True(parsed);
+        Assert.Equal(input, address.FormatOffset(0));
+        Assert.Equal(expectedPlus15, address.FormatOffset(15));
+        Assert.Equal(expectedPlus16, address.FormatOffset(16));
+    }
+
+    [Theory]
+    [InlineData("X3F0", "X")]
+    [InlineData("X3FF", "X")]
+    [InlineData("Y19A0", "Y")]
+    public void TryParseAddress_KeyenceXymBitRejectsHexBankDigits(string input, string familyCode)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.HostLink).FindFamily(familyCode)!;
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out _);
+
+        Assert.False(parsed);
     }
 
     [Fact]

@@ -45,6 +45,7 @@ public partial class MainWindowViewModel : ObservableObject
     private BlockSnapshot? _lastSnapshot;
     private readonly MonitorRowCollection _rows = new();
     private bool _refreshInFlight;
+    private bool _isApplyingDeviceRangeCatalogNotation;
     private bool _settingsPersistenceEnabled;
     private bool _isScrollReadPaused;
     private bool _isInlineEditing;
@@ -128,6 +129,7 @@ public partial class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand CpuStopCommand { get; }
 
     public Func<string, Task<string?>>? RequestPasswordAsync { get; set; }
+    public Func<CpuCommand, Task<bool>>? RequestCpuCommandConfirmationAsync { get; set; }
     public Action<int>? RequestMonitorScrollToRowIndex { get; set; }
 
     [ObservableProperty]
@@ -355,6 +357,7 @@ public partial class MainWindowViewModel : ObservableObject
             throw new InvalidOperationException("PLC に接続してからデバイス範囲を表示してください。");
 
         _deviceRangeCatalog = await _session.ReadDeviceRangeCatalogAsync().ConfigureAwait(true);
+        ApplyDeviceRangeCatalogNotationToDeviceFamilies();
         _rowLayoutKey = string.Empty;
         EnsureRowsForCurrentLayout();
         return _deviceRangeCatalog;
@@ -569,6 +572,14 @@ public partial class MainWindowViewModel : ObservableObject
         if (!SelectedProtocol.Capabilities.SupportsCpuControl)
         {
             ErrorText = "このプロトコルでは CPU 制御は未対応です。";
+            return;
+        }
+
+        if (RequestCpuCommandConfirmationAsync is not null
+            && !await RequestCpuCommandConfirmationAsync(command).ConfigureAwait(true))
+        {
+            var commandText = command == CpuCommand.Run ? "RUN" : "STOP";
+            StatusText = $"CPU {commandText} をキャンセルしました。";
             return;
         }
 
@@ -814,6 +825,7 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             _deviceRangeCatalog = await _session.ReadDeviceRangeCatalogAsync().ConfigureAwait(true);
+            ApplyDeviceRangeCatalogNotationToDeviceFamilies();
             _rowLayoutKey = string.Empty;
         }
         catch (NotSupportedException)
@@ -1381,7 +1393,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RefreshAvailableDeviceFamilies(ProtocolDefinition protocol, DeviceFamilyDefinition? preferredFamily = null)
     {
-        var families = ProtocolCatalog.GetDeviceFamilies(protocol, ConnectionSettings.KeyenceDeviceMode);
+        var families = ProtocolCatalog.GetDeviceFamilies(protocol, ConnectionSettings.KeyenceDeviceMode)
+            .Select(family => ProtocolCatalog.ApplyDeviceRangeNotation(family, _deviceRangeCatalog))
+            .ToArray();
         AvailableDeviceFamilies.Clear();
         foreach (var family in families)
         {
@@ -1389,6 +1403,39 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         SelectedDeviceFamily = ResolveSelectableDeviceFamily(protocol, families, preferredFamily, ConnectionSettings.KeyenceDeviceMode);
+    }
+
+    private void ApplyDeviceRangeCatalogNotationToDeviceFamilies()
+    {
+        if (_deviceRangeCatalog is null || AvailableDeviceFamilies.Count == 0)
+            return;
+
+        var selectedFamilyCode = SelectedDeviceFamily.Code;
+        DeviceFamilyDefinition? selectedFamily = null;
+
+        for (var index = 0; index < AvailableDeviceFamilies.Count; index++)
+        {
+            var current = AvailableDeviceFamilies[index];
+            var adjusted = ProtocolCatalog.ApplyDeviceRangeNotation(current, _deviceRangeCatalog);
+            if (adjusted != current)
+                AvailableDeviceFamilies[index] = adjusted;
+
+            if (string.Equals(adjusted.Code, selectedFamilyCode, StringComparison.OrdinalIgnoreCase))
+                selectedFamily = adjusted;
+        }
+
+        if (selectedFamily is null || selectedFamily == SelectedDeviceFamily)
+            return;
+
+        _isApplyingDeviceRangeCatalogNotation = true;
+        try
+        {
+            SelectedDeviceFamily = selectedFamily;
+        }
+        finally
+        {
+            _isApplyingDeviceRangeCatalogNotation = false;
+        }
     }
 
     private static DeviceFamilyDefinition ResolveSelectableDeviceFamily(
@@ -1459,6 +1506,14 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnSelectedDeviceFamilyChanged(DeviceFamilyDefinition value)
     {
         RefreshDisplayModes();
+        if (_isApplyingDeviceRangeCatalogNotation)
+        {
+            _lastSnapshot = null;
+            _rowLayoutKey = string.Empty;
+            EnsureRowsForCurrentLayout();
+            return;
+        }
+
         StartAddress = DeviceAddressRangeProvider.TryRebaseAddress(StartAddress, SelectedProtocol, value, out var rebasedAddress)
             ? rebasedAddress
             : DeviceAddressRangeProvider.GetDefaultAddress(value);

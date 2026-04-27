@@ -1,13 +1,23 @@
 namespace PlcScope.Infrastructure.Protocols;
 
+using System.Globalization;
 using PlcComm.KvHostLink;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
 
 internal sealed class HostLinkSession : PlcSessionBase
 {
+    private const int MaxMonitorWordRegistrations = 120;
+    private const int MaxMonitorBitRegistrations = 120;
+
     private KvHostLinkClient? _client;
     private DeviceRangeCatalog? _deviceRangeCatalog;
+    private string? _monitorWordRegistrationKey;
+    private string? _monitorBitRegistrationKey;
+    private readonly HashSet<string> _monitorWordUnsupportedDeviceTypes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _monitorBitUnsupportedDeviceTypes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _optimizedNamedReadUnsupportedDeviceTypes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _legacyConsecutiveReadUnsupportedDeviceTypes = new(StringComparer.OrdinalIgnoreCase);
 
     public HostLinkSession(ConnectionSettings settings)
         : base(settings, ProtocolCatalog.Get(ProtocolKind.HostLink))
@@ -49,6 +59,12 @@ internal sealed class HostLinkSession : PlcSessionBase
             await _client.DisposeAsync().ConfigureAwait(false);
             _client = null;
             _deviceRangeCatalog = null;
+            _monitorWordRegistrationKey = null;
+            _monitorBitRegistrationKey = null;
+            _monitorWordUnsupportedDeviceTypes.Clear();
+            _monitorBitUnsupportedDeviceTypes.Clear();
+            _optimizedNamedReadUnsupportedDeviceTypes.Clear();
+            _legacyConsecutiveReadUnsupportedDeviceTypes.Clear();
             ClearCpuStateCache();
             IsConnected = false;
         }, cancellationToken).ConfigureAwait(false);
@@ -85,8 +101,11 @@ internal sealed class HostLinkSession : PlcSessionBase
             else
             {
                 elementAddresses = BuildWordAddresses(normalizedStart, query.EffectiveItemCount);
-                var snapshot = await _client!.ReadNamedAsync(elementAddresses, cancellationToken).ConfigureAwait(false);
-                bits = elementAddresses.Select(address => ToBoolean(snapshot[address])).ToArray();
+                bits = await ReadBitDevicesAsync(
+                    normalizedStart,
+                    query.EffectiveItemCount,
+                    elementAddresses,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             CpuState? cpuState = null;
@@ -156,9 +175,12 @@ internal sealed class HostLinkSession : PlcSessionBase
         if (_deviceRangeCatalog is not null)
             return _deviceRangeCatalog;
 
-        var catalog = await ExecuteSerializedAsync(
-            () => _client!.ReadDeviceRangeCatalogAsync(cancellationToken),
-            cancellationToken).ConfigureAwait(false);
+        var catalog = await ExecuteSerializedAsync(async () =>
+        {
+            var model = await _client!.QueryModelAsync(cancellationToken).ConfigureAwait(false);
+            var catalogModel = ResolveDeviceRangeCatalogModel(model.Model);
+            return KvHostLinkDeviceRanges.DeviceRangeCatalogForModel(catalogModel, model.Code);
+        }, cancellationToken).ConfigureAwait(false);
 
         _deviceRangeCatalog = MapDeviceRangeCatalog(catalog);
         return _deviceRangeCatalog;
@@ -193,6 +215,287 @@ internal sealed class HostLinkSession : PlcSessionBase
         return addresses;
     }
 
+    private async Task<bool[]> ReadBitDevicesAsync(
+        string normalizedStart,
+        int bitCount,
+        IReadOnlyList<string> elementAddresses,
+        CancellationToken cancellationToken)
+    {
+        if (CanUseMonitorWordBlockRead(normalizedStart))
+        {
+            try
+            {
+                return await ReadBitDevicesAsMonitorWordsAsync(normalizedStart, bitCount, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception exception) when (IsBlockReadUnavailable(exception))
+            {
+                DisableMonitorWordBlockRead(normalizedStart);
+            }
+        }
+
+        if (CanUseMonitorBitBlockRead(normalizedStart))
+        {
+            try
+            {
+                return await ReadBitDevicesAsMonitorBitsAsync(elementAddresses, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception exception) when (IsBlockReadUnavailable(exception))
+            {
+                DisableMonitorBitBlockRead(normalizedStart);
+            }
+        }
+
+        if (CanUseOptimizedNamedRead(normalizedStart))
+        {
+            try
+            {
+                var snapshot = await _client!.ReadNamedAsync(elementAddresses, cancellationToken).ConfigureAwait(false);
+                return elementAddresses.Select(address => ToBoolean(snapshot[address])).ToArray();
+            }
+            catch (Exception exception) when (IsBlockReadUnavailable(exception))
+            {
+                DisableOptimizedNamedRead(normalizedStart);
+            }
+        }
+
+        if (CanUseLegacyConsecutiveRead(normalizedStart))
+        {
+            try
+            {
+                return await ReadBitDevicesWithLegacyConsecutiveReadAsync(normalizedStart, bitCount, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception exception) when (IsBlockReadUnavailable(exception))
+            {
+                DisableLegacyConsecutiveRead(normalizedStart);
+            }
+        }
+
+        return await ReadBitDevicesSequentiallyAsync(elementAddresses, cancellationToken).ConfigureAwait(false);
+    }
+
+    private bool CanUseMonitorWordBlockRead(string normalizedStart)
+    {
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        if (_monitorWordUnsupportedDeviceTypes.Contains(start.DeviceType))
+            return false;
+
+        return ToLogicalHostLinkNumber(start) % 16 == 0;
+    }
+
+    private bool CanUseMonitorBitBlockRead(string normalizedStart)
+    {
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        return !_monitorBitUnsupportedDeviceTypes.Contains(start.DeviceType);
+    }
+
+    private bool CanUseOptimizedNamedRead(string normalizedStart)
+    {
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        return !_optimizedNamedReadUnsupportedDeviceTypes.Contains(start.DeviceType);
+    }
+
+    private bool CanUseLegacyConsecutiveRead(string normalizedStart)
+    {
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        return !_legacyConsecutiveReadUnsupportedDeviceTypes.Contains(start.DeviceType);
+    }
+
+    private async Task<bool[]> ReadBitDevicesAsMonitorWordsAsync(
+        string normalizedStart,
+        int bitCount,
+        CancellationToken cancellationToken)
+    {
+        var wordAddresses = BuildMonitorWordAddresses(normalizedStart, bitCount);
+        var words = new List<ushort>(wordAddresses.Count);
+
+        for (var offset = 0; offset < wordAddresses.Count; offset += MaxMonitorWordRegistrations)
+        {
+            var chunk = wordAddresses
+                .Skip(offset)
+                .Take(MaxMonitorWordRegistrations)
+                .Select(AddUnsignedWordSuffix)
+                .ToArray();
+            var tokens = await ReadMonitorWordChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
+            words.AddRange(ParseMonitorWordTokens(tokens, chunk.Length));
+        }
+
+        return ExpandMonitorWordBits(words, bitCount);
+    }
+
+    private async Task<string[]> ReadMonitorWordChunkAsync(
+        IReadOnlyList<string> wordAddresses,
+        CancellationToken cancellationToken)
+    {
+        var registrationKey = string.Join("|", wordAddresses);
+        if (!string.Equals(_monitorWordRegistrationKey, registrationKey, StringComparison.Ordinal))
+        {
+            await _client!.RegisterMonitorWordsAsync(wordAddresses, cancellationToken).ConfigureAwait(false);
+            _monitorWordRegistrationKey = registrationKey;
+        }
+
+        return await _client!.ReadMonitorWordsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool[]> ReadBitDevicesAsMonitorBitsAsync(
+        IReadOnlyList<string> elementAddresses,
+        CancellationToken cancellationToken)
+    {
+        var bits = new List<bool>(elementAddresses.Count);
+        for (var offset = 0; offset < elementAddresses.Count; offset += MaxMonitorBitRegistrations)
+        {
+            var chunk = elementAddresses
+                .Skip(offset)
+                .Take(MaxMonitorBitRegistrations)
+                .ToArray();
+            var tokens = await ReadMonitorBitChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
+            bits.AddRange(ParseMonitorBitTokens(tokens, chunk.Length));
+        }
+
+        return [.. bits];
+    }
+
+    private async Task<string[]> ReadMonitorBitChunkAsync(
+        IReadOnlyList<string> bitAddresses,
+        CancellationToken cancellationToken)
+    {
+        var registrationKey = string.Join("|", bitAddresses);
+        if (!string.Equals(_monitorBitRegistrationKey, registrationKey, StringComparison.Ordinal))
+        {
+            await _client!.RegisterMonitorBitsAsync(bitAddresses, cancellationToken).ConfigureAwait(false);
+            _monitorBitRegistrationKey = registrationKey;
+        }
+
+        return await _client!.ReadMonitorBitsAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool[]> ReadBitDevicesSequentiallyAsync(
+        IReadOnlyList<string> elementAddresses,
+        CancellationToken cancellationToken)
+    {
+        var bits = new bool[elementAddresses.Count];
+        for (var index = 0; index < elementAddresses.Count; index++)
+        {
+            var tokens = await _client!.ReadAsync(elementAddresses[index], dataFormat: null, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            bits[index] = ToBoolean(tokens.FirstOrDefault() ?? "0");
+        }
+
+        return bits;
+    }
+
+    private async Task<bool[]> ReadBitDevicesWithLegacyConsecutiveReadAsync(
+        string normalizedStart,
+        int bitCount,
+        CancellationToken cancellationToken)
+    {
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false) with { Suffix = string.Empty };
+        var bits = new List<bool>(bitCount);
+        for (var offset = 0; offset < bitCount;)
+        {
+            var chunkCount = Math.Min(1000, bitCount - offset);
+            var chunkStart = FormatHostLinkAddress(OffsetHostLinkAddress(start, offset));
+            var tokens = await _client!.ReadConsecutiveLegacyAsync(
+                    chunkStart,
+                    chunkCount,
+                    dataFormat: null,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            bits.AddRange(ParseMonitorBitTokens(tokens, chunkCount));
+            offset += chunkCount;
+        }
+
+        return [.. bits];
+    }
+
+    private void DisableMonitorWordBlockRead(string normalizedStart)
+    {
+        _monitorWordRegistrationKey = null;
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        _monitorWordUnsupportedDeviceTypes.Add(start.DeviceType);
+    }
+
+    private void DisableMonitorBitBlockRead(string normalizedStart)
+    {
+        _monitorBitRegistrationKey = null;
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        _monitorBitUnsupportedDeviceTypes.Add(start.DeviceType);
+    }
+
+    private void DisableOptimizedNamedRead(string normalizedStart)
+    {
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        _optimizedNamedReadUnsupportedDeviceTypes.Add(start.DeviceType);
+    }
+
+    private void DisableLegacyConsecutiveRead(string normalizedStart)
+    {
+        var start = KvHostLinkDevice.ParseDevice(normalizedStart, allowOmittedType: false);
+        _legacyConsecutiveReadUnsupportedDeviceTypes.Add(start.DeviceType);
+    }
+
+    private static bool IsBlockReadUnavailable(Exception exception) =>
+        exception is HostLinkProtocolError or FormatException or OverflowException
+        || exception is HostLinkError { Code: not null };
+
+    private static IReadOnlyList<string> BuildMonitorWordAddresses(string startAddress, int bitCount)
+    {
+        var wordCount = checked((bitCount + 15) / 16);
+        var start = KvHostLinkDevice.ParseDevice(startAddress, allowOmittedType: false) with { Suffix = string.Empty };
+        var addresses = new string[wordCount];
+        for (var index = 0; index < wordCount; index++)
+        {
+            addresses[index] = FormatHostLinkAddress(OffsetHostLinkAddress(start, index * 16));
+        }
+
+        return addresses;
+    }
+
+    private static string AddUnsignedWordSuffix(string address) => $"{address}.U";
+
+    private static IReadOnlyList<ushort> ParseMonitorWordTokens(string[] tokens, int expectedCount)
+    {
+        if (tokens.Length < expectedCount)
+            throw new HostLinkProtocolError("Monitor word response was shorter than the registered word list.");
+
+        var words = new ushort[expectedCount];
+        for (var index = 0; index < expectedCount; index++)
+        {
+            words[index] = ushort.Parse(tokens[index], NumberStyles.Integer, CultureInfo.InvariantCulture);
+        }
+
+        return words;
+    }
+
+    private static IReadOnlyList<bool> ParseMonitorBitTokens(string[] tokens, int expectedCount)
+    {
+        if (tokens.Length < expectedCount)
+            throw new HostLinkProtocolError("Monitor bit response was shorter than the registered bit list.");
+
+        var bits = new bool[expectedCount];
+        for (var index = 0; index < expectedCount; index++)
+        {
+            bits[index] = ToBoolean(tokens[index]);
+        }
+
+        return bits;
+    }
+
+    private static bool[] ExpandMonitorWordBits(IReadOnlyList<ushort> words, int bitCount)
+    {
+        var bits = new bool[bitCount];
+        for (var bitOffset = 0; bitOffset < bits.Length; bitOffset++)
+        {
+            var word = words[bitOffset / 16];
+            var bitIndex = bitOffset % 16;
+            bits[bitOffset] = ((word >> bitIndex) & 0x1) == 1;
+        }
+
+        return bits;
+    }
+
     private static KvDeviceAddress OffsetHostLinkAddress(KvDeviceAddress start, int offset)
     {
         if (!UsesKeyenceBitBankAddress(start.DeviceType))
@@ -212,11 +515,16 @@ internal sealed class HostLinkSession : PlcSessionBase
         ValidateKeyenceBitBankNumber(address.DeviceType, address.Number);
         var bank = address.Number / 100;
         var bit = address.Number % 100;
-        return $"{address.DeviceType}{bank.ToString(System.Globalization.CultureInfo.InvariantCulture)}{bit.ToString("D2", System.Globalization.CultureInfo.InvariantCulture)}{address.Suffix}";
+        return $"{address.DeviceType}{bank.ToString(CultureInfo.InvariantCulture)}{bit.ToString("D2", CultureInfo.InvariantCulture)}{address.Suffix}";
     }
 
     private static bool UsesKeyenceBitBankAddress(string deviceType) =>
         deviceType is "R" or "MR" or "LR" or "CR";
+
+    private static int ToLogicalHostLinkNumber(KvDeviceAddress address) =>
+        UsesKeyenceBitBankAddress(address.DeviceType)
+            ? checked((address.Number / 100 * 16) + (address.Number % 100))
+            : address.Number;
 
     private static void ValidateKeyenceBitBankNumber(string deviceType, int number)
     {
@@ -224,24 +532,88 @@ internal sealed class HostLinkSession : PlcSessionBase
             throw new ArgumentOutOfRangeException(nameof(number), number, $"{deviceType} の下2桁は 00..15 で指定してください。");
     }
 
+    private string ResolveDeviceRangeCatalogModel(string runtimeModel)
+    {
+        var model = string.Equals(runtimeModel, "Unknown", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(Settings.HostLinkPlcModelName)
+                ? Settings.HostLinkPlcModelName
+                : runtimeModel;
+
+        if (Settings.KeyenceDeviceMode != KeyenceDeviceMode.Xym
+            || model.EndsWith("(XYM)", StringComparison.OrdinalIgnoreCase))
+        {
+            return model;
+        }
+
+        return $"{model}(XYM)";
+    }
+
     private static DeviceRangeCatalog MapDeviceRangeCatalog(KvDeviceRangeCatalog catalog) =>
         new(
             catalog.Model,
             catalog.ResolvedModel,
             catalog.Entries
-                .Select(entry => new DeviceRangeEntry(
-                    entry.Device,
-                    entry.Category.ToString(),
-                    entry.IsBitDevice,
-                    entry.Supported,
-                    entry.LowerBound,
-                    entry.UpperBound,
-                    entry.PointCount,
-                    entry.AddressRange ?? string.Empty,
-                    entry.Notation.ToString(),
-                    entry.Source,
-                    entry.Notes ?? string.Empty))
+                .SelectMany(MapDeviceRangeEntries)
                 .ToArray());
+
+    private static IEnumerable<DeviceRangeEntry> MapDeviceRangeEntries(KvDeviceRangeEntry entry)
+    {
+        yield return new DeviceRangeEntry(
+            entry.Device,
+            entry.Category.ToString(),
+            entry.IsBitDevice,
+            entry.Supported,
+            entry.LowerBound,
+            entry.UpperBound,
+            entry.PointCount,
+            entry.AddressRange ?? string.Empty,
+            entry.Notation.ToString(),
+            entry.Source,
+            entry.Notes ?? string.Empty);
+
+        foreach (var segment in entry.Segments)
+        {
+            if (string.Equals(segment.Device, entry.Device, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var bounds = NormalizeMappedRangeBounds(segment.Device, segment.LowerBound, segment.UpperBound);
+            var pointCount = segment.Device is "X" or "Y" && bounds.UpperBound is { } upperBound
+                ? checked(upperBound - bounds.LowerBound + 1)
+                : segment.PointCount;
+            yield return new DeviceRangeEntry(
+                segment.Device,
+                segment.Category.ToString(),
+                segment.IsBitDevice,
+                entry.Supported,
+                bounds.LowerBound,
+                bounds.UpperBound,
+                pointCount,
+                segment.AddressRange,
+                segment.Notation.ToString(),
+                entry.Source,
+                entry.Notes ?? string.Empty);
+        }
+    }
+
+    private static (uint LowerBound, uint? UpperBound) NormalizeMappedRangeBounds(
+        string device,
+        uint lowerBound,
+        uint? upperBound)
+    {
+        if (device is not ("X" or "Y"))
+            return (lowerBound, upperBound);
+
+        return (ConvertXymCatalogBound(lowerBound), upperBound is null ? null : ConvertXymCatalogBound(upperBound.Value));
+    }
+
+    private static uint ConvertXymCatalogBound(uint encodedBound)
+    {
+        var text = encodedBound.ToString("X", CultureInfo.InvariantCulture);
+        var bankText = text.Length == 1 ? "0" : text[..^1];
+        var bank = uint.Parse(bankText, NumberStyles.None, CultureInfo.InvariantCulture);
+        var bit = uint.Parse(text[^1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        return checked(bank * 16 + bit);
+    }
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)
     {

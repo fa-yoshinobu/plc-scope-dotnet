@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using PlcScope.Core.Models;
 using PlcScope.App.ViewModels;
 using PlcScope.App.Windows;
 
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
         DataContext = viewModel;
 
         ViewModel.RequestPasswordAsync = RequestPasswordAsync;
+        ViewModel.RequestCpuCommandConfirmationAsync = RequestCpuCommandConfirmationAsync;
         ViewModel.RequestMonitorScrollToRowIndex = ScrollMonitorToRowIndex;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += MainWindow_Loaded;
@@ -286,6 +288,22 @@ public partial class MainWindow : Window
     private Task<bool> ConfirmWriteAsync(string message)
     {
         var result = MessageBox.Show(this, message, "確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        return Task.FromResult(result == MessageBoxResult.OK);
+    }
+
+    private Task<bool> RequestCpuCommandConfirmationAsync(CpuCommand command)
+    {
+        var commandText = command == CpuCommand.Run ? "RUN" : "STOP";
+        var message =
+            $"CPU {commandText} を実行しますか?\n\n" +
+            $"対象: {ViewModel.SelectedProtocol.DisplayName}\n" +
+            $"現在の状態: {ViewModel.CpuStateText}";
+        var result = MessageBox.Show(
+            this,
+            message,
+            $"CPU {commandText} 確認",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
         return Task.FromResult(result == MessageBoxResult.OK);
     }
 

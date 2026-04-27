@@ -18,6 +18,8 @@ public sealed record SequentialDeviceAddress(
         var next = FromLogicalNumber(checked(ToLogicalNumber(Number) + (uint)offset));
         if (AddressDisplayRule == DeviceAddressDisplayRule.KeyenceBitBank)
             return $"{Prefix}{FormatKeyenceBitBankNumber(next)}";
+        if (AddressDisplayRule == DeviceAddressDisplayRule.KeyenceXymBit)
+            return $"{Prefix}{FormatKeyenceXymBitNumber(next)}";
 
         var format = UsesHexAddressing ? $"X{Width}" : $"D{Width}";
         return $"{Prefix}{next.ToString(format, CultureInfo.InvariantCulture)}";
@@ -45,6 +47,13 @@ public sealed record SequentialDeviceAddress(
         var bit = physicalNumber % 100;
         return bank.ToString(CultureInfo.InvariantCulture) + bit.ToString("D2", CultureInfo.InvariantCulture);
     }
+
+    private static string FormatKeyenceXymBitNumber(uint logicalNumber)
+    {
+        var bank = logicalNumber / 16;
+        var bit = logicalNumber % 16;
+        return bank.ToString(CultureInfo.InvariantCulture) + bit.ToString("X", CultureInfo.InvariantCulture);
+    }
 }
 
 public static class DeviceAddressRangeProvider
@@ -70,7 +79,7 @@ public static class DeviceAddressRangeProvider
             && expanded.Length > familyCode.Length)
         {
             var numberText = expanded[familyCode.Length..];
-            if (TryParseNumber(numberText, family.UsesHexAddressing, out var number))
+            if (TryParseAddressNumber(numberText, family, out var number))
             {
                 address = new SequentialDeviceAddress(familyCode, number, numberText.Length, family.UsesHexAddressing, family.AddressDisplayRule);
                 if (!address.IsValidPhysicalNumber(number))
@@ -105,7 +114,7 @@ public static class DeviceAddressRangeProvider
                 continue;
 
             if (TryExtractNumberText(rawAddress, family, out var numberText)
-                && TryParseNumber(numberText, targetFamily.UsesHexAddressing, out var targetNumber))
+                && TryParseAddressNumber(numberText, targetFamily, out var targetNumber))
             {
                 var candidate = new SequentialDeviceAddress(
                     targetFamily.Code,
@@ -148,7 +157,7 @@ public static class DeviceAddressRangeProvider
         }
 
         numberText = expanded[familyCode.Length..];
-        return TryParseNumber(numberText, family.UsesHexAddressing, out _);
+        return TryParseAddressNumber(numberText, family, out _);
     }
 
     public static int GetAvailablePointCount(ProtocolKind protocol, DeviceFamilyDefinition family, string startAddress)
@@ -169,6 +178,9 @@ public static class DeviceAddressRangeProvider
         if (protocol == ProtocolKind.Toyopuc)
             return GetToyopucTemporaryMaxNumber(family);
 
+        if (protocol == ProtocolKind.HostLink)
+            return GetHostLinkTemporaryMaxNumber(family);
+
         if (family.UsesHexAddressing)
             return 0xFFFF;
 
@@ -177,6 +189,26 @@ public static class DeviceAddressRangeProvider
             _ => 999_999,
         };
     }
+
+    private static uint GetHostLinkTemporaryMaxNumber(DeviceFamilyDefinition family) =>
+        family.Code.ToUpperInvariant() switch
+        {
+            "R" => 199_915u,
+            "B" or "W" => 0x7FFFu,
+            "MR" => 399_915u,
+            "LR" => 99_915u,
+            "CR" => 7_915u,
+            "VB" => 0xF9FFu,
+            "DM" or "D" or "EM" or "E" => 65_534u,
+            "FM" or "F" => 32_767u,
+            "ZF" => 524_287u,
+            "TM" => 511u,
+            "CM" => 7_599u,
+            "X" or "Y" => 1999u * 16u + 15u,
+            "M" => 63_999u,
+            "L" => 15_999u,
+            _ => family.UsesHexAddressing ? 0xFFFFu : 999_999u,
+        };
 
     private static uint GetToyopucTemporaryMaxNumber(DeviceFamilyDefinition family)
     {
@@ -212,6 +244,36 @@ public static class DeviceAddressRangeProvider
         var style = usesHexAddressing ? NumberStyles.HexNumber : NumberStyles.None;
         return numberText.All(character => IsNumberCharacter(character, usesHexAddressing))
             && uint.TryParse(numberText, style, CultureInfo.InvariantCulture, out number);
+    }
+
+    private static bool TryParseAddressNumber(
+        string numberText,
+        DeviceFamilyDefinition family,
+        out uint number)
+    {
+        if (family.AddressDisplayRule == DeviceAddressDisplayRule.KeyenceXymBit)
+            return TryParseKeyenceXymBitNumber(numberText, out number);
+
+        return TryParseNumber(numberText, family.UsesHexAddressing, out number);
+    }
+
+    private static bool TryParseKeyenceXymBitNumber(string numberText, out uint number)
+    {
+        number = 0;
+        if (string.IsNullOrWhiteSpace(numberText))
+            return false;
+
+        var bankText = numberText.Length == 1 ? "0" : numberText[..^1];
+        var bitText = numberText[^1..];
+        if (!bankText.All(character => character is >= '0' and <= '9'))
+            return false;
+        if (!uint.TryParse(bankText, NumberStyles.None, CultureInfo.InvariantCulture, out var bank))
+            return false;
+        if (!uint.TryParse(bitText, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var bit) || bit > 15)
+            return false;
+
+        number = checked(bank * 16 + bit);
+        return true;
     }
 
     private static bool IsNumberCharacter(char character, bool usesHexAddressing) =>

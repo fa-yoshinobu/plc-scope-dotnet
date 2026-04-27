@@ -23,6 +23,7 @@ public enum DeviceAddressDisplayRule
 {
     Default,
     KeyenceBitBank,
+    KeyenceXymBit,
 }
 
 public enum DeviceKind

@@ -90,6 +90,50 @@ public sealed class MonitorRangePlannerTests
     }
 
     [Fact]
+    public void BuildRowAddressLayout_HostLinkBWordRowsUseHexBoundaries()
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.HostLink).FindFamily("B")!;
+        Assert.True(DeviceAddressRangeProvider.TryParseAddress("B0", family, out var startAddress));
+        var range = new DeviceDisplayRangeBounds(0, 0x7FFF, "B:0:7FFF");
+
+        var layout = MonitorRangePlanner.BuildRowAddressLayout(
+            startAddress,
+            range,
+            ProtocolKind.HostLink,
+            family,
+            BlockDisplayMode.Word,
+            preferredRowsBeforeStartAddress: 0);
+        var pointsPerRow = MonitorRangePlanner.GetBitDevicePointsPerRow(BlockDisplayMode.Word);
+
+        Assert.Equal("B0", layout.GeneratedStartAddress.FormatOffset(0));
+        Assert.Equal("B90", layout.GeneratedStartAddress.FormatOffset(9 * pointsPerRow));
+        Assert.Equal("BA0", layout.GeneratedStartAddress.FormatOffset(10 * pointsPerRow));
+        Assert.Equal("BF0", layout.GeneratedStartAddress.FormatOffset(15 * pointsPerRow));
+        Assert.Equal("B100", layout.GeneratedStartAddress.FormatOffset(16 * pointsPerRow));
+    }
+
+    [Fact]
+    public void BuildRowAddressLayout_HostLinkXymRowsSkipInvalidHexBankDigits()
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.HostLink).FindFamily("X")!;
+        Assert.True(DeviceAddressRangeProvider.TryParseAddress("X400", family, out var startAddress));
+        var range = new DeviceDisplayRangeBounds(0, 1999 * 16 + 15, "X:0:1999F");
+
+        var layout = MonitorRangePlanner.BuildRowAddressLayout(
+            startAddress,
+            range,
+            ProtocolKind.HostLink,
+            family,
+            BlockDisplayMode.Word,
+            preferredRowsBeforeStartAddress: 1);
+
+        Assert.Equal("X390", layout.GeneratedStartAddress.FormatOffset(0));
+        Assert.Equal("X39F", layout.GeneratedStartAddress.FormatOffset(15));
+        Assert.Equal("X400", layout.GeneratedStartAddress.FormatOffset(16));
+        Assert.Equal(1, layout.StartAddressRowIndex);
+    }
+
+    [Fact]
     public void BuildRowAddressLayout_BitExpandMapsOneWordToSeventeenRows()
     {
         var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);

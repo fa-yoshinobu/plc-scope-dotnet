@@ -59,10 +59,10 @@ public static class ProtocolCatalog
                 MapsStopToProgram: true),
             ConnectionSettings.CreateDefault(ProtocolKind.HostLink),
             [
-                Word("DM"), Word("EM"), Word("FM"), Word("ZF"), Word("W"), Word("TM"), Word("Z"), Word("TC"),
+                Word("DM"), Word("EM"), Word("FM"), Word("ZF"), Word("W", usesHex: true), Word("TM"), Word("Z"), Word("TC"),
                 Word("TS"), Word("CC"), Word("CS"), Word("CM"), Word("VM"), Word("D"), Word("E"), Word("F"),
-                KeyenceBitBank("R"), Bit("B"), KeyenceBitBank("MR"), KeyenceBitBank("LR"), KeyenceBitBank("CR"),
-                Bit("VB"), Bit("X"), Bit("Y"), Bit("M"), Bit("L"),
+                KeyenceBitBank("R"), Bit("B", usesHex: true), KeyenceBitBank("MR"), KeyenceBitBank("LR"), KeyenceBitBank("CR"),
+                Bit("VB", usesHex: true), KeyenceXymBit("X"), KeyenceXymBit("Y"), Bit("M"), Bit("L"),
             ],
             DefaultWordFamilyCode: "DM",
             DefaultBitFamilyCode: "R"),
@@ -103,6 +103,23 @@ public static class ProtocolCatalog
             .ToArray();
     }
 
+    public static DeviceFamilyDefinition ApplyDeviceRangeNotation(
+        DeviceFamilyDefinition family,
+        DeviceRangeCatalog? catalog)
+    {
+        if (catalog is null || family.AddressDisplayRule != DeviceAddressDisplayRule.Default)
+            return family;
+
+        var entry = catalog.Entries.FirstOrDefault(item =>
+            string.Equals(item.Device, family.Code, StringComparison.OrdinalIgnoreCase));
+        if (entry is null || !TryGetUsesHexAddressing(entry.Notation, out var usesHexAddressing))
+            return family;
+
+        return family.UsesHexAddressing == usesHexAddressing
+            ? family
+            : family with { UsesHexAddressing = usesHexAddressing };
+    }
+
     public static DeviceFamilyDefinition GetDefaultWordFamily(
         ProtocolDefinition definition,
         KeyenceDeviceMode keyenceDeviceMode)
@@ -131,6 +148,27 @@ public static class ProtocolCatalog
 
     private static DeviceFamilyDefinition KeyenceBitBank(string code) =>
         new(code, code, DeviceKind.Bit, false, DeviceAddressDisplayRule.KeyenceBitBank);
+
+    private static DeviceFamilyDefinition KeyenceXymBit(string code) =>
+        new(code, code, DeviceKind.Bit, false, DeviceAddressDisplayRule.KeyenceXymBit);
+
+    private static bool TryGetUsesHexAddressing(string notation, out bool usesHexAddressing)
+    {
+        if (string.Equals(notation, "Hexadecimal", StringComparison.OrdinalIgnoreCase))
+        {
+            usesHexAddressing = true;
+            return true;
+        }
+
+        if (string.Equals(notation, "Decimal", StringComparison.OrdinalIgnoreCase))
+        {
+            usesHexAddressing = false;
+            return true;
+        }
+
+        usesHexAddressing = false;
+        return false;
+    }
 
     private static IReadOnlyList<DeviceFamilyDefinition> CreateToyopucDeviceFamilies()
     {

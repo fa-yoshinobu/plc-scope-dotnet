@@ -40,6 +40,89 @@ public sealed class ProtocolCatalogTests
         Assert.Equal("X", ProtocolCatalog.GetDefaultBitFamily(definition, KeyenceDeviceMode.Xym).Code);
     }
 
+    [Theory]
+    [InlineData("B")]
+    [InlineData("W")]
+    [InlineData("VB")]
+    public void HostLink_HexAddressFamiliesMatchKvHostLinkNotation(string familyCode)
+    {
+        var definition = ProtocolCatalog.Get(ProtocolKind.HostLink);
+
+        Assert.True(definition.FindFamily(familyCode)!.UsesHexAddressing);
+    }
+
+    [Theory]
+    [InlineData("X")]
+    [InlineData("Y")]
+    public void HostLink_XymBitFamiliesUseKeyenceXymBitNotation(string familyCode)
+    {
+        var definition = ProtocolCatalog.Get(ProtocolKind.HostLink);
+        var family = definition.FindFamily(familyCode)!;
+
+        Assert.False(family.UsesHexAddressing);
+        Assert.Equal(DeviceAddressDisplayRule.KeyenceXymBit, family.AddressDisplayRule);
+    }
+
+    [Fact]
+    public void ApplyDeviceRangeNotation_UsesCatalogNotation()
+    {
+        var family = new DeviceFamilyDefinition("B", "B", DeviceKind.Bit);
+        var catalog = new DeviceRangeCatalog(
+            "KV-7000",
+            "KV-7000",
+            [
+                new DeviceRangeEntry(
+                    "B",
+                    "Bit",
+                    true,
+                    true,
+                    0,
+                    0x7FFF,
+                    0x8000,
+                    "B0000-B7FFF",
+                    "Hexadecimal",
+                    "test",
+                    string.Empty),
+            ]);
+
+        var adjusted = ProtocolCatalog.ApplyDeviceRangeNotation(family, catalog);
+
+        Assert.True(adjusted.UsesHexAddressing);
+    }
+
+    [Fact]
+    public void ApplyDeviceRangeNotation_DoesNotOverrideSpecialAddressDisplayRule()
+    {
+        var family = new DeviceFamilyDefinition(
+            "R",
+            "R",
+            DeviceKind.Bit,
+            UsesHexAddressing: false,
+            DeviceAddressDisplayRule.KeyenceBitBank);
+        var catalog = new DeviceRangeCatalog(
+            "KV-7000",
+            "KV-7000",
+            [
+                new DeviceRangeEntry(
+                    "R",
+                    "Bit",
+                    true,
+                    true,
+                    0,
+                    199915,
+                    199916,
+                    "R00000-R199915",
+                    "Hexadecimal",
+                    "test",
+                    string.Empty),
+            ]);
+
+        var adjusted = ProtocolCatalog.ApplyDeviceRangeNotation(family, catalog);
+
+        Assert.False(adjusted.UsesHexAddressing);
+        Assert.Equal(DeviceAddressDisplayRule.KeyenceBitBank, adjusted.AddressDisplayRule);
+    }
+
     [Fact]
     public void Toyopuc_CpuControl_IsDisabled()
     {
