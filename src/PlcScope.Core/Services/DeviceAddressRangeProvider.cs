@@ -166,14 +166,44 @@ public static class DeviceAddressRangeProvider
 
     private static uint GetTemporaryMaxNumber(ProtocolKind protocol, DeviceFamilyDefinition family)
     {
+        if (protocol == ProtocolKind.Toyopuc)
+            return GetToyopucTemporaryMaxNumber(family);
+
         if (family.UsesHexAddressing)
             return 0xFFFF;
 
         return protocol switch
         {
-            ProtocolKind.Toyopuc => 9_999,
             _ => 999_999,
         };
+    }
+
+    private static uint GetToyopucTemporaryMaxNumber(DeviceFamilyDefinition family)
+    {
+        var area = GetToyopucAreaCode(family.Code);
+        return area switch
+        {
+            "P" or "V" or "T" or "C" or "M" or "N" => 0x17FFu,
+            "K" => 0x02FFu,
+            "L" or "D" => 0x2FFFu,
+            "X" or "Y" or "R" or "ET" or "EC" or "EX" or "EY" or "ES" or "EN" or "H" => 0x07FFu,
+            "S" => 0x13FFu,
+            "B" or "EL" or "EM" => 0x1FFFu,
+            "EP" or "EK" or "EV" => 0x0FFFu,
+            "GM" or "GX" or "GY" => 0xFFFFu,
+            "U" => 0x1FFFFu,
+            "EB" => 0x3FFFFu,
+            "FR" => 0x1FFFFFu,
+            _ => family.UsesHexAddressing ? 0xFFFFu : 999_999u,
+        };
+    }
+
+    private static string GetToyopucAreaCode(string familyCode)
+    {
+        var separator = familyCode.IndexOf('-', StringComparison.Ordinal);
+        return separator >= 0 && separator + 1 < familyCode.Length
+            ? familyCode[(separator + 1)..]
+            : familyCode;
     }
 
     private static bool TryParseNumber(string numberText, bool usesHexAddressing, out uint number)
