@@ -62,7 +62,9 @@ internal sealed class ToyopucSession : PlcSessionBase
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)
     {
         var expanded = ExpandAddress(rawAddress, family);
-        return _client?.ResolveDevice(expanded).Text ?? expanded.ToUpperInvariant();
+        return _client is null
+            ? expanded.ToUpperInvariant()
+            : ToyopucAddress.Format(_client.ResolveDevice(expanded));
     }
 
     public override async Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
@@ -169,7 +171,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
-            addresses[index] = FormatSequentialToyopucAddress(start.Text, index);
+            addresses[index] = FormatSequentialToyopucAddress(start, index);
         }
 
         return addresses;
@@ -185,15 +187,12 @@ internal sealed class ToyopucSession : PlcSessionBase
         return new CpuState(state, status.RawHex(), SupportsControl: false);
     }
 
-    private static string FormatSequentialToyopucAddress(string startText, int offset)
+    private static string FormatSequentialToyopucAddress(ResolvedDevice start, int offset)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(startText, "^(?<prefix>[A-Z0-9-]+?)(?<number>\\d+)$");
-        if (!match.Success)
-            throw new InvalidOperationException($"Unsupported TOYOPUC sequential address format: {startText}");
+        var index = checked(start.Index + offset);
+        if (index < 0)
+            throw new ArgumentOutOfRangeException(nameof(offset), "Offset would move address index below zero.");
 
-        var prefix = match.Groups["prefix"].Value;
-        var numberText = match.Groups["number"].Value;
-        var nextValue = int.Parse(numberText, System.Globalization.CultureInfo.InvariantCulture) + offset;
-        return $"{prefix}{nextValue.ToString($"D{numberText.Length}", System.Globalization.CultureInfo.InvariantCulture)}";
+        return ToyopucAddress.Format(start, index);
     }
 }

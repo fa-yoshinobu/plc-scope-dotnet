@@ -47,4 +47,27 @@ public sealed class ProtocolCatalogTests
         Assert.False(definition.Capabilities.SupportsCpuControl);
         Assert.True(definition.Capabilities.SupportsCpuStatus);
     }
+
+    [Fact]
+    public void Toyopuc_DeviceFamilies_CoverComputerLinkCatalogAreas()
+    {
+        var definition = ProtocolCatalog.Get(ProtocolKind.Toyopuc);
+        var prefixes = new[] { "P1", "P2", "P3" };
+        var prefixedWords = new[] { "D", "S", "N", "R" };
+        var prefixedBits = new[] { "P", "K", "V", "T", "C", "L", "X", "Y", "M" };
+        var directWords = new[] { "B", "ES", "EN", "H", "U", "EB", "FR" };
+        var directBits = new[] { "EP", "EK", "EV", "ET", "EC", "EL", "EX", "EY", "EM", "GM", "GX", "GY" };
+
+        var expected = prefixes.SelectMany(prefix => prefixedWords.Select(area => $"{prefix}-{area}"))
+            .Concat(directWords)
+            .Concat(prefixes.SelectMany(prefix => prefixedBits.Select(area => $"{prefix}-{area}")))
+            .Concat(directBits)
+            .ToArray();
+
+        Assert.Equal(expected, definition.DeviceFamilies.Select(family => family.Code));
+        Assert.Equal(expected.Length, definition.DeviceFamilies.Select(family => family.Code).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.All(definition.DeviceFamilies, family => Assert.True(family.UsesHexAddressing));
+        Assert.Equal("P1-D", definition.DefaultWordFamily.Code);
+        Assert.Equal("P1-M", definition.DefaultBitFamily.Code);
+    }
 }

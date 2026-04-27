@@ -23,6 +23,30 @@ public sealed class DeviceAddressRangeProviderTests
     }
 
     [Fact]
+    public void TryParseAddress_ToyopucUsesHexAddressing()
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.Toyopuc).FindFamily("P2-D")!;
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress("P2-D0109", family, out var address);
+
+        Assert.True(parsed);
+        Assert.Equal("P2-D010A", address.FormatOffset(1));
+    }
+
+    [Theory]
+    [InlineData("U", "U00000", 0x20000)]
+    [InlineData("EB", "EB00000", 0x40000)]
+    [InlineData("FR", "FR000000", 0x200000)]
+    public void GetAvailablePointCount_ToyopucCoversLargeDirectAreas(string familyCode, string startAddress, int expectedCount)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.Toyopuc).FindFamily(familyCode)!;
+
+        var count = DeviceAddressRangeProvider.GetAvailablePointCount(ProtocolKind.Toyopuc, family, startAddress);
+
+        Assert.Equal(expectedCount, count);
+    }
+
+    [Fact]
     public void TryParseAddress_UsesFamilyCodeBeforeHexParsing()
     {
         var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily("SB")!;

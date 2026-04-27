@@ -4,6 +4,12 @@ using PlcScope.Core.Models;
 
 public static class ProtocolCatalog
 {
+    private static readonly string[] ToyopucProgramPrefixes = ["P1", "P2", "P3"];
+    private static readonly string[] ToyopucPrefixedWordAreas = ["D", "S", "N", "R"];
+    private static readonly string[] ToyopucPrefixedBitAreas = ["P", "K", "V", "T", "C", "L", "X", "Y", "M"];
+    private static readonly string[] ToyopucDirectWordAreas = ["B", "ES", "EN", "H", "U", "EB", "FR"];
+    private static readonly string[] ToyopucDirectBitAreas = ["EP", "EK", "EV", "ET", "EC", "EL", "EX", "EY", "EM", "GM", "GX", "GY"];
+
     private static readonly string[] HostLinkNormalDeviceFamilyCodes =
     [
         "R", "B", "MR", "LR", "CR", "DM", "EM", "FM", "ZF", "W", "TM", "CM",
@@ -71,10 +77,7 @@ public static class ProtocolCatalog
                 SupportsTrace: true,
                 SupportsPasswordProtectedCpuCommands: false),
             ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc),
-            [
-                Word("P1-D"), Word("P1-S"), Word("P1-N"), Word("P1-R"), Word("ES"), Word("EN"), Word("FR"),
-                Bit("P1-M"), Bit("P1-X"), Bit("P1-Y"),
-            ],
+            CreateToyopucDeviceFamilies(),
             DefaultWordFamilyCode: "P1-D",
             DefaultBitFamilyCode: "P1-M"),
     ];
@@ -128,4 +131,37 @@ public static class ProtocolCatalog
 
     private static DeviceFamilyDefinition KeyenceBitBank(string code) =>
         new(code, code, DeviceKind.Bit, false, DeviceAddressDisplayRule.KeyenceBitBank);
+
+    private static IReadOnlyList<DeviceFamilyDefinition> CreateToyopucDeviceFamilies()
+    {
+        var families = new List<DeviceFamilyDefinition>();
+
+        foreach (var prefix in ToyopucProgramPrefixes)
+        {
+            foreach (var area in ToyopucPrefixedWordAreas)
+            {
+                families.Add(Word($"{prefix}-{area}", usesHex: true));
+            }
+        }
+
+        foreach (var area in ToyopucDirectWordAreas)
+        {
+            families.Add(Word(area, usesHex: true));
+        }
+
+        foreach (var prefix in ToyopucProgramPrefixes)
+        {
+            foreach (var area in ToyopucPrefixedBitAreas)
+            {
+                families.Add(Bit($"{prefix}-{area}", usesHex: true));
+            }
+        }
+
+        foreach (var area in ToyopucDirectBitAreas)
+        {
+            families.Add(Bit(area, usesHex: true));
+        }
+
+        return families;
+    }
 }
