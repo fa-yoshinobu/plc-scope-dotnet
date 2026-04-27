@@ -180,19 +180,16 @@ public static class ProtocolCatalog
             {
                 families.Add(Word($"{prefix}-{area}", usesHex: true));
             }
+
+            foreach (var area in ToyopucPrefixedBitAreas)
+            {
+                families.Add(Bit($"{prefix}-{area}", usesHex: true));
+            }
         }
 
         foreach (var area in ToyopucDirectWordAreas)
         {
             families.Add(Word(area, usesHex: true));
-        }
-
-        foreach (var prefix in ToyopucProgramPrefixes)
-        {
-            foreach (var area in ToyopucPrefixedBitAreas)
-            {
-                families.Add(Bit($"{prefix}-{area}", usesHex: true));
-            }
         }
 
         foreach (var area in ToyopucDirectBitAreas)

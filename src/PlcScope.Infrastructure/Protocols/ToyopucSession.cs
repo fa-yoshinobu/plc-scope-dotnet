@@ -1,5 +1,6 @@
 namespace PlcScope.Infrastructure.Protocols;
 
+using System.Globalization;
 using PlcComm.Toyopuc;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
@@ -156,6 +157,18 @@ internal sealed class ToyopucSession : PlcSessionBase
             cancellationToken).ConfigureAwait(false);
     }
 
+    public override Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var profile = ToyopucDeviceProfiles.NormalizeName(Settings.ToyopucDeviceProfile);
+        var entries = Definition.DeviceFamilies
+            .Select(family => MapDeviceRangeEntry(family, profile))
+            .ToArray();
+
+        return Task.FromResult(new DeviceRangeCatalog(profile, profile, entries));
+    }
+
     public override Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("TOYOPUC CPU RUN/STOP is not implemented in the current public app surface.");
 
@@ -195,4 +208,69 @@ internal sealed class ToyopucSession : PlcSessionBase
 
         return ToyopucAddress.Format(start, index);
     }
+
+    private static DeviceRangeEntry MapDeviceRangeEntry(DeviceFamilyDefinition family, string profile)
+    {
+        var (area, prefixed) = SplitDeviceFamilyCode(family.Code);
+        var unit = family.Kind == DeviceKind.Bit ? "bit" : "word";
+
+        try
+        {
+            var descriptor = ToyopucDeviceCatalog.GetAreaDescriptor(area, profile);
+            var ranges = ToyopucDeviceCatalog.GetSupportedRanges(area, prefixed, unit, packed: false, profile);
+            var lowerBound = ranges.Min(range => range.Start);
+            var upperBound = ranges.Max(range => range.End);
+            var pointCount = ranges.Aggregate(0u, static (sum, range) => checked(sum + (uint)(range.End - range.Start + 1)));
+            var width = descriptor.GetAddressWidth(unit, packed: false);
+
+            return new DeviceRangeEntry(
+                family.Code,
+                family.Kind.ToString(),
+                family.Kind == DeviceKind.Bit,
+                Supported: true,
+                checked((uint)lowerBound),
+                checked((uint)upperBound),
+                pointCount,
+                string.Join(", ", ranges.Select(range => FormatDeviceRange(family.Code, range, width))),
+                "Hexadecimal",
+                nameof(ToyopucDeviceCatalog),
+                ranges.Count > 1 ? "複数の対応範囲があります。" : string.Empty);
+        }
+        catch (ArgumentException exception)
+        {
+            return UnsupportedDeviceRangeEntry(family, exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return UnsupportedDeviceRangeEntry(family, exception.Message);
+        }
+    }
+
+    private static DeviceRangeEntry UnsupportedDeviceRangeEntry(DeviceFamilyDefinition family, string notes) =>
+        new(
+            family.Code,
+            family.Kind.ToString(),
+            family.Kind == DeviceKind.Bit,
+            Supported: false,
+            LowerBound: 0,
+            UpperBound: null,
+            PointCount: 0,
+            AddressRange: string.Empty,
+            Notation: "Hexadecimal",
+            Source: nameof(ToyopucDeviceCatalog),
+            Notes: notes);
+
+    private static (string Area, bool Prefixed) SplitDeviceFamilyCode(string familyCode)
+    {
+        var separator = familyCode.IndexOf('-', StringComparison.Ordinal);
+        return separator >= 0 && separator + 1 < familyCode.Length
+            ? (familyCode[(separator + 1)..], true)
+            : (familyCode, false);
+    }
+
+    private static string FormatDeviceRange(string familyCode, ToyopucAddressRange range, int width) =>
+        $"{FormatDeviceAddress(familyCode, range.Start, width)}-{FormatDeviceAddress(familyCode, range.End, width)}";
+
+    private static string FormatDeviceAddress(string familyCode, int index, int width) =>
+        $"{familyCode}{index.ToString($"X{width}", CultureInfo.InvariantCulture)}";
 }

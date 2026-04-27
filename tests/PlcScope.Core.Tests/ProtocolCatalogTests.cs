@@ -141,9 +141,10 @@ public sealed class ProtocolCatalogTests
         var directWords = new[] { "B", "ES", "EN", "H", "U", "EB", "FR" };
         var directBits = new[] { "EP", "EK", "EV", "ET", "EC", "EL", "EX", "EY", "EM", "GM", "GX", "GY" };
 
-        var expected = prefixes.SelectMany(prefix => prefixedWords.Select(area => $"{prefix}-{area}"))
+        var expected = prefixes.SelectMany(prefix =>
+                prefixedWords.Select(area => $"{prefix}-{area}")
+                    .Concat(prefixedBits.Select(area => $"{prefix}-{area}")))
             .Concat(directWords)
-            .Concat(prefixes.SelectMany(prefix => prefixedBits.Select(area => $"{prefix}-{area}")))
             .Concat(directBits)
             .ToArray();
 
