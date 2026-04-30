@@ -1,4 +1,4 @@
-namespace PlcScope.Infrastructure.Protocols;
+﻿namespace PlcScope.Infrastructure.Protocols;
 
 using System.Diagnostics;
 using System.Globalization;
@@ -34,7 +34,7 @@ internal abstract class PlcSessionBase : IPlcSession
     public abstract Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default);
     public abstract Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default);
     public virtual Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException($"{Definition.DisplayName} はデバイス範囲カタログに未対応です。");
+        throw new NotSupportedException($"{Definition.DisplayName} does not support the device range catalog.");
 
     public abstract Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default);
     public abstract ValueTask DisposeAsync();
@@ -141,3 +141,4 @@ internal abstract class PlcSessionBase : IPlcSession
         // Keeping the gate alive avoids ObjectDisposedException from a late Release().
     }
 }
+

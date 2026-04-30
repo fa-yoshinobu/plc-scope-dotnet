@@ -27,6 +27,16 @@ public sealed class JsonStoreTests
                         ItemCount = 8,
                     },
                 ],
+                WatchItems =
+                [
+                    new WatchItem
+                    {
+                        Address = "DM200",
+                        DataType = ValueDataType.UInt16,
+                        DisplayRadix = DisplayRadix.Hexadecimal,
+                        Comment = "watch",
+                    },
+                ],
             };
 
             await store.SaveAsync(path, project);
@@ -35,6 +45,8 @@ public sealed class JsonStoreTests
             Assert.Equal("Test Project", loaded.Name);
             Assert.Equal("10.0.0.5", loaded.Connection.Host);
             Assert.Equal("DM100", loaded.Blocks[0].StartAddress);
+            Assert.Equal("DM200", loaded.WatchItems[0].Address);
+            Assert.Equal(DisplayRadix.Hexadecimal, loaded.WatchItems[0].DisplayRadix);
         }
         finally
         {

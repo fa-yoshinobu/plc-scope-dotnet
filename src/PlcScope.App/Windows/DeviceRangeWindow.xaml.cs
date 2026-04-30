@@ -1,4 +1,4 @@
-namespace PlcScope.App.Windows;
+﻿namespace PlcScope.App.Windows;
 
 using System.Collections.Generic;
 using System.Windows;
@@ -16,8 +16,8 @@ public partial class DeviceRangeWindow : Window
     {
         public DeviceRangeWindowModel(DeviceRangeCatalog catalog)
         {
-            ModelText = $"モデル: {catalog.Model}";
-            FamilyText = $"ファミリ: {catalog.Family}";
+            ModelText = $"Model: {catalog.Model}";
+            FamilyText = $"Family: {catalog.Family}";
             Entries = catalog.Entries;
         }
 
@@ -26,3 +26,4 @@ public partial class DeviceRangeWindow : Window
         public IReadOnlyList<DeviceRangeEntry> Entries { get; }
     }
 }
+

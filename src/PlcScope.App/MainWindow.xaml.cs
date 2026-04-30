@@ -1,4 +1,4 @@
-namespace PlcScope.App;
+﻿namespace PlcScope.App;
 
 using System.ComponentModel;
 using System.Windows;
@@ -14,6 +14,7 @@ using PlcScope.App.Windows;
 public partial class MainWindow : Window
 {
     private ScrollViewer? _monitorScrollViewer;
+    private MonitorRowViewModel? _contextMenuMonitorRow;
     private bool _isProgrammaticMonitorScroll;
 
     public MainWindow(MainWindowViewModel viewModel)
@@ -59,7 +60,7 @@ public partial class MainWindow : Window
 
     private async void NewProjectMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (await ConfirmWriteAsync("現在のプロジェクトをリセットしますか?").ConfigureAwait(true))
+        if (await ConfirmWriteAsync("Reset the current project?").ConfigureAwait(true))
             ViewModel.NewProject();
     }
 
@@ -67,7 +68,7 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Filter = "PLC Scope プロジェクト (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            Filter = "PLC Scope project (*.json)|*.json|All files (*.*)|*.*",
         };
 
         if (dialog.ShowDialog(this) == true)
@@ -89,7 +90,7 @@ public partial class MainWindow : Window
     {
         var dialog = new SaveFileDialog
         {
-            Filter = "PLC Scope プロジェクト (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            Filter = "PLC Scope project (*.json)|*.json|All files (*.*)|*.*",
             FileName = string.IsNullOrWhiteSpace(ViewModel.CurrentProjectPath) ? "plc-scope-project.json" : System.IO.Path.GetFileName(ViewModel.CurrentProjectPath),
         };
 
@@ -101,7 +102,7 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Filter = "コメントCSV (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt|すべてのファイル (*.*)|*.*",
+            Filter = "Comment CSV (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt|All files (*.*)|*.*",
         };
 
         if (dialog.ShowDialog(this) != true)
@@ -113,7 +114,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "コメントCSVを読めません", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, "Could not read comment CSV", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -126,7 +127,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "通信ログを開けません", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, "Could not open communication log", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -139,7 +140,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "エラー履歴を開けません", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, "Could not open error history", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -152,7 +153,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "デバイス範囲を開けません", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, "Could not open device ranges", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -225,6 +226,72 @@ public partial class MainWindow : Window
             e.Handled = true;
     }
 
+    private void MonitorListBoxItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is ListBoxItem item)
+        {
+            item.IsSelected = true;
+            item.Focus();
+            _contextMenuMonitorRow = item.DataContext as MonitorRowViewModel;
+        }
+    }
+
+    private void AddMonitorRowToWatchMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.AddMonitorRowToWatch(_contextMenuMonitorRow ?? MonitorListBox.SelectedItem as MonitorRowViewModel);
+        _contextMenuMonitorRow = null;
+    }
+
+    private void WatchValueTextBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: WatchItemViewModel item })
+            item.IsValueEditing = true;
+    }
+
+    private void WatchValueTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: WatchItemViewModel item })
+            item.IsValueEditing = false;
+    }
+
+    private async void WatchValueTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || sender is not TextBox { DataContext: WatchItemViewModel item } textBox)
+            return;
+
+        e.Handled = true;
+        await ViewModel.WriteWatchItemAsync(item, textBox.Text).ConfigureAwait(true);
+        item.IsValueEditing = false;
+    }
+
+    private void WatchDataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not DataGridRow row)
+            return;
+
+        row.IsSelected = true;
+        row.Focus();
+        if (row.DataContext is WatchItemViewModel item)
+            ViewModel.SelectedWatchItem = item;
+    }
+
+    private void RemoveWatchItemMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.RemoveWatchItemCommand.CanExecute(null))
+            ViewModel.RemoveWatchItemCommand.Execute(null);
+    }
+
+    private void WatchDataGrid_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete)
+            return;
+
+        if (ViewModel.RemoveWatchItemCommand.CanExecute(null))
+            ViewModel.RemoveWatchItemCommand.Execute(null);
+
+        e.Handled = true;
+    }
+
     private static T? FindDescendant<T>(DependencyObject root)
         where T : DependencyObject
     {
@@ -293,7 +360,7 @@ public partial class MainWindow : Window
 
     private Task<bool> ConfirmWriteAsync(string message)
     {
-        var result = MessageBox.Show(this, message, "確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        var result = MessageBox.Show(this, message, "Confirm", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         return Task.FromResult(result == MessageBoxResult.OK);
     }
 
@@ -301,13 +368,13 @@ public partial class MainWindow : Window
     {
         var commandText = command == CpuCommand.Run ? "RUN" : "STOP";
         var message =
-            $"CPU {commandText} を実行しますか?\n\n" +
-            $"対象: {ViewModel.SelectedProtocol.DisplayName}\n" +
-            $"現在の状態: {ViewModel.CpuStateText}";
+            $"Run CPU {commandText}?\n\n" +
+            $"Target: {ViewModel.SelectedProtocol.DisplayName}\n" +
+            $"Current state: {ViewModel.CpuStateText}";
         var result = MessageBox.Show(
             this,
             message,
-            $"CPU {commandText} 確認",
+            $"Confirm CPU {commandText}",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Warning);
         return Task.FromResult(result == MessageBoxResult.OK);
@@ -323,3 +390,5 @@ public partial class MainWindow : Window
         return Task.FromResult(dialog.ShowDialog() == true ? dialog.PasswordText : null);
     }
 }
+
+

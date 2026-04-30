@@ -1,18 +1,19 @@
-namespace PlcScope.Core.Models;
+﻿namespace PlcScope.Core.Models;
 
 public sealed record ProjectFile
 {
     public string ProjectVersion { get; init; } = "1.0";
-    public string Name { get; init; } = "タイトルなし";
+    public string Name { get; init; } = "Untitled";
     public DateTimeOffset LastSavedUtc { get; init; } = DateTimeOffset.UtcNow;
     public ConnectionSettings Connection { get; init; } = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
     public List<BlockQuery> Blocks { get; init; } = [CreateDefaultBlock()];
+    public List<WatchItem> WatchItems { get; init; } = [];
     public string? SelectedBlockId { get; init; }
     public string? CommentCsvPath { get; init; }
 
     public static BlockQuery CreateDefaultBlock() => new()
     {
-        Title = "メインブロック",
+        Title = "Main block",
         Protocol = ProtocolKind.Slmp,
         DeviceFamilyCode = "D",
         DeviceKind = DeviceKind.Word,
@@ -22,9 +23,20 @@ public sealed record ProjectFile
     };
 }
 
+public sealed record WatchItem
+{
+    public string Id { get; init; } = Guid.NewGuid().ToString("N");
+    public bool IsEnabled { get; init; } = true;
+    public string Address { get; init; } = string.Empty;
+    public ValueDataType DataType { get; init; } = ValueDataType.UInt16;
+    public DisplayRadix DisplayRadix { get; init; } = DisplayRadix.Decimal;
+    public string? Comment { get; init; }
+}
+
 public sealed record AppSettings
 {
     public string? LastSelectedProtocol { get; init; }
     public double UiFontSize { get; init; } = 14;
     public string UiTheme { get; init; } = "Dark";
 }
+

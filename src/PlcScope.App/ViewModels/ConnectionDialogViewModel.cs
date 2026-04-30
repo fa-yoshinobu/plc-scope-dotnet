@@ -1,4 +1,4 @@
-namespace PlcScope.App.ViewModels;
+﻿namespace PlcScope.App.ViewModels;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using PlcScope.Core.Models;
@@ -53,6 +53,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Port = settings.Port;
         TimeoutSeconds = settings.TimeoutSeconds;
         Transport = settings.Transport;
+        AutoRefreshIntervalMs = settings.AutoRefreshIntervalMs;
         SlmpPlcFamilyName = settings.SlmpPlcFamilyName;
         SlmpNetwork = settings.SlmpNetwork;
         SlmpStation = settings.SlmpStation;
@@ -75,7 +76,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     public IReadOnlyList<string> HostLinkModels { get; } = DefaultHostLinkModels;
     public IReadOnlyList<KeyenceDeviceModeOption> KeyenceDeviceModes { get; } =
     [
-        new(KeyenceDeviceMode.Normal, "通常"),
+        new(KeyenceDeviceMode.Normal, "Normal"),
         new(KeyenceDeviceMode.Xym, "XYM"),
     ];
 
@@ -96,6 +97,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
 
     [ObservableProperty]
     private TransportMode transport = TransportMode.Tcp;
+
+    [ObservableProperty]
+    private int autoRefreshIntervalMs = 500;
 
     [ObservableProperty]
     private string slmpPlcFamilyName = "IqR";
@@ -119,7 +123,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private string hostLinkPlcModelName = "KV-7500";
 
     [ObservableProperty]
-    private KeyenceDeviceModeOption selectedKeyenceDeviceMode = new(KeyenceDeviceMode.Normal, "通常");
+    private KeyenceDeviceModeOption selectedKeyenceDeviceMode = new(KeyenceDeviceMode.Normal, "Normal");
 
     [ObservableProperty]
     private string toyopucDeviceProfile = "TOYOPUC-Plus:Plus Extended mode";
@@ -147,6 +151,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Port = Port,
         TimeoutSeconds = TimeoutSeconds,
         Transport = Transport,
+        AutoRefreshIntervalMs = AutoRefreshIntervalMs,
         SlmpPlcFamilyName = SlmpPlcFamilyName,
         SlmpNetwork = SlmpNetwork,
         SlmpStation = SlmpStation,
@@ -174,3 +179,4 @@ public partial class ConnectionDialogViewModel : ObservableObject
             Port = 1025;
     }
 }
+

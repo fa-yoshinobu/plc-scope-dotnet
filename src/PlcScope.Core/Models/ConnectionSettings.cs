@@ -7,6 +7,7 @@ public sealed record ConnectionSettings
     public int Port { get; init; } = 1025;
     public double TimeoutSeconds { get; init; } = 3;
     public TransportMode Transport { get; init; } = TransportMode.Tcp;
+    public int AutoRefreshIntervalMs { get; init; } = 500;
 
     public string SlmpPlcFamilyName { get; init; } = "IqR";
     public byte SlmpNetwork { get; init; } = 0x00;

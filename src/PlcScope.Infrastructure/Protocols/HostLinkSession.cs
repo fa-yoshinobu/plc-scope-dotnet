@@ -1,4 +1,4 @@
-namespace PlcScope.Infrastructure.Protocols;
+﻿namespace PlcScope.Infrastructure.Protocols;
 
 using System.Globalization;
 using PlcComm.KvHostLink;
@@ -529,7 +529,7 @@ internal sealed class HostLinkSession : PlcSessionBase
     private static void ValidateKeyenceBitBankNumber(string deviceType, int number)
     {
         if (number < 0 || number % 100 > 15)
-            throw new ArgumentOutOfRangeException(nameof(number), number, $"{deviceType} の下2桁は 00..15 で指定してください。");
+            throw new ArgumentOutOfRangeException(nameof(number), number, $"{deviceType} low two digits must be 00..15.");
     }
 
     private string ResolveDeviceRangeCatalogModel(string runtimeModel)

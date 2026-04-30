@@ -1,9 +1,9 @@
-namespace PlcScope.Core.Models;
+﻿namespace PlcScope.Core.Models;
 
 public sealed record BlockQuery
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
-    public string Title { get; init; } = "メインブロック";
+    public string Title { get; init; } = "Main block";
     public ProtocolKind Protocol { get; init; } = ProtocolKind.Slmp;
     public string DeviceFamilyCode { get; init; } = "D";
     public DeviceKind DeviceKind { get; init; } = DeviceKind.Word;
@@ -12,8 +12,6 @@ public sealed record BlockQuery
     public BlockDisplayMode DisplayMode { get; init; } = BlockDisplayMode.Word;
     public BitDisplayMode BitDisplayMode { get; init; } = BitDisplayMode.Packed16;
     public DisplayRadix DisplayRadix { get; init; } = DisplayRadix.Decimal;
-    public bool AutoRefreshEnabled { get; init; } = true;
-    public int AutoRefreshIntervalMs { get; init; } = 500;
 
     public int EffectiveItemCount => Math.Max(1, ItemCount);
 }
@@ -82,3 +80,4 @@ public sealed record BlockSnapshot(
     DateTimeOffset Timestamp,
     double ElapsedMilliseconds,
     CpuState? CpuState);
+

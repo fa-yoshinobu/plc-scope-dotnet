@@ -1,4 +1,4 @@
-namespace PlcScope.App.ViewModels;
+﻿namespace PlcScope.App.ViewModels;
 
 using System.Collections.ObjectModel;
 using System.Globalization;
@@ -12,17 +12,17 @@ using PlcScope.Core.Services;
 
 public sealed record FontSizeOption(string Label, double Size)
 {
-    public static FontSizeOption Small { get; } = new("小", 12);
-    public static FontSizeOption Standard { get; } = new("標準", 14);
-    public static FontSizeOption Large { get; } = new("大", 16);
-    public static FontSizeOption ExtraLarge { get; } = new("特大", 18);
+    public static FontSizeOption Small { get; } = new("Small", 12);
+    public static FontSizeOption Standard { get; } = new("Standard", 14);
+    public static FontSizeOption Large { get; } = new("Large", 16);
+    public static FontSizeOption ExtraLarge { get; } = new("Extra large", 18);
     public static IReadOnlyList<FontSizeOption> All { get; } = [Small, Standard, Large, ExtraLarge];
 }
 
 public sealed record ThemeOption(string Key, string Label)
 {
-    public static ThemeOption Dark { get; } = new("Dark", "ダーク");
-    public static ThemeOption Light { get; } = new("Light", "ライト");
+    public static ThemeOption Dark { get; } = new("Dark", "Dark");
+    public static ThemeOption Light { get; } = new("Light", "Light");
     public static IReadOnlyList<ThemeOption> All { get; } = [Dark, Light];
 }
 
@@ -95,6 +95,7 @@ public partial class MainWindowViewModel : ObservableObject
         RefreshDisplayModes();
         StartAddress = InferDefaultStartAddress();
         ItemCount = 16;
+        MonitorDataType = ValueDataType.UInt16;
         DisplayMode = BlockDisplayMode.Word;
         BitDisplayMode = BitDisplayMode.Packed16;
         DisplayRadix = DisplayRadix.Decimal;
@@ -107,12 +108,14 @@ public partial class MainWindowViewModel : ObservableObject
         WritePanelCommand = new AsyncRelayCommand(WritePanelAsync);
         CpuRunCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Run));
         CpuStopCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Stop));
+        RemoveWatchItemCommand = new RelayCommand(RemoveSelectedWatchItem);
 
         EnsureRowsForCurrentLayout();
     }
 
     public ObservableCollection<ProtocolDefinition> AvailableProtocols { get; }
     public ObservableCollection<DeviceFamilyDefinition> AvailableDeviceFamilies { get; } = [];
+    public ObservableCollection<WatchItemViewModel> WatchItems { get; } = [];
     public IList<MonitorRowViewModel> Rows => _rows;
 
     public IReadOnlyList<FontSizeOption> FontSizeOptions { get; }
@@ -128,6 +131,7 @@ public partial class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand WritePanelCommand { get; }
     public IAsyncRelayCommand CpuRunCommand { get; }
     public IAsyncRelayCommand CpuStopCommand { get; }
+    public IRelayCommand RemoveWatchItemCommand { get; }
 
     public Func<string, Task<string?>>? RequestPasswordAsync { get; set; }
     public Func<CpuCommand, Task<bool>>? RequestCpuCommandConfirmationAsync { get; set; }
@@ -161,6 +165,9 @@ public partial class MainWindowViewModel : ObservableObject
     private BlockDisplayMode displayMode;
 
     [ObservableProperty]
+    private ValueDataType monitorDataType;
+
+    [ObservableProperty]
     private BitDisplayMode bitDisplayMode;
 
     [ObservableProperty]
@@ -173,7 +180,7 @@ public partial class MainWindowViewModel : ObservableObject
     private int autoRefreshIntervalMs = 500;
 
     [ObservableProperty]
-    private string statusText = "未接続";
+    private string statusText = "Disconnected";
 
     [ObservableProperty]
     private string lastReadText = "-";
@@ -182,10 +189,10 @@ public partial class MainWindowViewModel : ObservableObject
     private string responseTimeText = "-";
 
     [ObservableProperty]
-    private string communicationRateText = "0 回/s";
+    private string communicationRateText = "0 frames/s";
 
     [ObservableProperty]
-    private string cpuStateText = "不明";
+    private string cpuStateText = "Unknown";
 
     [ObservableProperty]
     private string errorText = string.Empty;
@@ -209,7 +216,7 @@ public partial class MainWindowViewModel : ObservableObject
     private string commentCsvPath = string.Empty;
 
     [ObservableProperty]
-    private string projectName = "タイトルなし";
+    private string projectName = "Untitled";
 
     [ObservableProperty]
     private ConnectionState connectionState = ConnectionState.Disconnected;
@@ -220,6 +227,12 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private MonitorRowViewModel? selectedRow;
 
+    [ObservableProperty]
+    private WatchItemViewModel? selectedWatchItem;
+
+    [ObservableProperty]
+    private int selectedMainTabIndex;
+
     public bool IsConnected => ConnectionState == ConnectionState.Connected;
     public bool CanUseWritePanel => IsConnected && SelectedProtocol.Capabilities.SupportsWrite;
     public bool CanIssueCpuControl => IsConnected && SelectedProtocol.Capabilities.SupportsCpuControl;
@@ -228,8 +241,8 @@ public partial class MainWindowViewModel : ObservableObject
         get
         {
             return SelectedProtocol.Capabilities.SupportsCpuControl
-                ? "CPU RUN/STOP コマンドを送信します。"
-                : "このプロトコルでは CPU RUN/STOP は未対応です。";
+                ? "Send CPU RUN/STOP commands."
+                : "CPU RUN/STOP is not supported by this protocol.";
         }
     }
 
@@ -255,6 +268,7 @@ public partial class MainWindowViewModel : ObservableObject
             await DisconnectAsync().ConfigureAwait(true);
 
         ConnectionSettings = settings;
+        AutoRefreshIntervalMs = settings.AutoRefreshIntervalMs;
         SelectedProtocol = ProtocolCatalog.Get(settings.Protocol);
         RefreshAvailableDeviceFamilies(SelectedProtocol);
         StartAddress = InferDefaultStartAddress();
@@ -271,7 +285,7 @@ public partial class MainWindowViewModel : ObservableObject
         var project = BuildProjectFile();
         await _projectStore.SaveAsync(path, project).ConfigureAwait(true);
         CurrentProjectPath = path;
-        ProjectName = Path.GetFileNameWithoutExtension(path);
+        ProjectName = "Untitled";
     }
 
     public async Task LoadProjectAsync(string path)
@@ -282,7 +296,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task ApplyProjectAsync(ProjectFile project, string? path = null)
     {
-        ProjectName = project.Name;
+        ProjectName = "Untitled";
         CurrentProjectPath = path ?? string.Empty;
 
         var activeBlock = project.Blocks.FirstOrDefault() ?? ProjectFile.CreateDefaultBlock();
@@ -295,34 +309,42 @@ public partial class MainWindowViewModel : ObservableObject
             : InferDefaultStartAddress();
         ItemCount = activeBlock.ItemCount;
         DisplayMode = NormalizeDisplayMode(activeBlock.DisplayMode);
+        MonitorDataType = DataTypeFromDisplayMode(DisplayMode);
         BitDisplayMode = activeBlock.BitDisplayMode;
         DisplayRadix = activeBlock.DisplayRadix;
         AutoRefreshEnabled = true;
-        AutoRefreshIntervalMs = activeBlock.AutoRefreshIntervalMs;
+        WatchItems.Clear();
+        foreach (var item in project.WatchItems)
+        {
+            WatchItems.Add(new WatchItemViewModel(item));
+        }
+
         await LoadProjectCommentCsvAsync(project.CommentCsvPath).ConfigureAwait(true);
     }
 
     public void NewProject()
     {
-        ProjectName = "タイトルなし";
+        ProjectName = "Untitled";
         CurrentProjectPath = string.Empty;
         CommentCsvPath = string.Empty;
         _commentCsvComments.Clear();
         ErrorText = string.Empty;
         ConnectionSettings = ConnectionSettings.CreateDefault(SelectedProtocol.Kind);
+        AutoRefreshIntervalMs = ConnectionSettings.AutoRefreshIntervalMs;
         RefreshAvailableDeviceFamilies(SelectedProtocol);
         RefreshDisplayModes();
         StartAddress = InferDefaultStartAddress();
         ItemCount = 16;
+        MonitorDataType = ValueDataType.UInt16;
         DisplayMode = BlockDisplayMode.Word;
         BitDisplayMode = BitDisplayMode.Packed16;
         DisplayRadix = DisplayRadix.Decimal;
         AutoRefreshEnabled = true;
-        AutoRefreshIntervalMs = 500;
         WriteAddress = string.Empty;
         WriteValueText = string.Empty;
         SelectedWriteDataType = ValueDataType.UInt16;
         WriteRadix = DisplayRadix.Decimal;
+        WatchItems.Clear();
         Rows.Clear();
         _lastSnapshot = null;
         _rowLayoutKey = string.Empty;
@@ -334,7 +356,7 @@ public partial class MainWindowViewModel : ObservableObject
         var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
         SetCommentCsv(path, comments);
         ErrorText = string.Empty;
-        StatusText = $"コメントCSV読込: {Path.GetFileName(path)}";
+        ErrorText = string.Empty;
 
         if (IsConnected)
             await ReadOnceAsync().ConfigureAwait(true);
@@ -355,7 +377,7 @@ public partial class MainWindowViewModel : ObservableObject
     public async Task<DeviceRangeCatalog> LoadDeviceRangeCatalogAsync()
     {
         if (_session is null || ConnectionState != ConnectionState.Connected)
-            throw new InvalidOperationException("PLC に接続してからデバイス範囲を表示してください。");
+            throw new InvalidOperationException("Connect to the PLC before opening device ranges.");
 
         _deviceRangeCatalog = await _session.ReadDeviceRangeCatalogAsync().ConfigureAwait(true);
         ApplyDeviceRangeCatalogNotationToDeviceFamilies();
@@ -422,18 +444,22 @@ public partial class MainWindowViewModel : ObservableObject
             switch (row)
             {
                 case WordRowViewModel word:
-                    var wordValue = NumericFormatter.ParseWord(valueText, DisplayRadix);
+                    var wordType = MonitorDataType == ValueDataType.Int16 ? ValueDataType.Int16 : ValueDataType.UInt16;
+                    var parsedWordValue = NumericFormatter.ParseByType(valueText, wordType, DisplayRadix);
+                    var wordValue = ToRawWord(parsedWordValue);
                     if (SelectedDeviceFamily.Kind == DeviceKind.Bit && DisplayMode == BlockDisplayMode.Word)
                         await WriteBitValuesAsync(word.Address, word.Bits, 16, wordValue, "Bit word write").ConfigureAwait(true);
                     else
-                        await WriteInternalAsync(new WriteRequest(word.Address, ValueDataType.UInt16, wordValue, DisplayRadix)).ConfigureAwait(true);
+                        await WriteInternalAsync(new WriteRequest(word.Address, wordType, parsedWordValue, DisplayRadix)).ConfigureAwait(true);
                     break;
                 case DWordRowViewModel dword:
-                    var dwordValue = NumericFormatter.ParseDWord(valueText, DisplayRadix);
+                    var dwordType = MonitorDataType == ValueDataType.Int32 ? ValueDataType.Int32 : ValueDataType.UInt32;
+                    var parsedDWordValue = NumericFormatter.ParseByType(valueText, dwordType, DisplayRadix);
+                    var dwordValue = ToRawDWord(parsedDWordValue);
                     if (SelectedDeviceFamily.Kind == DeviceKind.Bit)
                         await WriteBitValuesAsync(dword.Address, dword.Bits, 32, dwordValue, "Bit dword write").ConfigureAwait(true);
                     else
-                        await WriteInternalAsync(new WriteRequest(dword.Address, ValueDataType.UInt32, dwordValue, DisplayRadix)).ConfigureAwait(true);
+                        await WriteInternalAsync(new WriteRequest(dword.Address, dwordType, parsedDWordValue, DisplayRadix)).ConfigureAwait(true);
                     break;
                 case FloatRowViewModel @float:
                     var floatValue = (float)NumericFormatter.ParseByType(valueText, ValueDataType.Float32, DisplayRadix);
@@ -448,7 +474,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
         {
-            ErrorText = FormatInputError(row, exception);
+            ErrorText = FormatInputError(GetMonitorRowDataType(row), exception);
             return false;
         }
     }
@@ -461,7 +487,7 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             ConnectionState = ConnectionState.Connecting;
-            StatusText = "接続中...";
+            StatusText = "Connecting...";
             ErrorText = string.Empty;
             _session = await _sessionFactory.CreateAsync(ConnectionSettings).ConfigureAwait(true);
             _session.TraceReceived += OnTraceReceived;
@@ -471,7 +497,7 @@ public partial class MainWindowViewModel : ObservableObject
             await RefreshDeviceRangeCatalogForDisplayAsync().ConfigureAwait(true);
             ResetCommunicationRate();
             _communicationRateTimer.Start();
-            StatusText = $"接続済み: {SelectedProtocol.DisplayName}";
+            StatusText = $"Connected: {SelectedProtocol.DisplayName}";
             await ReadOnceAsync().ConfigureAwait(true);
             RestartTimer();
         }
@@ -480,7 +506,7 @@ public partial class MainWindowViewModel : ObservableObject
             await DisposeSessionAsync().ConfigureAwait(true);
             await LogErrorAsync("Connect", exception).ConfigureAwait(true);
             ConnectionState = ConnectionState.Error;
-            StatusText = "接続エラー";
+            StatusText = "Connection error";
         }
     }
 
@@ -496,13 +522,13 @@ public partial class MainWindowViewModel : ObservableObject
         ConnectionState = ConnectionState.Disconnected;
         if (_session is null)
         {
-            StatusText = "未接続";
+        StatusText = "Disconnected";
             return;
         }
 
         await DisposeSessionAsync().ConfigureAwait(true);
-        StatusText = "未接続";
-        CpuStateText = "不明";
+        StatusText = "Disconnected";
+        CpuStateText = "Unknown";
     }
 
     private async Task ReadOnceAsync()
@@ -511,13 +537,23 @@ public partial class MainWindowViewModel : ObservableObject
         if (session is null || ConnectionState != ConnectionState.Connected || IsBusy || _isInlineEditing)
             return;
 
-        EnsureRowsForCurrentLayout();
-        if (!TryBuildVisibleReadPlan(out var plan))
-            return;
-
         try
         {
             IsBusy = true;
+            if (SelectedMainTabIndex == 1)
+            {
+                if (WatchItems.Any(static item => !string.IsNullOrWhiteSpace(item.Address)))
+                    await ReadWatchListAsync().ConfigureAwait(true);
+
+                LastReadText = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                StatusText = $"Connected: {SelectedProtocol.DisplayName}";
+                return;
+            }
+
+            EnsureRowsForCurrentLayout();
+            if (!TryBuildVisibleReadPlan(out var plan))
+                return;
+
             var result = await session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
             if (_isInlineEditing || !ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
                 return;
@@ -530,7 +566,7 @@ public partial class MainWindowViewModel : ObservableObject
             LastReadText = result.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             ResponseTimeText = $"{result.ElapsedMilliseconds:0.0} ms";
             CpuStateText = FormatCpuStateText(result.CpuState);
-            StatusText = $"接続済み: {SelectedProtocol.DisplayName}";
+            StatusText = $"Connected: {SelectedProtocol.DisplayName}";
         }
         catch (Exception exception)
         {
@@ -538,7 +574,7 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
 
             await LogErrorAsync("Read", exception).ConfigureAwait(true);
-            StatusText = "読込み失敗";
+            ErrorText = exception.Message;
         }
         finally
         {
@@ -565,6 +601,256 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    public void AddSelectedMonitorRowToWatch() => AddMonitorRowToWatch(SelectedRow);
+
+    public void AddMonitorRowToWatch(MonitorRowViewModel? row)
+    {
+        if (row is null)
+            return;
+
+        var address = row.SelectionAddress;
+        if (WatchItems.Any(item => string.Equals(item.Address.Trim(), address.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            ErrorText = $"Already in watch list: {address}";
+            return;
+        }
+
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = address,
+            DataType = InferWatchDataType(row),
+            DisplayRadix = DisplayRadix,
+            Comment = string.IsNullOrWhiteSpace(row.Comment) ? null : row.Comment,
+        });
+        WatchItems.Add(item);
+        SelectedWatchItem = item;
+    }
+
+    private static ValueDataType InferWatchDataType(MonitorRowViewModel row) =>
+        row switch
+        {
+            SingleBitRowViewModel or ExpandedBitRowViewModel or PackedBitRowViewModel => ValueDataType.Bit,
+            DWordRowViewModel => ValueDataType.UInt32,
+            FloatRowViewModel => ValueDataType.Float32,
+            _ => ValueDataType.UInt16,
+        };
+
+    private void RemoveSelectedWatchItem()
+    {
+        if (SelectedWatchItem is null)
+            return;
+
+        WatchItems.Remove(SelectedWatchItem);
+        SelectedWatchItem = WatchItems.LastOrDefault();
+    }
+
+    private async Task ReadWatchListAsync()
+    {
+        if (_session is null || ConnectionState != ConnectionState.Connected)
+            return;
+
+        foreach (var item in WatchItems.ToArray())
+        {
+            if (string.IsNullOrWhiteSpace(item.Address))
+                continue;
+
+            try
+            {
+                var result = await ReadWatchItemAsync(item).ConfigureAwait(true);
+                if (!item.IsValueEditing)
+                    item.ValueText = result.ValueText;
+
+                item.RawText = result.RawText;
+                item.HasError = false;
+                item.ErrorText = string.Empty;
+            }
+            catch (Exception exception)
+            {
+                item.HasError = true;
+                item.ErrorText = exception.Message;
+                if (!item.IsValueEditing)
+                    item.ValueText = string.Empty;
+
+                item.RawText = string.Empty;
+                item.Bits.Clear();
+                await LogErrorAsync("Watch", exception).ConfigureAwait(true);
+            }
+        }
+    }
+
+    private async Task<(string ValueText, string RawText)> ReadWatchItemAsync(WatchItemViewModel item)
+    {
+        if (_session is null)
+            throw new InvalidOperationException("Connect to the PLC before opening device ranges.");
+
+        var family = ResolveWatchDeviceFamily(item.Address);
+        var query = new BlockQuery
+        {
+            Protocol = SelectedProtocol.Kind,
+            DeviceFamilyCode = family.Code,
+            DeviceKind = family.Kind,
+            StartAddress = item.Address,
+            ItemCount = 1,
+            DisplayRadix = item.DisplayRadix,
+            DisplayMode = item.DataType switch
+            {
+                ValueDataType.Bit => BlockDisplayMode.Word,
+                ValueDataType.Int32 or ValueDataType.UInt32 => BlockDisplayMode.DWord,
+                ValueDataType.Float32 => BlockDisplayMode.Float32,
+                _ => BlockDisplayMode.Word,
+            },
+        };
+
+        var result = await _session.ReadBlockAsync(query).ConfigureAwait(true);
+        var normalizedAddress = result.ElementAddresses.FirstOrDefault() ?? item.Address;
+        if (item.DataType == ValueDataType.Bit || family.Kind == DeviceKind.Bit)
+        {
+            var value = result.BitValues.FirstOrDefault();
+            item.Bits.Clear();
+            return (value ? "1" : "0", string.Empty);
+        }
+
+        if (item.DataType == ValueDataType.Float32)
+        {
+            var raw = CombineWords(result.WordValues);
+            SetWatchBits(item, normalizedAddress, raw, 32);
+            return (NumericFormatter.FormatFloat(NumericFormatter.RawBitsToFloat(raw)), $"0x{raw:X8}");
+        }
+
+        if (item.DataType is ValueDataType.Int32 or ValueDataType.UInt32)
+        {
+            var raw = CombineWords(result.WordValues);
+            SetWatchBits(item, normalizedAddress, raw, 32);
+            var valueText = item.DataType == ValueDataType.Int32
+                ? FormatInt32(unchecked((int)raw), item.DisplayRadix)
+                : NumericFormatter.FormatDWord(raw, item.DisplayRadix);
+            return (valueText, $"0x{raw:X8}");
+        }
+
+        var word = result.WordValues.FirstOrDefault();
+        SetWatchBits(item, normalizedAddress, word, 16);
+        var text = item.DataType == ValueDataType.Int16
+            ? FormatInt16(unchecked((short)word), item.DisplayRadix)
+            : NumericFormatter.FormatWord(word, item.DisplayRadix);
+        return (text, $"0x{word:X4}");
+    }
+
+    private void SetWatchBits(WatchItemViewModel item, string wordAddress, uint value, int bitCount)
+    {
+        item.Bits.Clear();
+        for (var bit = bitCount - 1; bit >= 0; bit--)
+        {
+            var bitIndex = bit;
+            item.Bits.Add(new BitCellViewModel(
+                bitIndex,
+                ((value >> bitIndex) & 0x1) != 0,
+                $"{wordAddress}.{bitIndex}",
+                CanUseWritePanel,
+                next => WriteWatchBitAsync(wordAddress, bitIndex, next)));
+        }
+    }
+
+    private async Task WriteWatchBitAsync(string wordAddress, int bitIndex, bool value)
+    {
+        if (_session is null)
+            return;
+
+        try
+        {
+            await _session.WriteBitInWordAsync(wordAddress, bitIndex, value).ConfigureAwait(true);
+            await ReadWatchListAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            await LogErrorAsync("Watch bit", exception).ConfigureAwait(true);
+        }
+    }
+
+    public async Task WriteWatchItemAsync(WatchItemViewModel item, string valueText)
+    {
+        if (_session is null || string.IsNullOrWhiteSpace(item.Address))
+            return;
+
+        try
+        {
+            var value = NumericFormatter.ParseByType(valueText, item.DataType, item.DisplayRadix);
+            await _session.WriteAsync(new WriteRequest(item.Address, item.DataType, value, item.DisplayRadix)).ConfigureAwait(true);
+            item.ValueText = valueText;
+            item.HasError = false;
+            item.ErrorText = string.Empty;
+            item.IsValueEditing = false;
+            await ReadWatchListAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
+        {
+            item.HasError = true;
+            item.ErrorText = FormatInputError(item.DataType, exception);
+        }
+        catch (Exception exception)
+        {
+            item.HasError = true;
+            item.ErrorText = exception.Message;
+            await LogErrorAsync("Watch write", exception).ConfigureAwait(true);
+        }
+    }
+
+    private static string FormatInt16(short value, DisplayRadix radix) =>
+        radix == DisplayRadix.Decimal
+            ? value.ToString(CultureInfo.InvariantCulture)
+            : NumericFormatter.FormatWord(unchecked((ushort)value), radix);
+
+    private static string FormatInt32(int value, DisplayRadix radix) =>
+        radix == DisplayRadix.Decimal
+            ? value.ToString(CultureInfo.InvariantCulture)
+            : NumericFormatter.FormatDWord(unchecked((uint)value), radix);
+
+    private string FormatWordValue(ushort value) =>
+        MonitorDataType == ValueDataType.Int16
+            ? FormatInt16(unchecked((short)value), DisplayRadix)
+            : NumericFormatter.FormatWord(value, DisplayRadix);
+
+    private string FormatDWordValue(uint value) =>
+        MonitorDataType == ValueDataType.Int32
+            ? FormatInt32(unchecked((int)value), DisplayRadix)
+            : NumericFormatter.FormatDWord(value, DisplayRadix);
+
+    private static ushort ToRawWord(object value) =>
+        value switch
+        {
+            short signed => unchecked((ushort)signed),
+            ushort unsigned => unsigned,
+            _ => Convert.ToUInt16(value, CultureInfo.InvariantCulture),
+        };
+
+    private static uint ToRawDWord(object value) =>
+        value switch
+        {
+            int signed => unchecked((uint)signed),
+            uint unsigned => unsigned,
+            _ => Convert.ToUInt32(value, CultureInfo.InvariantCulture),
+        };
+
+    private DeviceFamilyDefinition ResolveWatchDeviceFamily(string address)
+    {
+        var trimmed = address.Trim();
+        var families = ProtocolCatalog.GetDeviceFamilies(SelectedProtocol, ConnectionSettings.KeyenceDeviceMode)
+            .OrderByDescending(static family => family.Code.Length);
+        foreach (var family in families)
+        {
+            if (trimmed.StartsWith(family.Code, StringComparison.OrdinalIgnoreCase))
+                return family;
+        }
+
+        return SelectedDeviceFamily;
+    }
+
+    private static uint CombineWords(IReadOnlyList<ushort> words)
+    {
+        var low = words.Count > 0 ? words[0] : 0;
+        var high = words.Count > 1 ? words[1] : 0;
+        return (uint)(low | (high << 16));
+    }
+
     private async Task ExecuteCpuCommandAsync(CpuCommand command)
     {
         if (_session is null)
@@ -572,7 +858,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (!SelectedProtocol.Capabilities.SupportsCpuControl)
         {
-            ErrorText = "このプロトコルでは CPU 制御は未対応です。";
+            ErrorText = "CPU control is not supported by this protocol.";
             return;
         }
 
@@ -580,14 +866,14 @@ public partial class MainWindowViewModel : ObservableObject
             && !await RequestCpuCommandConfirmationAsync(command).ConfigureAwait(true))
         {
             var commandText = command == CpuCommand.Run ? "RUN" : "STOP";
-            StatusText = $"CPU {commandText} をキャンセルしました。";
+            ErrorText = $"CPU {commandText} was canceled.";
             return;
         }
 
         string? password = null;
         if (SelectedProtocol.Capabilities.SupportsPasswordProtectedCpuCommands && RequestPasswordAsync is not null)
         {
-            password = await RequestPasswordAsync("リモートパスワード").ConfigureAwait(true);
+            password = await RequestPasswordAsync("Remote password").ConfigureAwait(true);
         }
 
         try
@@ -637,7 +923,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 if (!DeviceAddressRangeProvider.TryParseAddress(startAddress, SelectedDeviceFamily, out var address))
                 {
-                    ErrorText = "ビット書込み先アドレスを解釈できません。";
+                    ErrorText = "The bit write target address could not be parsed.";
                     return;
                 }
 
@@ -699,7 +985,7 @@ public partial class MainWindowViewModel : ObservableObject
             _rowLayoutKey = string.Empty;
             _generatedStartAddress = null;
             _startAddressRowIndex = 0;
-            SetLayoutError("先頭アドレスを確認してください。");
+            SetLayoutError("Check the start address.");
             return;
         }
 
@@ -709,7 +995,7 @@ public partial class MainWindowViewModel : ObservableObject
             _rowLayoutKey = string.Empty;
             _generatedStartAddress = null;
             _startAddressRowIndex = 0;
-            SetLayoutError(rangeError ?? "デバイス範囲を確認してください。");
+            SetLayoutError(rangeError ?? "Check the device range.");
             return;
         }
 
@@ -868,14 +1154,14 @@ public partial class MainWindowViewModel : ObservableObject
             if (!entry.Supported)
             {
                 rangeBounds = new DeviceDisplayRangeBounds(0, 0, "unsupported");
-                error = $"{entry.Device} は現在選択中の PLC では未対応です。";
+                error = $"{entry.Device} is not supported by the selected PLC.";
                 return false;
             }
 
             if (entry.PointCount is 0)
             {
                 rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{entry.Device}:0");
-                error = $"{entry.Device} は現在の PLC 設定で 0 点です。";
+                error = $"{entry.Device} has zero points in the current PLC settings.";
                 return false;
             }
 
@@ -883,7 +1169,7 @@ public partial class MainWindowViewModel : ObservableObject
             if (upperBound < entry.LowerBound)
             {
                 rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{entry.Device}:invalid");
-                error = $"{entry.Device} のデバイス範囲が不正です。";
+                error = $"{entry.Device} has an invalid device range.";
                 return false;
             }
 
@@ -1128,7 +1414,7 @@ public partial class MainWindowViewModel : ObservableObject
             WordMonitorRow word => new WordRowViewModel(
                 word.Address,
                 word.Value,
-                NumericFormatter.FormatWord(word.Value, DisplayRadix),
+                FormatWordValue(word.Value),
                 $"0x{word.Value:X4}",
                 word.Bits.Select(bit => new BitCellViewModel(
                     bit.Index,
@@ -1148,7 +1434,7 @@ public partial class MainWindowViewModel : ObservableObject
             DWordMonitorRow dword => new DWordRowViewModel(
                 dword.Address,
                 dword.Value,
-                NumericFormatter.FormatDWord(dword.Value, DisplayRadix),
+                FormatDWordValue(dword.Value),
                 $"0x{dword.Value:X8}",
                 dword.Bits.Select(bit => CreateNumericBitCell(dword.Address, bit)),
                 true,
@@ -1164,7 +1450,7 @@ public partial class MainWindowViewModel : ObservableObject
             ExpandedWordHeaderMonitorRow header => new ExpandedWordHeaderRowViewModel(
                 header.Address,
                 header.Value,
-                NumericFormatter.FormatWord(header.Value, DisplayRadix),
+                FormatWordValue(header.Value),
                 $"0x{header.Value:X4}",
                 header.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null)),
                 header.Comment),
@@ -1209,13 +1495,13 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (IsSlmpDWordOnlyFamily())
         {
-            ErrorText = "LTN/LSTN/LCN/LZ は 32-bit 値として書き込んでください。";
+                    ErrorText = "The bit write target address could not be parsed.";
             return Task.CompletedTask;
         }
 
         if (!DeviceAddressRangeProvider.TryParseAddress(rowAddress, SelectedDeviceFamily, out var address))
         {
-            ErrorText = "ビット書込み先アドレスを解釈できません。";
+                    ErrorText = "The bit write target address could not be parsed.";
             return Task.CompletedTask;
         }
 
@@ -1253,24 +1539,34 @@ public partial class MainWindowViewModel : ObservableObject
             WordRowViewModel => FormatInputError(ValueDataType.UInt16, exception),
             DWordRowViewModel => FormatInputError(ValueDataType.UInt32, exception),
             FloatRowViewModel => FormatInputError(ValueDataType.Float32, exception),
-            _ => "入力値を確認してください。",
+            _ => "Check the input value.",
+        };
+
+    private ValueDataType GetMonitorRowDataType(MonitorRowViewModel row) =>
+        row switch
+        {
+            WordRowViewModel => MonitorDataType == ValueDataType.Int16 ? ValueDataType.Int16 : ValueDataType.UInt16,
+            DWordRowViewModel => MonitorDataType == ValueDataType.Int32 ? ValueDataType.Int32 : ValueDataType.UInt32,
+            FloatRowViewModel => ValueDataType.Float32,
+            SingleBitRowViewModel or ExpandedBitRowViewModel => ValueDataType.Bit,
+            _ => ValueDataType.UInt16,
         };
 
     private static string FormatInputError(ValueDataType dataType, Exception exception)
     {
         var message = dataType switch
         {
-            ValueDataType.Bit => "Bit は 0/1、ON/OFF、TRUE/FALSE で入力してください。",
-            ValueDataType.Int16 => "Int16 は -32768～32767 の範囲で入力してください。",
-            ValueDataType.UInt16 => "Word は 0～65535 の範囲で入力してください。DWord 値を書き込む場合は表示形式を DWord にしてください。",
-            ValueDataType.Int32 => "Int32 は -2147483648～2147483647 の範囲で入力してください。",
-            ValueDataType.UInt32 => "DWord は 0～4294967295 の範囲で入力してください。",
-            ValueDataType.Float32 => "Float32 は小数表記で入力してください。",
-            _ => "入力値を確認してください。",
+            ValueDataType.Bit => "Enter Bit as 0/1, ON/OFF, or TRUE/FALSE.",
+            ValueDataType.Int16 => "Enter Int16 in the range -32768 to 32767.",
+            ValueDataType.UInt16 => "Enter Word in the range 0 to 65535. To write a DWord value, select a DWord type.",
+            ValueDataType.Int32 => "Enter Int32 in the range -2147483648 to 2147483647.",
+            ValueDataType.UInt32 => "Enter DWord in the range 0 to 4294967295.",
+            ValueDataType.Float32 => "Enter Float32 as a decimal number.",
+            _ => "Check the input value.",
         };
 
         return exception is FormatException
-            ? $"入力値の形式が正しくありません。{message}"
+            ? $"The input format is invalid. {message}"
             : message;
     }
 
@@ -1319,7 +1615,7 @@ public partial class MainWindowViewModel : ObservableObject
     private void CommunicationRateTimerOnTick(object? sender, EventArgs e)
     {
         var count = Interlocked.Exchange(ref _communicationFrameCount, 0);
-        CommunicationRateText = $"{count} 回/s";
+        CommunicationRateText = $"{count} frames/s";
     }
 
     private void OnTraceReceived(object? sender, TraceEntry traceEntry)
@@ -1334,12 +1630,12 @@ public partial class MainWindowViewModel : ObservableObject
     private void ResetCommunicationRate()
     {
         Interlocked.Exchange(ref _communicationFrameCount, 0);
-        CommunicationRateText = "0 回/s";
+        CommunicationRateText = "0 frames/s";
     }
 
     private BlockQuery BuildBlockQuery(string startAddress, int itemCount) => new()
     {
-        Title = "メインブロック",
+        Title = "Main block",
         Protocol = SelectedProtocol.Kind,
         DeviceFamilyCode = SelectedDeviceFamily.Code,
         DeviceKind = SelectedDeviceFamily.Kind,
@@ -1348,8 +1644,6 @@ public partial class MainWindowViewModel : ObservableObject
         DisplayMode = DisplayMode,
         BitDisplayMode = BitDisplayMode,
         DisplayRadix = DisplayRadix,
-        AutoRefreshEnabled = true,
-        AutoRefreshIntervalMs = AutoRefreshIntervalMs,
     };
 
     private BlockQuery BuildProjectBlockQuery() =>
@@ -1358,8 +1652,9 @@ public partial class MainWindowViewModel : ObservableObject
     private ProjectFile BuildProjectFile() => new()
     {
         Name = ProjectName,
-        Connection = ConnectionSettings,
+        Connection = ConnectionSettings with { AutoRefreshIntervalMs = AutoRefreshIntervalMs },
         Blocks = [BuildProjectBlockQuery()],
+        WatchItems = WatchItems.Select(static item => item.ToModel()).ToList(),
         CommentCsvPath = string.IsNullOrWhiteSpace(CommentCsvPath) ? null : CommentCsvPath,
     };
 
@@ -1377,7 +1672,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            ErrorText = $"コメントCSVを読み込めません: {exception.Message}";
+            ErrorText = $"Could not load comment CSV: {exception.Message}";
         }
     }
 
@@ -1458,12 +1753,33 @@ public partial class MainWindowViewModel : ObservableObject
             DisplayMode = current;
         else
             OnPropertyChanged(nameof(DisplayMode));
+
+        if (DisplayModeFromDataType(MonitorDataType) != current)
+            MonitorDataType = DataTypeFromDisplayMode(current);
     }
 
     private BlockDisplayMode NormalizeDisplayMode(BlockDisplayMode mode) =>
         IsSlmpDWordOnlyFamily()
             ? BlockDisplayMode.DWord
             : mode;
+
+    private BlockDisplayMode DisplayModeFromDataType(ValueDataType dataType) =>
+        NormalizeDisplayMode(dataType switch
+        {
+            ValueDataType.Int32 or ValueDataType.UInt32 => BlockDisplayMode.DWord,
+            ValueDataType.Float32 => BlockDisplayMode.Float32,
+            ValueDataType.Bit => BlockDisplayMode.BitExpand,
+            _ => BlockDisplayMode.Word,
+        });
+
+    private static ValueDataType DataTypeFromDisplayMode(BlockDisplayMode mode) =>
+        mode switch
+        {
+            BlockDisplayMode.DWord => ValueDataType.UInt32,
+            BlockDisplayMode.Float32 => ValueDataType.Float32,
+            BlockDisplayMode.BitExpand => ValueDataType.Bit,
+            _ => ValueDataType.UInt16,
+        };
 
     private bool IsSlmpDWordOnlyFamily() =>
         MonitorRangePlanner.IsDWordOnlyFamily(SelectedProtocol.Kind, SelectedDeviceFamily);
@@ -1652,11 +1968,40 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(StartAddress))
+            return;
+
+        _lastSnapshot = null;
+        RefreshLayoutNow();
+    }
+
+    partial void OnMonitorDataTypeChanged(ValueDataType value)
+    {
+        SelectedWriteDataType = value == ValueDataType.Bit && SelectedDeviceFamily.Kind == DeviceKind.Word
+            ? ValueDataType.UInt16
+            : value;
+
+        var mode = DisplayModeFromDataType(value);
+        if (DisplayMode != mode)
+        {
+            DisplayMode = mode;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(StartAddress))
+            return;
+
         _lastSnapshot = null;
         RefreshLayoutNow();
     }
 
     partial void OnDisplayRadixChanged(DisplayRadix value)
+    {
+        if (ConnectionState == ConnectionState.Connected)
+            _ = ReadOnceAsync();
+    }
+
+    partial void OnSelectedMainTabIndexChanged(int value)
     {
         if (ConnectionState == ConnectionState.Connected)
             _ = ReadOnceAsync();
@@ -1671,11 +2016,11 @@ public partial class MainWindowViewModel : ObservableObject
         switch (value)
         {
             case WordRowViewModel word:
-                SelectedWriteDataType = ValueDataType.UInt16;
+                SelectedWriteDataType = MonitorDataType == ValueDataType.Int16 ? ValueDataType.Int16 : ValueDataType.UInt16;
                 WriteValueText = word.EditableValueText;
                 break;
             case DWordRowViewModel dword:
-                SelectedWriteDataType = ValueDataType.UInt32;
+                SelectedWriteDataType = MonitorDataType == ValueDataType.Int32 ? ValueDataType.Int32 : ValueDataType.UInt32;
                 WriteValueText = dword.EditableValueText;
                 break;
             case FloatRowViewModel @float:
@@ -1695,7 +2040,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnAutoRefreshEnabledChanged(bool value) => RestartTimer();
 
-    partial void OnAutoRefreshIntervalMsChanged(int value) => RestartTimer();
+    partial void OnAutoRefreshIntervalMsChanged(int value)
+    {
+        ConnectionSettings = ConnectionSettings with { AutoRefreshIntervalMs = value };
+        RestartTimer();
+    }
 
     partial void OnSelectedFontSizeOptionChanged(FontSizeOption value)
     {
@@ -1721,7 +2070,7 @@ public partial class MainWindowViewModel : ObservableObject
             WordMonitorRow word => new WordRowViewModel(
                 word.Address,
                 word.Value,
-                NumericFormatter.FormatWord(word.Value, DisplayRadix),
+                FormatWordValue(word.Value),
                 $"0x{word.Value:X4}",
                 word.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null, CreateWordBitLabel(bit))),
                 false,
@@ -1735,7 +2084,7 @@ public partial class MainWindowViewModel : ObservableObject
             DWordMonitorRow dword => new DWordRowViewModel(
                 dword.Address,
                 dword.Value,
-                NumericFormatter.FormatDWord(dword.Value, DisplayRadix),
+                FormatDWordValue(dword.Value),
                 $"0x{dword.Value:X8}",
                 dword.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null, CreateWordBitLabel(bit))),
                 false,
@@ -1751,7 +2100,7 @@ public partial class MainWindowViewModel : ObservableObject
             ExpandedWordHeaderMonitorRow header => new ExpandedWordHeaderRowViewModel(
                 header.Address,
                 header.Value,
-                NumericFormatter.FormatWord(header.Value, DisplayRadix),
+                FormatWordValue(header.Value),
                 $"0x{header.Value:X4}",
                 header.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null)),
                 header.Comment),
@@ -1799,14 +2148,14 @@ public partial class MainWindowViewModel : ObservableObject
     private static string FormatCpuStateText(CpuState? state)
     {
         if (state is null)
-            return "不明";
+            return "Unknown";
 
         var label = state.State switch
         {
             CpuRunState.Run => "RUN",
             CpuRunState.Stop => "STOP",
             CpuRunState.Program => "PROGRAM",
-            _ => "不明",
+            _ => "Unknown",
         };
 
         return label;
@@ -1842,3 +2191,4 @@ public partial class MainWindowViewModel : ObservableObject
         _layoutErrorText = null;
     }
 }
+
