@@ -54,6 +54,8 @@ public partial class MainWindowViewModel : ObservableObject
     private int _communicationFrameCount;
     private int _visibleStartIndex;
     private int _visibleRowCount = DefaultVisibleRowCount;
+    private int _visibleWatchStartIndex;
+    private int _visibleWatchRowCount = DefaultVisibleRowCount;
     private int _startAddressRowIndex;
     private SequentialDeviceAddress? _generatedStartAddress;
     private DeviceRangeCatalog? _deviceRangeCatalog;
@@ -386,7 +388,7 @@ public partial class MainWindowViewModel : ObservableObject
         return _deviceRangeCatalog;
     }
 
-    public void NotifyMonitorScrollActivity()
+    public void NotifyScrollActivity()
     {
         if (ConnectionState != ConnectionState.Connected)
             return;
@@ -408,6 +410,20 @@ public partial class MainWindowViewModel : ObservableObject
         _visibleRowCount = normalizedCount;
 
         if (ConnectionState == ConnectionState.Connected && !_isScrollReadPaused && !_isInlineEditing)
+            _ = ReadOnceAsync();
+    }
+
+    public void UpdateVisibleWatchRange(int firstIndex, int visibleCount)
+    {
+        var normalizedFirst = Math.Max(0, firstIndex);
+        var normalizedCount = Math.Max(1, visibleCount);
+        if (_visibleWatchStartIndex == normalizedFirst && _visibleWatchRowCount == normalizedCount)
+            return;
+
+        _visibleWatchStartIndex = normalizedFirst;
+        _visibleWatchRowCount = normalizedCount;
+
+        if (ConnectionState == ConnectionState.Connected && SelectedMainTabIndex == 1 && !_isScrollReadPaused && !_isInlineEditing)
             _ = ReadOnceAsync();
     }
 
@@ -649,7 +665,12 @@ public partial class MainWindowViewModel : ObservableObject
         if (_session is null || ConnectionState != ConnectionState.Connected)
             return;
 
-        foreach (var item in WatchItems.ToArray())
+        var visibleItems = WatchItems
+            .Skip(Math.Clamp(_visibleWatchStartIndex, 0, Math.Max(0, WatchItems.Count - 1)))
+            .Take(Math.Max(1, _visibleWatchRowCount))
+            .ToArray();
+
+        foreach (var item in visibleItems)
         {
             if (string.IsNullOrWhiteSpace(item.Address))
                 continue;
@@ -675,6 +696,34 @@ public partial class MainWindowViewModel : ObservableObject
                 item.Bits.Clear();
                 await LogErrorAsync("Watch", exception).ConfigureAwait(true);
             }
+        }
+    }
+
+    public async Task RefreshWatchItemAsync(WatchItemViewModel item)
+    {
+        if (_session is null || ConnectionState != ConnectionState.Connected || string.IsNullOrWhiteSpace(item.Address))
+            return;
+
+        try
+        {
+            var result = await ReadWatchItemAsync(item).ConfigureAwait(true);
+            if (!item.IsValueEditing)
+                item.ValueText = result.ValueText;
+
+            item.RawText = result.RawText;
+            item.HasError = false;
+            item.ErrorText = string.Empty;
+        }
+        catch (Exception exception)
+        {
+            item.HasError = true;
+            item.ErrorText = exception.Message;
+            if (!item.IsValueEditing)
+                item.ValueText = string.Empty;
+
+            item.RawText = string.Empty;
+            item.Bits.Clear();
+            await LogErrorAsync("Watch", exception).ConfigureAwait(true);
         }
     }
 
@@ -737,6 +786,32 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void SetWatchBits(WatchItemViewModel item, string wordAddress, uint value, int bitCount)
     {
+        if (item.Bits.Count == bitCount)
+        {
+            var canReuse = true;
+            for (var index = 0; index < bitCount; index++)
+            {
+                var expectedBit = bitCount - 1 - index;
+                if (item.Bits[index].BitIndex != expectedBit
+                    || !string.Equals(item.Bits[index].Address, $"{wordAddress}.{expectedBit}", StringComparison.Ordinal))
+                {
+                    canReuse = false;
+                    break;
+                }
+            }
+
+            if (canReuse)
+            {
+                foreach (var bit in item.Bits)
+                {
+                    bit.IsOn = ((value >> bit.BitIndex) & 0x1) != 0;
+                    bit.CanToggle = CanUseWritePanel;
+                }
+
+                return;
+            }
+        }
+
         item.Bits.Clear();
         for (var bit = bitCount - 1; bit >= 0; bit--)
         {
@@ -955,8 +1030,65 @@ public partial class MainWindowViewModel : ObservableObject
             if (ShouldKeepExistingRowDuringRefresh(Rows[rowIndex], rows[index]))
                 continue;
 
+            if (IsSameVisibleRow(Rows[rowIndex], rows[index]))
+                continue;
+
             Rows[rowIndex] = CreateRowViewModel(rows[index]);
         }
+    }
+
+    private static bool IsSameVisibleRow(MonitorRowViewModel existingRow, MonitorRow nextRow) =>
+        existingRow switch
+        {
+            WordRowViewModel existing when nextRow is WordMonitorRow next =>
+                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
+                && existing.Value == next.Value
+                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
+                && BitsMatch(existing.Bits, next.Bits),
+            PackedBitRowViewModel existing when nextRow is PackedBitMonitorRow next =>
+                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
+                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
+                && BitsMatch(existing.Bits, next.Bits),
+            SingleBitRowViewModel existing when nextRow is SingleBitMonitorRow next =>
+                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
+                && existing.Value == next.Value
+                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal),
+            DWordRowViewModel existing when nextRow is DWordMonitorRow next =>
+                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
+                && existing.Value == next.Value
+                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
+                && BitsMatch(existing.Bits, next.Bits),
+            FloatRowViewModel existing when nextRow is FloatMonitorRow next =>
+                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
+                && existing.Value.Equals(next.Value)
+                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
+                && BitsMatch(existing.Bits, next.Bits),
+            ExpandedWordHeaderRowViewModel existing when nextRow is ExpandedWordHeaderMonitorRow next =>
+                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
+                && existing.Value == next.Value
+                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
+                && BitsMatch(existing.Bits, next.Bits),
+            ExpandedBitRowViewModel existing when nextRow is ExpandedBitMonitorRow next =>
+                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
+                && existing.BitIndex == next.BitIndex
+                && existing.Value == next.Value,
+            _ => false,
+        };
+
+    private static bool BitsMatch(IReadOnlyList<BitCellViewModel> existingBits, IReadOnlyList<BitCellState> nextBits)
+    {
+        if (existingBits.Count != nextBits.Count)
+            return false;
+
+        for (var index = 0; index < existingBits.Count; index++)
+        {
+            if (existingBits[index].BitIndex != nextBits[index].Index
+                || existingBits[index].IsOn != nextBits[index].Value
+                || !string.Equals(existingBits[index].Address, nextBits[index].Address, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
     }
 
     private bool ShouldKeepExistingRowDuringRefresh(MonitorRowViewModel existingRow, MonitorRow nextRow)

@@ -88,9 +88,6 @@
                                 RecognizesAccessKey="True" />
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
-              </Trigger>
               <Trigger Property="IsKeyboardFocused" Value="True">
                 <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
               </Trigger>
@@ -263,10 +260,6 @@
               </Popup>
             </Grid>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
-                <Setter TargetName="DropDownGlyphHost" Property="Background" Value="{DynamicResource AppAccentBrush}" />
-              </Trigger>
               <Trigger Property="IsKeyboardFocusWithin" Value="True">
                 <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
                 <Setter TargetName="DropDownGlyphHost" Property="Background" Value="{DynamicResource AppAccentBrush}" />
@@ -362,10 +355,6 @@
                                 TextElement.Foreground="{TemplateBinding Foreground}" />
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource AppHoverBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
-              </Trigger>
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource AppInputBrush}" />
                 <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
@@ -406,9 +395,6 @@
                                 VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AppRowHoverBrush}" />
-              </Trigger>
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AppSelectionBrush}" />
               </Trigger>

@@ -542,6 +542,7 @@
                        ScrollViewer.VerticalScrollBarVisibility="Auto"
                        ScrollViewer.CanContentScroll="True"
                        VirtualizingPanel.IsVirtualizing="True"
+                       VirtualizingPanel.ScrollUnit="Item"
                        VirtualizingPanel.VirtualizationMode="Recycling"
                        ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}">
                 <ListBox.ItemContainerStyle>
@@ -567,7 +568,8 @@
                 <RowDefinition Height="*" />
               </Grid.RowDefinitions>
 
-              <DataGrid Grid.Row="0"
+              <DataGrid x:Name="WatchDataGrid"
+                        Grid.Row="0"
                         ItemsSource="{Binding WatchItems}"
                         SelectedItem="{Binding SelectedWatchItem, Mode=TwoWay}"
                         AutoGenerateColumns="False"
@@ -577,10 +579,32 @@
                         GridLinesVisibility="Horizontal"
                         BorderThickness="0"
                         Background="{DynamicResource AppInputBrush}"
-                        KeyDown="WatchDataGrid_KeyDown">
+                        KeyDown="WatchDataGrid_KeyDown"
+                        Loaded="WatchDataGrid_Loaded"
+                        Unloaded="WatchDataGrid_Unloaded"
+                        ScrollViewer.CanContentScroll="True"
+                        EnableRowVirtualization="True"
+                        EnableColumnVirtualization="True"
+                        VirtualizingPanel.IsVirtualizing="True"
+                        VirtualizingPanel.ScrollUnit="Item"
+                        VirtualizingPanel.VirtualizationMode="Recycling">
                 <DataGrid.Resources>
                   <Style TargetType="{x:Type DataGridRow}">
+                    <Setter Property="MinHeight" Value="34" />
                     <EventSetter Event="PreviewMouseRightButtonDown" Handler="WatchDataGridRow_PreviewMouseRightButtonDown" />
+                  </Style>
+                  <Style TargetType="{x:Type DataGridCell}">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Padding" Value="4,2" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                    <Style.Triggers>
+                      <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
+                      </Trigger>
+                    </Style.Triggers>
                   </Style>
                 </DataGrid.Resources>
                 <DataGrid.ContextMenu>
@@ -594,8 +618,7 @@
                       <DataTemplate>
                         <TextBlock Text="{Binding Address}" ToolTip="{Binding ErrorText}">
                           <TextBlock.Style>
-                            <Style TargetType="{x:Type TextBlock}">
-                              <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource AddressTextStyle}">
                               <Style.Triggers>
                                 <DataTrigger Binding="{Binding HasError}" Value="True">
                                   <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
@@ -615,33 +638,35 @@
                   <DataGridTemplateColumn Header="Type" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <TextBlock Text="{Binding DataType}" />
+                        <TextBlock Text="{Binding DataType}" Style="{StaticResource ValueTextStyle}" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                       <DataTemplate>
                         <ComboBox ItemsSource="{Binding DataContext.ValueDataTypes, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                  SelectedItem="{Binding DataType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                  SelectedItem="{Binding DataType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectionChanged="WatchOptionComboBox_SelectionChanged" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
                   </DataGridTemplateColumn>
                   <DataGridTemplateColumn Header="Format" Width="100">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <TextBlock Text="{Binding DisplayRadix}" />
+                        <TextBlock Text="{Binding DisplayRadix}" Style="{StaticResource ValueTextStyle}" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                       <DataTemplate>
                         <ComboBox ItemsSource="{Binding DataContext.DisplayRadices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                  SelectedItem="{Binding DisplayRadix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                  SelectedItem="{Binding DisplayRadix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectionChanged="WatchOptionComboBox_SelectionChanged" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
                   </DataGridTemplateColumn>
                   <DataGridTemplateColumn Header="Value" Width="130">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <TextBlock Text="{Binding ValueText}" />
+                        <TextBlock Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
@@ -653,30 +678,38 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTextColumn Header="Hex" Binding="{Binding RawText}" IsReadOnly="True" Width="110" />
+                  <DataGridTemplateColumn Header="Hex" IsReadOnly="True" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding RawText}" Style="{StaticResource HexTextStyle}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
                   <DataGridTemplateColumn Header="Bits" Width="260">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <ItemsControl ItemsSource="{Binding Bits}">
+                        <ItemsControl ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
                           <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                              <WrapPanel />
+                              <WrapPanel VerticalAlignment="Center" />
                             </ItemsPanelTemplate>
                           </ItemsControl.ItemsPanel>
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                              <Button Content="{Binding Label}"
-                                      Command="{Binding ToggleCommand}"
-                                      IsEnabled="{Binding CanToggle}"
-                                      Style="{StaticResource BitButtonStyle}"
-                                      Margin="1" />
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
                         </ItemsControl>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTextColumn Header="Comment" Binding="{Binding Comment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*" />
+                  <DataGridTemplateColumn Header="Comment" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                      <DataTemplate>
+                        <TextBox Text="{Binding Comment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                  </DataGridTemplateColumn>
                 </DataGrid.Columns>
               </DataGrid>
             </Grid>

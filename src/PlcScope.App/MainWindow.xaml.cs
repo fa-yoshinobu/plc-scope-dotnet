@@ -14,6 +14,7 @@ using PlcScope.App.Windows;
 public partial class MainWindow : Window
 {
     private ScrollViewer? _monitorScrollViewer;
+    private ScrollViewer? _watchScrollViewer;
     private MonitorRowViewModel? _contextMenuMonitorRow;
     private bool _isProgrammaticMonitorScroll;
 
@@ -193,7 +194,7 @@ public partial class MainWindow : Window
             return;
 
         if (isScrollActivity)
-            ViewModel.NotifyMonitorScrollActivity();
+            ViewModel.NotifyScrollActivity();
 
         var firstIndex = Math.Max(0, (int)Math.Floor(_monitorScrollViewer.VerticalOffset));
         var visibleCount = Math.Max(1, (int)Math.Ceiling(_monitorScrollViewer.ViewportHeight));
@@ -218,6 +219,43 @@ public partial class MainWindow : Window
                 Dispatcher.BeginInvoke(() => _isProgrammaticMonitorScroll = false, DispatcherPriority.ContextIdle);
             },
             DispatcherPriority.Loaded);
+    }
+
+    private void WatchDataGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        _watchScrollViewer = FindDescendant<ScrollViewer>(WatchDataGrid);
+        if (_watchScrollViewer is null)
+            return;
+
+        _watchScrollViewer.ScrollChanged += WatchScrollViewer_ScrollChanged;
+        UpdateVisibleWatchRange();
+    }
+
+    private void WatchDataGrid_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (_watchScrollViewer is not null)
+            _watchScrollViewer.ScrollChanged -= WatchScrollViewer_ScrollChanged;
+
+        _watchScrollViewer = null;
+    }
+
+    private void WatchScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        var isVerticalScroll = Math.Abs(e.VerticalChange) > 0.001;
+        if (isVerticalScroll)
+            ViewModel.NotifyScrollActivity();
+
+        UpdateVisibleWatchRange();
+    }
+
+    private void UpdateVisibleWatchRange()
+    {
+        if (_watchScrollViewer is null)
+            return;
+
+        var firstIndex = Math.Max(0, (int)Math.Floor(_watchScrollViewer.VerticalOffset));
+        var visibleCount = Math.Max(1, (int)Math.Ceiling(_watchScrollViewer.ViewportHeight));
+        ViewModel.UpdateVisibleWatchRange(firstIndex, visibleCount);
     }
 
     private void DeviceFamilyComboBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -262,6 +300,27 @@ public partial class MainWindow : Window
         e.Handled = true;
         await ViewModel.WriteWatchItemAsync(item, textBox.Text).ConfigureAwait(true);
         item.IsValueEditing = false;
+    }
+
+    private async void WatchOptionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox { DataContext: WatchItemViewModel item } comboBox || e.AddedItems.Count == 0)
+            return;
+
+        switch (comboBox.SelectedItem)
+        {
+            case ValueDataType dataType:
+                item.DataType = dataType;
+                break;
+            case DisplayRadix displayRadix:
+                item.DisplayRadix = displayRadix;
+                break;
+            default:
+                return;
+        }
+
+        WatchDataGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        await ViewModel.RefreshWatchItemAsync(item).ConfigureAwait(true);
     }
 
     private void WatchDataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
