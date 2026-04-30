@@ -123,6 +123,39 @@ public sealed class ProtocolCatalogTests
         Assert.Equal(DeviceAddressDisplayRule.KeyenceBitBank, adjusted.AddressDisplayRule);
     }
 
+    [Theory]
+    [InlineData("Base8", false, DeviceAddressDisplayRule.OctalNoPadding)]
+    [InlineData("Base16", true, DeviceAddressDisplayRule.Default)]
+    public void ApplyDeviceRangeNotation_UsesSlmpXyCatalogNotation(
+        string notation,
+        bool expectedHex,
+        DeviceAddressDisplayRule expectedRule)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily("X")!;
+        var catalog = new DeviceRangeCatalog(
+            "SLMP",
+            "test",
+            [
+                new DeviceRangeEntry(
+                    "X",
+                    "Bit",
+                    true,
+                    true,
+                    0,
+                    0x1FF,
+                    0x200,
+                    "X0-X777",
+                    notation,
+                    "test",
+                    string.Empty),
+            ]);
+
+        var adjusted = ProtocolCatalog.ApplyDeviceRangeNotation(family, catalog);
+
+        Assert.Equal(expectedHex, adjusted.UsesHexAddressing);
+        Assert.Equal(expectedRule, adjusted.AddressDisplayRule);
+    }
+
     [Fact]
     public void Toyopuc_CpuControl_IsEnabled()
     {

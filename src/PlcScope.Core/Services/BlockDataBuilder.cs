@@ -138,12 +138,13 @@ public static class BlockDataBuilder
 
     private static IReadOnlyList<MonitorRow> BuildBitWordRows(BlockReadResult result)
     {
-        var rows = new List<MonitorRow>((result.BitValues.Count + 15) / 16);
-        for (var offset = 0; offset < result.BitValues.Count; offset += 16)
+        var pointsPerRow = GetBitPointsPerWordRow(result.Query);
+        var rows = new List<MonitorRow>((result.BitValues.Count + pointsPerRow - 1) / pointsPerRow);
+        for (var offset = 0; offset < result.BitValues.Count; offset += pointsPerRow)
         {
             ushort wordValue = 0;
-            var bits = new List<BitCellState>(16);
-            var end = Math.Min(offset + 16, result.BitValues.Count);
+            var bits = new List<BitCellState>(pointsPerRow);
+            var end = Math.Min(offset + pointsPerRow, result.BitValues.Count);
             for (var index = offset; index < end; index++)
             {
                 var bitIndex = index - offset;
@@ -164,6 +165,13 @@ public static class BlockDataBuilder
 
         return rows;
     }
+
+    private static int GetBitPointsPerWordRow(BlockQuery query) =>
+        query.Protocol == ProtocolKind.Slmp
+        && query.DeviceFamilyCode is "X" or "Y"
+        && query.AddressDisplayRule == DeviceAddressDisplayRule.OctalNoPadding
+            ? 8
+            : 16;
 
     private static IReadOnlyList<MonitorRow> BuildBitDWordRows(BlockReadResult result)
     {

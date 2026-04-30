@@ -22,6 +22,8 @@ public enum KeyenceDeviceMode
 public enum DeviceAddressDisplayRule
 {
     Default,
+    DecimalNoPadding,
+    OctalNoPadding,
     KeyenceBitBank,
     KeyenceXymBit,
 }

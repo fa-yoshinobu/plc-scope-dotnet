@@ -132,14 +132,58 @@ public sealed class DeviceAddressRangeProviderTests
     }
 
     [Fact]
-    public void TryParseAddress_NormalizesCaseAndPreservesNumericWidth()
+    public void TryParseAddress_SlmpDecimalNormalizesCaseAndRemovesPadding()
     {
         var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily("RD")!;
 
         var parsed = DeviceAddressRangeProvider.TryParseAddress("rd00100", family, out var address);
 
         Assert.True(parsed);
-        Assert.Equal("RD00105", address.FormatOffset(5));
+        Assert.Equal("RD105", address.FormatOffset(5));
+    }
+
+    [Theory]
+    [InlineData("X10", "X17", "X20")]
+    [InlineData("Y0000000010", "Y17", "Y20")]
+    public void TryParseAddress_SlmpOctalXyUsesOctalWithoutDisplayPadding(
+        string input,
+        string expectedPlus7,
+        string expectedPlus8)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily(input[0].ToString())!
+            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out var address);
+
+        Assert.True(parsed);
+        Assert.Equal(input[0] + "10", address.FormatOffset(0));
+        Assert.Equal(expectedPlus7, address.FormatOffset(7));
+        Assert.Equal(expectedPlus8, address.FormatOffset(8));
+    }
+
+    [Theory]
+    [InlineData("X8", "X")]
+    [InlineData("Y19", "Y")]
+    public void TryParseAddress_SlmpOctalXyRejectsNonOctalDigits(string input, string familyCode)
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily(familyCode)!
+            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out _);
+
+        Assert.False(parsed);
+    }
+
+    [Fact]
+    public void TryParseAddress_DefaultSlmpXyUsesHexAddressing()
+    {
+        var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily("X")!;
+
+        var parsed = DeviceAddressRangeProvider.TryParseAddress("X10", family, out var address);
+
+        Assert.True(parsed);
+        Assert.Equal("X1F", address.FormatOffset(15));
+        Assert.Equal("X20", address.FormatOffset(16));
     }
 
     [Fact]
@@ -150,7 +194,7 @@ public sealed class DeviceAddressRangeProviderTests
         var parsed = DeviceAddressRangeProvider.TryParseAddress("00100", family, out var address);
 
         Assert.True(parsed);
-        Assert.Equal("RD00105", address.FormatOffset(5));
+        Assert.Equal("RD105", address.FormatOffset(5));
     }
 
     [Theory]
@@ -212,7 +256,7 @@ public sealed class DeviceAddressRangeProviderTests
         var rebased = DeviceAddressRangeProvider.TryRebaseAddress("D00100", protocol, targetFamily, out var address);
 
         Assert.True(rebased);
-        Assert.Equal("R00100", address);
+        Assert.Equal("R100", address);
     }
 
     [Fact]
@@ -236,7 +280,7 @@ public sealed class DeviceAddressRangeProviderTests
         var rebased = DeviceAddressRangeProvider.TryRebaseAddress("W000A", protocol, targetFamily, out var address);
 
         Assert.True(rebased);
-        Assert.Equal("D0010", address);
+        Assert.Equal("D10", address);
     }
 
     [Fact]

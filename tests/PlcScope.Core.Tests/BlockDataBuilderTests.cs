@@ -63,6 +63,32 @@ public sealed class BlockDataBuilderTests
     }
 
     [Fact]
+    public void Build_BitDeviceWordMode_CanGroupEightPointOctalRows()
+    {
+        var query = new BlockQuery
+        {
+            Protocol = ProtocolKind.Slmp,
+            DeviceKind = DeviceKind.Bit,
+            AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding,
+            DeviceFamilyCode = "X",
+            StartAddress = "X0",
+            ItemCount = 8,
+            DisplayMode = BlockDisplayMode.Word,
+        };
+
+        var addresses = new[] { "X0", "X1", "X2", "X3", "X4", "X5", "X6", "X7" };
+        var bits = new[] { true, false, true, false, true, false, true, false };
+        var result = new BlockReadResult(query, addresses, [], bits, new Dictionary<string, string>(), DateTimeOffset.UtcNow, 5, null);
+
+        var snapshot = BlockDataBuilder.Build(result);
+
+        var row = Assert.IsType<WordMonitorRow>(Assert.Single(snapshot.Rows));
+        Assert.Equal(8, row.Bits.Count);
+        Assert.Equal([7, 6, 5, 4, 3, 2, 1, 0], row.Bits.Select(bit => bit.Index).ToArray());
+        Assert.Equal((ushort)0x55, row.Value);
+    }
+
+    [Fact]
     public void Build_BitDeviceRows_CopiesComments()
     {
         var query = new BlockQuery

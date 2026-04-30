@@ -2,7 +2,6 @@
 
 ## Remaining Manual Validation
 
-- [ ] Verify SLMP device range acquisition with a real PLC.
 - [ ] Verify out-of-range address handling and scroll limits with a real PLC.
 - [ ] Verify Host Link monitor, write, and CPU RUN/STOP behavior with a real PLC.
 - [ ] Verify TOYOPUC monitor and write behavior across all target PLC profiles.
@@ -46,3 +45,7 @@
 - [x] Verify trace log buffering and clearing with unit tests.
 - [x] Rewrite README and docs in ASCII English.
 - [x] Bump app version to `0.1.2`.
+- [x] Verify SLMP device range acquisition and live monitor reads with an iQ-R PLC at `192.168.250.100:1025`.
+- [x] Verify SLMP monitor start-address keyboard entry against a live iQ-R PLC.
+- [x] Remove display padding from SLMP decimal device addresses in Monitor rows and scroll-updated Start address text.
+- [x] Verify SLMP decimal address display rules with unit tests for D/R/RD/SD/M families.

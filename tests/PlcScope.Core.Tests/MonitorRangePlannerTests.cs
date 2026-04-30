@@ -50,6 +50,131 @@ public sealed class MonitorRangePlannerTests
     }
 
     [Fact]
+    public void TryNormalizeStartAddressToRange_IgnoresCatalogAddressWidthForSlmpDecimalDisplay()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var family = protocol.FindFamily("D")!;
+        var startAddress = new SequentialDeviceAddress("D", 300, 3, false);
+        var range = new DeviceDisplayRangeBounds(0, 999_999, "D:0:999999", AddressWidth: 8);
+
+        var normalized = MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            range,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word,
+            out var normalizedAddress,
+            out var error);
+
+        Assert.True(normalized);
+        Assert.Null(error);
+        Assert.Equal("D300", normalizedAddress.FormatOffset(0));
+    }
+
+    [Theory]
+    [InlineData("R", "R300")]
+    [InlineData("RD", "RD300")]
+    [InlineData("SD", "SD300")]
+    [InlineData("M", "M300")]
+    public void TryNormalizeStartAddressToRange_IgnoresCatalogAddressWidthForSlmpDecimalFamilies(
+        string familyCode,
+        string expected)
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var family = protocol.FindFamily(familyCode)!;
+        var startAddress = new SequentialDeviceAddress(familyCode, 300, 3, false, family.AddressDisplayRule);
+        var range = new DeviceDisplayRangeBounds(0, 999_999, $"{familyCode}:0:999999", AddressWidth: 8);
+
+        var normalized = MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            range,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word,
+            out var normalizedAddress,
+            out var error);
+
+        Assert.True(normalized);
+        Assert.Null(error);
+        Assert.Equal(expected, normalizedAddress.FormatOffset(0));
+    }
+
+    [Theory]
+    [InlineData("X")]
+    [InlineData("Y")]
+    public void TryNormalizeStartAddressToRange_IgnoresCatalogAddressWidthForSlmpOctalFamilies(string familyCode)
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var family = protocol.FindFamily(familyCode)!
+            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+        Assert.True(DeviceAddressRangeProvider.TryParseAddress($"{familyCode}0000000010", family, out var startAddress));
+        var range = new DeviceDisplayRangeBounds(0, 0xFFFF, $"{familyCode}:0:FFFF", AddressWidth: 10);
+
+        var normalized = MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            range,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word,
+            out var normalizedAddress,
+            out var error);
+
+        Assert.True(normalized);
+        Assert.Null(error);
+        Assert.Equal($"{familyCode}10", normalizedAddress.FormatOffset(0));
+    }
+
+    [Theory]
+    [InlineData("B", 0x10, "B10")]
+    [InlineData("W", 0x10, "W10")]
+    [InlineData("SB", 0x10, "SB10")]
+    public void TryNormalizeStartAddressToRange_IgnoresCatalogAddressWidthForSlmpHexFamilies(
+        string familyCode,
+        uint number,
+        string expected)
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var family = protocol.FindFamily(familyCode)!;
+        var startAddress = new SequentialDeviceAddress(familyCode, number, 1, true, family.AddressDisplayRule);
+        var range = new DeviceDisplayRangeBounds(0, 0xFFFFFF, $"{familyCode}:0:FFFFFF", AddressWidth: 8);
+
+        var normalized = MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            range,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word,
+            out var normalizedAddress,
+            out var error);
+
+        Assert.True(normalized);
+        Assert.Null(error);
+        Assert.Equal(expected, normalizedAddress.FormatOffset(0));
+    }
+
+    [Fact]
+    public void TryNormalizeStartAddressToRange_IgnoresCatalogAddressWidthForHostLinkHexDisplay()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.HostLink);
+        var family = protocol.FindFamily("B")!;
+        var startAddress = new SequentialDeviceAddress("B", 0x10, 1, true, family.AddressDisplayRule);
+        var range = new DeviceDisplayRangeBounds(0, 0x7FFF, "B:0:7FFF", AddressWidth: 4);
+
+        var normalized = MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            range,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word,
+            out var normalizedAddress,
+            out var error);
+
+        Assert.True(normalized);
+        Assert.Null(error);
+        Assert.Equal("B10", normalizedAddress.FormatOffset(0));
+    }
+
+    [Fact]
     public void TryNormalizeStartAddressToRange_ShrinksAddressToCatalogWidth()
     {
         var protocol = ProtocolCatalog.Get(ProtocolKind.Toyopuc);
@@ -225,6 +350,25 @@ public sealed class MonitorRangePlannerTests
             BlockDisplayMode.Word);
 
         Assert.Equal(3, rows);
+    }
+
+    [Theory]
+    [InlineData("X")]
+    [InlineData("Y")]
+    public void CalculateDisplayRowCount_PacksSlmpOctalBitDevicesByEight(string familyCode)
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
+        var family = protocol.FindFamily(familyCode)!
+            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+
+        var rows = MonitorRangePlanner.CalculateDisplayRowCount(
+            17,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word);
+
+        Assert.Equal(3, rows);
+        Assert.Equal(8, MonitorRangePlanner.GetBitDevicePointsPerRow(protocol.Kind, family, BlockDisplayMode.Word));
     }
 
     [Fact]

@@ -20,6 +20,11 @@ public static class MonitorRangePlanner
         protocol == ProtocolKind.Slmp
         && family.Code is "LTN" or "LSTN" or "LCN" or "LZ";
 
+    public static bool IsOctalByteBitFamily(ProtocolKind protocol, DeviceFamilyDefinition family) =>
+        protocol == ProtocolKind.Slmp
+        && family.Code is "X" or "Y"
+        && family.AddressDisplayRule == DeviceAddressDisplayRule.OctalNoPadding;
+
     public static int GetMinimumPointCount(ProtocolKind protocol, DeviceFamilyDefinition family, BlockDisplayMode displayMode)
     {
         if (family.Kind == DeviceKind.Word
@@ -60,11 +65,34 @@ public static class MonitorRangePlanner
         normalizedStartAddress = startAddress.WithLogicalNumber(clampedNumber) with
         {
             Prefix = family.Code,
-            Width = rangeBounds.AddressWidth is { } width
-                ? width
-                : startAddress.Width,
+            Width = ResolveDisplayAddressWidth(startAddress, rangeBounds, protocol, family),
         };
         return true;
+    }
+
+    public static int ResolveDisplayAddressWidth(
+        SequentialDeviceAddress startAddress,
+        DeviceDisplayRangeBounds rangeBounds,
+        ProtocolKind protocol,
+        DeviceFamilyDefinition family)
+    {
+        if (protocol == ProtocolKind.Slmp)
+        {
+            var displayText = family.AddressDisplayRule switch
+            {
+                DeviceAddressDisplayRule.OctalNoPadding => Convert.ToString(startAddress.Number, 8),
+                _ when family.UsesHexAddressing => startAddress.Number.ToString("X", CultureInfo.InvariantCulture),
+                _ => startAddress.Number.ToString(CultureInfo.InvariantCulture),
+            };
+            return Math.Max(1, displayText.Length);
+        }
+
+        if (protocol is not ProtocolKind.Toyopuc)
+            return startAddress.Width;
+
+        return rangeBounds.AddressWidth is { } width
+            ? width
+            : startAddress.Width;
     }
 
     public static MonitorRowAddressLayout BuildRowAddressLayout(
@@ -122,7 +150,7 @@ public static class MonitorRangePlanner
             };
         }
 
-        var pointsPerRow = GetBitDevicePointsPerRow(displayMode);
+        var pointsPerRow = GetBitDevicePointsPerRow(protocol, family, displayMode);
         return (availablePoints + pointsPerRow - 1) / pointsPerRow;
     }
 
@@ -138,6 +166,17 @@ public static class MonitorRangePlanner
 
             return displayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32 ? 2 : 1;
         }
+
+        return GetBitDevicePointsPerRow(protocol, family, displayMode);
+    }
+
+    public static int GetBitDevicePointsPerRow(
+        ProtocolKind protocol,
+        DeviceFamilyDefinition family,
+        BlockDisplayMode displayMode)
+    {
+        if (displayMode == BlockDisplayMode.Word && IsOctalByteBitFamily(protocol, family))
+            return 8;
 
         return GetBitDevicePointsPerRow(displayMode);
     }

@@ -20,6 +20,10 @@ public sealed record SequentialDeviceAddress(
             return $"{Prefix}{FormatKeyenceBitBankNumber(next)}";
         if (AddressDisplayRule == DeviceAddressDisplayRule.KeyenceXymBit)
             return $"{Prefix}{FormatKeyenceXymBitNumber(next)}";
+        if (AddressDisplayRule == DeviceAddressDisplayRule.DecimalNoPadding)
+            return $"{Prefix}{next.ToString(CultureInfo.InvariantCulture)}";
+        if (AddressDisplayRule == DeviceAddressDisplayRule.OctalNoPadding)
+            return $"{Prefix}{Convert.ToString(next, 8).ToUpperInvariant()}";
 
         var format = UsesHexAddressing ? $"X{Width}" : $"D{Width}";
         return $"{Prefix}{next.ToString(format, CultureInfo.InvariantCulture)}";
@@ -253,8 +257,28 @@ public static class DeviceAddressRangeProvider
     {
         if (family.AddressDisplayRule == DeviceAddressDisplayRule.KeyenceXymBit)
             return TryParseKeyenceXymBitNumber(numberText, out number);
+        if (family.AddressDisplayRule == DeviceAddressDisplayRule.OctalNoPadding)
+            return TryParseOctalNumber(numberText, out number);
 
         return TryParseNumber(numberText, family.UsesHexAddressing, out number);
+    }
+
+    private static bool TryParseOctalNumber(string numberText, out uint number)
+    {
+        number = 0;
+        foreach (var character in numberText)
+        {
+            if (character is < '0' or > '7')
+                return false;
+
+            var digit = (uint)(character - '0');
+            if (number > (uint.MaxValue - digit) / 8)
+                return false;
+
+            number = number * 8 + digit;
+        }
+
+        return numberText.Length > 0;
     }
 
     private static bool TryParseKeyenceXymBitNumber(string numberText, out uint number)

@@ -12,7 +12,7 @@
       <Button Content="Clear history" Click="ClearHistoryButton_Click" Padding="10,4" />
     </StackPanel>
     <DataGrid x:Name="ErrorDataGrid"
-              ItemsSource="{Binding Entries}"
+              ItemsSource="{Binding}"
               AutoGenerateColumns="False"
               IsReadOnly="True"
               SelectionMode="Extended"
