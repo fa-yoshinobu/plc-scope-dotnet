@@ -1,11 +1,24 @@
 # TODO
 
-## 残件
+## Manual Validation
 
-- [ ] 実 PLC で SLMP のデバイス範囲取得、範囲外アドレスの自動移動、スクロール上限を確認する。
-- [ ] `STN` など PLC 設定で 0 点になるデバイスが、監視画面と書込み経路の両方で正しく拒否されることを実機で確認する。
-- [ ] 通信ログの 5 秒バッファ保存、最新 500 件制限、履歴削除を長時間通信で確認する。単体テストでは保存、上限、削除を確認済み。
-- [ ] エラー履歴が発生時に即時保存され、SLMP エラーが画面下部だけでなく `error.log.jsonl` に残ることを実機で確認する。単体テストでは即時保存を確認済み。
-- [ ] 先頭アドレスの大文字正規化、範囲内移動、入力中更新抑止の UI 動作を手動確認する。
-- [ ] Host Link / TOYOPUC の正確なデバイス範囲取得は、対応ライブラリ側の範囲情報 API が用意できたら連携する。
-- [ ] デバイス変更時のアドレス保持と大規模スクロールの UI 動作に対する自動テストを追加する。
+- [ ] Verify SLMP device range acquisition with a real PLC.
+- [ ] Verify out-of-range address handling and scroll limits with a real PLC.
+- [ ] Verify Host Link monitor, write, and CPU RUN/STOP behavior with a real PLC.
+- [ ] Verify TOYOPUC monitor and write behavior on the target PLC profiles.
+- [ ] Verify TOYOPUC CPU STOP, stop release, and scan resume behavior with and without relay hops.
+- [ ] Verify TOYOPUC unsupported devices are hidden for each selected profile.
+- [ ] Verify TOYOPUC prefixed address normalization for word and bit devices.
+- [ ] Verify Monitor and Watch visual alignment in light and dark themes.
+- [ ] Verify Watch list visible-row-only reads while scrolling through a large watch list.
+- [ ] Verify Watch list type and format changes refresh the affected row immediately.
+- [ ] Verify inline editing is not overwritten by periodic refresh.
+- [ ] Verify optional communication trace logging during long-running communication.
+- [ ] Verify error history persistence after application restart.
+
+## Future Work
+
+- [ ] Add automated UI tests for monitor scrolling and watch list scrolling.
+- [ ] Add automated UI tests for inline edit pause/resume behavior.
+- [ ] Add automated tests for project files that include watch list entries.
+- [ ] Integrate more precise Host Link range data if the communication library exposes it.

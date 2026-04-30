@@ -1,86 +1,122 @@
 # PLC Scope
 
-Windows 向けの PLC I/O モニターです。PLC のデバイス値を周期読込みしながら、画面上で確認・書込みできます。
+PLC Scope is a Windows PLC I/O monitor for reading and writing device values from a desktop UI.
 
-## 対応プロトコル
+## Supported Protocols
 
 - Mitsubishi MELSEC `SLMP`
 - KEYENCE KV `Host Link`
 - JTEKT TOYOPUC `Computer Link`
 
-## 基本的な使い方
+## Main Features
 
-1. `接続設定` で PLC のプロトコル、IP アドレス、ポートなどを設定します。
-2. `接続` を押して PLC に接続します。
-3. 監視したいデバイスと先頭アドレスを指定します。
-4. 表示形式と表示基数を選びます。
-5. 一覧に表示された値を確認します。
-6. 書込みが必要な場合は、値セルに入力して `Enter` で書き込みます。
+- Monitor visible PLC device ranges with periodic refresh.
+- Read only the visible monitor rows to reduce PLC and UI load.
+- Add monitor addresses to a watch view from the monitor context menu.
+- Watch list and monitor view are separated by tabs.
+- Watch list reads only the visible watch rows.
+- Edit values inline and write with `Enter`.
+- Toggle writable bit cells from the monitor and watch views.
+- Display Word, DWord, Float32, Bit, decimal, hexadecimal, and binary formats.
+- Import comments from CSV.
+- Save and load projects as JSON.
+- Switch light and dark themes.
+- View recent error history.
 
-先頭アドレスは `d0` のように小文字で入力しても `D0` に正規化されます。接続後にデバイス範囲を取得できた場合、範囲外のアドレスは有効範囲内へ移動します。
+## TOYOPUC Notes
 
-## 監視
+TOYOPUC support uses the Computer Link library through the application protocol adapter.
 
-画面に見えている行だけを周期読込みします。スクロール中は通信を一時停止し、スクロール停止後に再開します。
+- Device profiles are selectable in the connection settings.
+- Unsupported devices for the selected PLC profile are hidden from the device list when range information is available.
+- Prefixed TOYOPUC addresses such as `P1-D`, `P1-P`, `P1-S`, `P1-X`, and `P1-Y` are normalized by the application before reading.
+- Bit device block monitoring uses packed word reads where appropriate, then expands the bits in the UI.
+- CPU `RUN` / `STOP` is supported for TOYOPUC scan resume, scan stop release, and scan stop commands.
 
-デバイス範囲が取得できている場合、範囲外にはスクロールできません。0 点のデバイスは監視行を表示しません。
+## CPU Control
 
-## 書込み
+Use the `CPU` menu to issue `CPU RUN` or `CPU STOP`.
 
-一覧の値セルに直接入力して書き込みます。
+Unsupported protocols disable CPU control. The status bar shows the latest CPU state when the protocol can read it.
 
-- `Enter`: 入力値を書込み
-- `Esc`: 入力を取り消し
-- 入力中は周期読込みを一時停止
+## Watch List
 
-`LTN` / `LSTN` / `LCN` は 32 bit 現在値、`LZ` は 32 bit デバイスとして扱います。bit 表示はできますが読取り専用です。
-`LTS` / `LTC` は bit デバイスとして扱い、書込みは SLMP random bit write (`0x1402`) 経路を使用します。通常の direct bit write (`0x1401`) はライブラリ側で送信前に拒否します。
+Add an item from the Monitor tab by right-clicking a monitor row and selecting `Add to watch list`.
 
-## CPU 操作
+The Watch tab supports:
 
-CPU メニューから `CPU RUN` / `CPU STOP` を実行できます。対応していないプロトコルでは無効になります。
+- address, type, format, value, raw hex, bit cells, and comment columns
+- duplicate address prevention
+- invalid address highlighting
+- row removal from the context menu or the `Delete` key
+- immediate refresh when `Type` or `Format` changes
 
-SLMP 接続時は CPU メニューの `デバイス範囲` で、現在の PLC 設定に基づくデバイス範囲を確認できます。
+## Writing Values
 
-## ログ
+Inline editing is available in the monitor and watch views.
 
-ツールメニューから `通信ログ` と `エラー履歴` を開けます。
+- `Enter`: write the edited value
+- `Esc`: cancel monitor inline edit
+- periodic refresh pauses while editing to avoid overwriting input
 
-各画面では以下を実行できます。
+For bit cells, click the bit button to toggle the value when writing is supported by the protocol and device.
 
-- `選択コピー`
-- `全コピー`
-- `履歴削除`
+## Logs
 
-ログファイルは EXE と同じフォルダに保存します。
+Open logs from the `Tools` menu.
 
-- `trace.log.jsonl`: 通信ログ
-- `error.log.jsonl`: エラー履歴
+- `Error history`: recent user-visible communication and validation errors
+- `Communication log`: optional frame log for protocol troubleshooting
 
-どちらも最新 500 件だけを保持します。書込み権限がない場合は保存しません。
+Logs are stored next to the executable when write permission is available:
 
-## プロジェクト
+- `trace.log.jsonl`
+- `error.log.jsonl`
 
-ファイルメニューからプロジェクトを JSON 形式で保存 / 読込みできます。接続設定、監視デバイス、表示形式などを保存します。
+Each log keeps the latest 500 entries.
 
-## 表示設定
+## Projects And Settings
 
-- ライト / ダークテーマ切替
-- 文字サイズ切替
-- 表示基数切替
+Projects are saved as JSON and include:
 
-設定ファイルは `%LOCALAPPDATA%\PlcScope\settings.json` に保存します。
+- connection settings
+- monitor block settings
+- watch list entries
+- display settings used by the project
+- optional comment CSV path
 
-## 詳細ドキュメント
+Application settings are stored under `%LOCALAPPDATA%\PlcScope\settings.json`.
 
-- 仕様: [docs/specification.md](docs/specification.md)
-- 開発・ビルド手順: [docs/development.md](docs/development.md)
-- 残件: [TODO.md](TODO.md)
+## Development
 
-## バージョン
+Build:
 
-- `0.1.0`
+```powershell
+dotnet build .\PlcScopeDotNet.sln
+```
 
-## ライセンス
+Test:
 
-MIT License。詳細は [LICENSE](LICENSE) を参照してください。
+```powershell
+dotnet test .\PlcScopeDotNet.sln
+```
+
+Publish a Windows x64 folder build:
+
+```powershell
+dotnet publish .\src\PlcScope.App\PlcScope.App.csproj -c Release -r win-x64 --self-contained false
+```
+
+## Documentation
+
+- [Specification](docs/specification.md)
+- [Development notes](docs/development.md)
+- [TODO](TODO.md)
+
+## Version
+
+Current version: `0.1.2`
+
+## License
+
+MIT License. See [LICENSE](LICENSE).

@@ -1,70 +1,114 @@
-# PLC Scope 仕様
+# PLC Scope Specification
 
-## 監視画面
+## Monitor View
 
-先頭アドレスを指定すると、それ以降のアドレスを自動で表示します。点数指定や手動の読込みボタンはなく、画面に見えている行だけを周期読込みします。
+The Monitor tab displays a generated address range from the selected device and start address.
 
-先頭アドレスは小文字で入力しても大文字に正規化します。接続後にデバイス範囲を取得できた場合、先頭アドレスが範囲外なら有効範囲内へ移動します。スクロールできる範囲もデバイス範囲内に制限します。0 点のデバイスは監視行を生成しません。
+Only visible rows are read during periodic refresh. Refresh pauses while the user scrolls, then resumes after scrolling stops. This keeps PLC traffic and UI work bounded by the viewport instead of the full device range.
 
-負荷軽減のため、スクロール中は通信を一時停止し、スクロール停止後に通信を再開します。自動更新は常に有効で、読込み間隔だけを変更できます。
+Start addresses are normalized before use. For example, lowercase input is converted to the protocol's canonical notation. When device range data is available, unsupported devices are hidden and out-of-range addresses are rejected or moved into the valid range before monitor rows are generated.
 
-## 表示形式と書込み
+## Watch View
 
-値の書込みは一覧のセルに直接入力して行います。
+The Watch tab contains user-selected addresses. Items are added from the Monitor tab context menu.
 
-- `Enter`: 入力値を書込み
-- `Esc`: 入力を取り消し
-- 入力中は周期読込みを一時停止
+The Watch tab displays:
 
-Word デバイスでは、表示形式により以下の扱いになります。
+- address
+- type
+- format
+- value
+- raw hexadecimal text
+- bit cells
+- comment
 
-- `Word`: 1 ワードを数値表示 / 書込み
-- `DWord`: 2 ワードを 32 bit 整数として表示 / 書込み
-- `Float32`: 2 ワードを IEEE754 単精度浮動小数点として表示 / 書込み
-- `BitExpand`: 1 ワードを `b0` から `b15` まで展開表示
+Duplicate addresses are not allowed. Invalid addresses are shown as errors on the address cell. Rows can be removed from the context menu or with the `Delete` key.
 
-Bit デバイスでは、表示形式により以下の扱いになります。
+Only visible watch rows are read. Type and format changes refresh the affected row immediately.
 
-- `BitExpand`: `M0`, `M1`, `M2` のように個別アドレスとして表示 / 書込み
-- `Word`: 16 点を 1 ワードとして表示 / 書込み
-- `DWord`: 32 点を 32 bit 整数として表示 / 書込み
-- `Float32`: 32 点を IEEE754 単精度浮動小数点として表示 / 書込み
+## Display And Write Modes
 
-`Float32` 表示で数値として扱えない値は `N/A` と表示します。`-0` は `0` と表示します。浮動小数点の入力は、表示基数に関係なく通常の小数表記で入力します。
+Word devices support:
 
-SLMP の `LTN` / `LSTN` / `LCN` は通常ワードではなく 32 bit 現在値として扱います。`LZ` は 32 bit デバイスとして扱います。表示形式は `DWord` に固定し、bit 表示は読取り専用です。書込みは 32 bit 値として行い、bit 単位の書込みは行いません。
+- `UInt16` / `Int16`: one word
+- `UInt32` / `Int32`: two words
+- `Float32`: two words interpreted as IEEE 754 single precision
+- `Bit`: bit-style display for supported bit targets
 
-SLMP の `LTS` / `LTC` は bit デバイスとして表示 / 操作します。直接の連続 bit 書込み (`0x1401`) ではなく、ライブラリの型付き書込み経由で random bit write (`0x1402`) を使用します。
+Bit devices support:
 
-## デバイス範囲
+- single bit display
+- packed 16-bit display
+- packed 32-bit display
+- bit toggling when the protocol supports writing that target
 
-SLMP 接続時は PLC ファミリと PLC 設定に基づくデバイス範囲を取得します。CPU メニューの `デバイス範囲` から、各デバイスの対応状況、点数、下限、上限、範囲を確認できます。
+Inline value editing pauses periodic refresh so user input is not overwritten.
 
-取得した範囲は監視画面にも反映します。範囲外の読込み / 書込みは実行前に検出し、エラー履歴へ記録します。
+Keyboard behavior:
 
-Host Link / TOYOPUC は現時点ではアプリ側の仮範囲を使います。対応ライブラリで正確な範囲取得 API が用意できたら連携します。
+- `Enter`: write the edited value
+- `Esc`: cancel monitor inline edit
+- `Delete`: remove the selected watch item
 
-## ログ
+## Protocol Behavior
 
-通信ログとエラー履歴はツールメニューから表示できます。各画面では `選択コピー`、`全コピー`、`履歴削除` を使用できます。コピーはタブ区切り形式です。
+### SLMP
 
-ログファイルは EXE と同じフォルダに保存します。
+SLMP supports device range acquisition based on the selected PLC family and settings. The Device Range window shows support status, point count, lower bound, upper bound, and display notation.
 
-- `trace.log.jsonl`: 通信ログ
-- `error.log.jsonl`: エラー履歴
+Long timer/counter families that are 32-bit by definition are displayed as DWord-style values.
 
-どちらも最新 500 件だけを保持します。通信ログはディスク負荷を抑えるため 5 秒ごとにまとめて保存します。通信ログを開く時、履歴削除時、アプリ終了時には未保存分を処理します。
+### Host Link
 
-エラー履歴は失わないことを優先し、発生時に即時保存します。
+Host Link supports monitor reads, writes, and CPU mode operations where the library and PLC model allow them.
 
-EXE フォルダに書込み権限がない場合、ログ保存は行いません。
+### TOYOPUC
 
-## 設定ファイル
+TOYOPUC uses the Computer Link protocol adapter.
 
-設定ファイルは `%LOCALAPPDATA%\PlcScope\settings.json` に保存します。
+The selected TOYOPUC device profile controls which device families are available. Unsupported devices are removed from the device list when profile range data is available.
 
-現在保存する設定は以下です。
+Prefixed addresses such as `P1-D`, `P1-P`, `P1-S`, `P1-X`, and `P1-Y` are normalized before read and write operations.
 
-- 最終選択プロトコル
-- 文字サイズ
-- テーマ
+Packed bit reads are used for TOYOPUC bit block monitoring where that matches the protocol library. The application expands the packed word data into visible bit cells.
+
+CPU control maps to TOYOPUC scan commands:
+
+- `CPU STOP`: scan stop
+- `CPU RUN`: scan stop release followed by scan resume
+
+Relay hops are applied when configured.
+
+## CPU State
+
+The status bar shows the latest known CPU state when the active protocol can read it. Unsupported protocols show an unknown state and disable CPU control commands.
+
+## Logs
+
+The application provides:
+
+- error history
+- optional communication trace log
+
+Error history is written immediately. Trace logs are batched to reduce disk load.
+
+Log files:
+
+- `error.log.jsonl`
+- `trace.log.jsonl`
+
+Each log keeps the latest 500 entries.
+
+## Project Files
+
+Project JSON files contain:
+
+- project version
+- connection settings
+- monitor block definitions
+- watch list entries
+- comment CSV path
+
+Watch list entries persist only address, type, format, enable flag, and comment. Value, raw hex text, bit cells, and error state are runtime display fields and are not saved.
+
+Project compatibility is best-effort across early `0.1.x` releases.
