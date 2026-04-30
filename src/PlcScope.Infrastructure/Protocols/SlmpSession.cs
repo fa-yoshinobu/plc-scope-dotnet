@@ -1,4 +1,4 @@
-namespace PlcScope.Infrastructure.Protocols;
+﻿namespace PlcScope.Infrastructure.Protocols;
 
 using System.Globalization;
 using PlcComm.Slmp;
@@ -209,7 +209,7 @@ internal sealed class SlmpSession : PlcSessionBase
         }
 
         if (_deviceRangeCatalog is null)
-            throw new InvalidOperationException("SLMP デバイス範囲カタログを取得できません。通信ログとエラー履歴を確認してください。");
+            throw new InvalidOperationException("Could not get the SLMP device range catalog. Check the communication log and error history.");
 
         return MapDeviceRangeCatalog(_deviceRangeCatalog);
     }
@@ -334,7 +334,7 @@ internal sealed class SlmpSession : PlcSessionBase
         }
         catch (SlmpError exception) when (IsUnsupportedLongTimerBitRead(exception))
         {
-            var message = $"{start.Code} は現在の PLC/SLMP 経路で bit 読取りできません。end_code=0x{exception.EndCode:X4}";
+            var message = $"{start.Code} cannot be read as bits through the current PLC/SLMP route. end_code=0x{exception.EndCode:X4}";
             AddReadUnavailableComments(start, count, message, comments);
             EmitReadWarningOnce(
                 $"long-timer-bit:{start.Code}:0x{exception.EndCode:X4}:0x{exception.Command:X4}:0x{exception.Subcommand:X4}",
@@ -429,7 +429,7 @@ internal sealed class SlmpSession : PlcSessionBase
             ValueDataType.Int32 => _client!.WriteTypedAsync(address, "L", Convert.ToInt32(request.Value, CultureInfo.InvariantCulture), cancellationToken),
             ValueDataType.UInt16 => _client!.WriteTypedAsync(address, "D", Convert.ToUInt16(request.Value, CultureInfo.InvariantCulture), cancellationToken),
             ValueDataType.UInt32 => _client!.WriteTypedAsync(address, "D", Convert.ToUInt32(request.Value, CultureInfo.InvariantCulture), cancellationToken),
-            _ => throw new NotSupportedException($"{address.Code} は 32-bit 現在値デバイスです。UInt32 または Int32 で書き込んでください。"),
+            _ => throw new NotSupportedException($"{address.Code} is a 32-bit device. Write it as UInt32 or Int32."),
         };
     }
 
@@ -439,7 +439,7 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             ValueDataType.Int32 => _client!.WriteTypedAsync(address, "L", Convert.ToInt32(request.Value, CultureInfo.InvariantCulture), cancellationToken),
             ValueDataType.UInt32 => _client!.WriteTypedAsync(address, "D", Convert.ToUInt32(request.Value, CultureInfo.InvariantCulture), cancellationToken),
-            _ => throw new NotSupportedException($"{address.Code} は 32-bit デバイスです。UInt32 または Int32 で書き込んでください。"),
+            _ => throw new NotSupportedException($"{address.Code} is a 32-bit device. Write it as UInt32 or Int32."),
         };
     }
 
@@ -473,12 +473,12 @@ internal sealed class SlmpSession : PlcSessionBase
 
         if (!entry.Supported)
         {
-            throw new InvalidOperationException($"{device} は現在選択中の PLC ファミリ({_deviceRangeCatalog.Family})では未対応です。");
+            throw new InvalidOperationException($"{device} is not supported by the selected PLC family ({_deviceRangeCatalog.Family}).");
         }
 
         if (entry.PointCount == 0)
         {
-            throw new InvalidOperationException($"{device} は現在の PLC 設定で 0 点です。{FormatAddress(start)} は{operation}できません。");
+            throw new InvalidOperationException($"{device} has zero points in the current PLC settings. {FormatAddress(start)} cannot be used for {operation}.");
         }
 
         if (entry.UpperBound is not { } upperBound)
@@ -491,7 +491,7 @@ internal sealed class SlmpSession : PlcSessionBase
             throw new InvalidOperationException(
                 $"{FormatAddress(start)}"
                 + (pointCount > 1 ? $"..{FormatAddress(end)}" : string.Empty)
-                + $" は現在の PLC 設定範囲外です。{device} 範囲: {entry.AddressRange ?? $"{device}{entry.LowerBound}-{device}{upperBound}"}");
+                + $" is outside the current PLC range. {device} range: {entry.AddressRange ?? $"{device}{entry.LowerBound}-{device}{upperBound}"}");
         }
     }
 

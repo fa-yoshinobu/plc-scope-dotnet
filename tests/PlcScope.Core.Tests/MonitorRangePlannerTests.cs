@@ -89,7 +89,7 @@ public sealed class MonitorRangePlannerTests
             out var error);
 
         Assert.False(normalized);
-        Assert.Equal("D は現在の表示形式に必要な範囲がありません。", error);
+        Assert.Equal("D has no range required for the current display mode.", error);
     }
 
     [Fact]

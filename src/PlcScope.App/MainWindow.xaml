@@ -1,4 +1,4 @@
-<Window x:Class="PlcScope.App.MainWindow"
+﻿<Window x:Class="PlcScope.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -6,7 +6,7 @@
         xmlns:selectors="clr-namespace:PlcScope.App.Selectors"
         xmlns:vm="clr-namespace:PlcScope.App.ViewModels"
         mc:Ignorable="d"
-        Title="PLC I/O モニター"
+        Title="PLC I/O Monitor"
         Width="1500"
         Height="920"
         MinWidth="1200"
@@ -78,7 +78,7 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
       <Setter Property="FontFamily" Value="Consolas" />
       <Setter Property="HorizontalContentAlignment" Value="Right" />
-      <Setter Property="ToolTip" Value="Enter で書込み、Esc で元に戻します。" />
+      <Setter Property="ToolTip" Value="Enter to write, Esc to cancel." />
       <EventSetter Event="PreviewMouseDown" Handler="InlineValueTextBox_PreviewMouseDown" />
       <EventSetter Event="GotKeyboardFocus" Handler="InlineValueTextBox_GotKeyboardFocus" />
       <EventSetter Event="LostKeyboardFocus" Handler="InlineValueTextBox_LostKeyboardFocus" />
@@ -372,18 +372,18 @@
 
   <DockPanel>
     <Menu DockPanel.Dock="Top">
-      <MenuItem Header="ファイル">
-        <MenuItem Header="新規プロジェクト" Click="NewProjectMenuItem_Click" />
-        <MenuItem Header="開く" Click="OpenProjectMenuItem_Click" />
-        <MenuItem Header="コメントCSV読込" Click="ImportCommentCsvMenuItem_Click" />
-        <MenuItem Header="保存" Click="SaveProjectMenuItem_Click" />
-        <MenuItem Header="名前を付けて保存" Click="SaveProjectAsMenuItem_Click" />
+      <MenuItem Header="File">
+        <MenuItem Header="New project" Click="NewProjectMenuItem_Click" />
+        <MenuItem Header="Open" Click="OpenProjectMenuItem_Click" />
+        <MenuItem Header="Import comment CSV" Click="ImportCommentCsvMenuItem_Click" />
+        <MenuItem Header="Save" Click="SaveProjectMenuItem_Click" />
+        <MenuItem Header="Save as" Click="SaveProjectAsMenuItem_Click" />
       </MenuItem>
-      <MenuItem Header="接続">
-        <MenuItem Header="接続設定" Click="ConnectionSettingsMenuItem_Click" />
+      <MenuItem Header="Connection">
+        <MenuItem Header="Connection settings" Click="ConnectionSettingsMenuItem_Click" />
       </MenuItem>
       <MenuItem Header="CPU">
-        <MenuItem Header="デバイス範囲" Click="DeviceRangeMenuItem_Click" />
+        <MenuItem Header="Device ranges" Click="DeviceRangeMenuItem_Click" />
         <Separator />
         <MenuItem Header="CPU RUN"
                   Command="{Binding CpuRunCommand}"
@@ -394,20 +394,20 @@
                   IsEnabled="{Binding CanIssueCpuControl}"
                   ToolTip="{Binding CpuControlHint}" />
       </MenuItem>
-      <MenuItem Header="ツール">
-        <MenuItem Header="エラー履歴" Click="ErrorHistoryMenuItem_Click" />
+      <MenuItem Header="Tools">
+        <MenuItem Header="Error history" Click="ErrorHistoryMenuItem_Click" />
       </MenuItem>
-      <MenuItem Header="ヘルプ">
-        <MenuItem Header="バージョン情報" Click="AboutMenuItem_Click" />
+      <MenuItem Header="Help">
+        <MenuItem Header="About" Click="AboutMenuItem_Click" />
       </MenuItem>
     </Menu>
 
     <StatusBar DockPanel.Dock="Bottom">
       <StatusBarItem Content="{Binding StatusText}" />
       <Separator />
-      <StatusBarItem Content="{Binding LastReadText, StringFormat=最終読込: {0}}" />
+      <StatusBarItem Content="{Binding LastReadText, StringFormat=Last read: {0}}" />
       <Separator />
-      <StatusBarItem Content="{Binding CommunicationRateText, StringFormat=通信: {0}}" />
+      <StatusBarItem Content="{Binding CommunicationRateText, StringFormat=Traffic: {0}}" />
       <Separator />
       <StatusBarItem Content="{Binding CpuStateText, StringFormat=CPU: {0}}" />
       <Separator />
@@ -418,7 +418,6 @@
 
     <Grid Margin="12">
       <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
@@ -434,9 +433,9 @@
           </Grid.ColumnDefinitions>
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-            <Button Content="接続設定" Click="ConnectionSettingsMenuItem_Click" Style="{StaticResource ToolbarButtonStyle}" ToolTip="PLC との通信条件を設定します。" />
-            <Button Content="接続" Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryToolbarButtonStyle}" ToolTip="選択中の設定で接続します。" />
-            <Button Content="切断" Command="{Binding DisconnectCommand}" Style="{StaticResource ToolbarButtonStyle}" ToolTip="PLC との接続を切断します。" />
+            <Button Content="Connection settings" Click="ConnectionSettingsMenuItem_Click" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Configure PLC communication settings." />
+            <Button Content="Connect" Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryToolbarButtonStyle}" ToolTip="Connect with the selected settings." />
+            <Button Content="Disconnect" Command="{Binding DisconnectCommand}" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Disconnect from the PLC." />
           </StackPanel>
 
           <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,10,0">
@@ -451,105 +450,275 @@
               <ColumnDefinition Width="Auto" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="プロジェクト" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBlock Grid.Column="0" Text="Project" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
             <TextBlock Grid.Column="1" Text="{Binding ProjectName}" Foreground="{DynamicResource AppValueBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
           </Grid>
 
           <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-            <TextBlock Text="テーマ" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBlock Text="Theme" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox Width="88"
                       ItemsSource="{Binding ThemeOptions}"
                       DisplayMemberPath="Label"
                       SelectedItem="{Binding SelectedThemeOption}"
-                      ToolTip="ダークモードとライトモードを切り替えます。" />
+                      ToolTip="Switch theme." />
           </StackPanel>
 
           <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="文字" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBlock Text="Font" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox Width="78"
                       ItemsSource="{Binding FontSizeOptions}"
                       DisplayMemberPath="Label"
                       SelectedItem="{Binding SelectedFontSizeOption}"
-                      ToolTip="画面全体の文字サイズを切り替えます。" />
+                      ToolTip="Switch font size." />
           </StackPanel>
         </Grid>
       </Border>
 
-      <Border Grid.Row="1" Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppPanelAltBrush}" Margin="0,0,0,8">
-        <Grid VerticalAlignment="Center">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="112" />
-            <ColumnDefinition Width="138" />
-            <ColumnDefinition Width="112" />
-            <ColumnDefinition Width="104" />
-            <ColumnDefinition Width="92" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
+      <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedMainTabIndex, Mode=TwoWay}">
+        <TabItem Header="Monitor">
+          <Border Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppInputBrush}" Padding="0">
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+              </Grid.RowDefinitions>
 
-          <StackPanel Grid.Column="0" Style="{StaticResource FieldGroupStyle}">
-            <TextBlock Text="デバイス" Style="{StaticResource FieldLabelTextStyle}" />
-            <ComboBox ItemsSource="{Binding AvailableDeviceFamilies}"
-                      DisplayMemberPath="DisplayName"
-                      SelectedItem="{Binding SelectedDeviceFamily}"
-                      PreviewMouseWheel="DeviceFamilyComboBox_PreviewMouseWheel"
-                      ToolTip="読込み対象のデバイス種別です。" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Style="{StaticResource FieldGroupStyle}">
-            <TextBlock Text="先頭アドレス" Style="{StaticResource FieldLabelTextStyle}" />
-            <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" ToolTip="例: D0、M0。デバイス記号つきで入力します。" />
-          </StackPanel>
-          <StackPanel Grid.Column="2" Style="{StaticResource FieldGroupStyle}">
-            <TextBlock Text="表示形式" Style="{StaticResource FieldLabelTextStyle}" />
-            <ComboBox ItemsSource="{Binding DisplayModes}" SelectedItem="{Binding DisplayMode}" />
-          </StackPanel>
-          <StackPanel Grid.Column="3" Style="{StaticResource FieldGroupStyle}">
-            <TextBlock Text="進数" Style="{StaticResource FieldLabelTextStyle}" />
-            <ComboBox ItemsSource="{Binding DisplayRadices}" SelectedItem="{Binding DisplayRadix}" />
-          </StackPanel>
-          <StackPanel Grid.Column="4" Style="{StaticResource FieldGroupStyle}">
-            <TextBlock Text="間隔 ms" Style="{StaticResource FieldLabelTextStyle}" />
-            <TextBox Text="{Binding AutoRefreshIntervalMs}" ToolTip="自動更新の間隔です。最小 100 ms で扱います。" />
-          </StackPanel>
-        </Grid>
-      </Border>
+              <Grid Grid.Row="0" Background="{DynamicResource AppPanelAltBrush}" Margin="0,0,0,1">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="112" />
+                  <ColumnDefinition Width="138" />
+                  <ColumnDefinition Width="112" />
+                  <ColumnDefinition Width="104" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-      <Border Grid.Row="2" Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppInputBrush}" Padding="0" Margin="0,0,0,8">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-          </Grid.RowDefinitions>
+                <StackPanel Grid.Column="1" Style="{StaticResource FieldGroupStyle}">
+                  <TextBlock Text="Device" Style="{StaticResource FieldLabelTextStyle}" />
+                  <ComboBox ItemsSource="{Binding AvailableDeviceFamilies}"
+                            DisplayMemberPath="DisplayName"
+                            SelectedItem="{Binding SelectedDeviceFamily}"
+                            PreviewMouseWheel="DeviceFamilyComboBox_PreviewMouseWheel"
+                            ToolTip="Select the device family to monitor." />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Style="{StaticResource FieldGroupStyle}">
+                  <TextBlock Text="Start address" Style="{StaticResource FieldLabelTextStyle}" />
+                  <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" ToolTip="Example: D0 or X0." />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Style="{StaticResource FieldGroupStyle}">
+                  <TextBlock Text="Type" Style="{StaticResource FieldLabelTextStyle}" />
+                  <ComboBox ItemsSource="{Binding ValueDataTypes}" SelectedItem="{Binding MonitorDataType}" />
+                </StackPanel>
+                <StackPanel Grid.Column="4" Style="{StaticResource FieldGroupStyle}">
+                  <TextBlock Text="Format" Style="{StaticResource FieldLabelTextStyle}" />
+                  <ComboBox ItemsSource="{Binding DisplayRadices}" SelectedItem="{Binding DisplayRadix}" />
+                </StackPanel>
+              </Grid>
 
-          <Grid Grid.Row="0" Background="{DynamicResource AppHeaderBrush}">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="140" />
-              <ColumnDefinition Width="120" />
-              <ColumnDefinition Width="110" />
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="220" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="アドレス" Style="{StaticResource MonitorHeaderTextStyle}" />
-            <TextBlock Grid.Column="1" Text="値" Style="{StaticResource MonitorHeaderTextStyle}" />
-            <TextBlock Grid.Column="2" Text="Hex" Style="{StaticResource MonitorHeaderTextStyle}" />
-            <TextBlock Grid.Column="3" Text="ビット" Style="{StaticResource MonitorHeaderTextStyle}" />
-            <TextBlock Grid.Column="4" Text="コメント" Style="{StaticResource MonitorHeaderTextStyle}" />
-          </Grid>
+              <Grid Grid.Row="1" Background="{DynamicResource AppHeaderBrush}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="140" />
+                  <ColumnDefinition Width="120" />
+                  <ColumnDefinition Width="110" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="220" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Address" Style="{StaticResource MonitorHeaderTextStyle}" />
+                <TextBlock Grid.Column="1" Text="Value" Style="{StaticResource MonitorHeaderTextStyle}" />
+                <TextBlock Grid.Column="2" Text="Hex" Style="{StaticResource MonitorHeaderTextStyle}" />
+                <TextBlock Grid.Column="3" Text="Bits" Style="{StaticResource MonitorHeaderTextStyle}" />
+                <TextBlock Grid.Column="4" Text="Comment" Style="{StaticResource MonitorHeaderTextStyle}" />
+              </Grid>
 
-          <ListBox x:Name="MonitorListBox"
-                   Grid.Row="1"
-                   ItemsSource="{Binding Rows}"
-                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-                   BorderThickness="0"
-                   Loaded="MonitorListBox_Loaded"
-                   Unloaded="MonitorListBox_Unloaded"
-                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                   ScrollViewer.VerticalScrollBarVisibility="Auto"
-                   ScrollViewer.CanContentScroll="True"
-                   VirtualizingPanel.IsVirtualizing="True"
-                   VirtualizingPanel.VirtualizationMode="Recycling"
-                   ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}" />
-        </Grid>
-      </Border>
+              <ListBox x:Name="MonitorListBox"
+                       Grid.Row="2"
+                       ItemsSource="{Binding Rows}"
+                       SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                       BorderThickness="0"
+                       Loaded="MonitorListBox_Loaded"
+                       Unloaded="MonitorListBox_Unloaded"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       ScrollViewer.CanContentScroll="True"
+                       VirtualizingPanel.IsVirtualizing="True"
+                       VirtualizingPanel.ScrollUnit="Item"
+                       VirtualizingPanel.VirtualizationMode="Recycling"
+                       ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}">
+                <ListBox.ItemContainerStyle>
+                  <Style TargetType="{x:Type ListBoxItem}">
+                    <EventSetter Event="PreviewMouseRightButtonDown" Handler="MonitorListBoxItem_PreviewMouseRightButtonDown" />
+                  </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Add to watch list"
+                              Click="AddMonitorRowToWatchMenuItem_Click" />
+                  </ContextMenu>
+                </ListBox.ContextMenu>
+              </ListBox>
+            </Grid>
+          </Border>
+        </TabItem>
+
+        <TabItem Header="Watch list">
+          <Border Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppInputBrush}" Padding="0">
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+              </Grid.RowDefinitions>
+
+              <DataGrid x:Name="WatchDataGrid"
+                        Grid.Row="0"
+                        ItemsSource="{Binding WatchItems}"
+                        SelectedItem="{Binding SelectedWatchItem, Mode=TwoWay}"
+                        AutoGenerateColumns="False"
+                        CanUserAddRows="False"
+                        CanUserDeleteRows="False"
+                        HeadersVisibility="Column"
+                        GridLinesVisibility="Horizontal"
+                        BorderThickness="0"
+                        Background="{DynamicResource AppInputBrush}"
+                        KeyDown="WatchDataGrid_KeyDown"
+                        Loaded="WatchDataGrid_Loaded"
+                        Unloaded="WatchDataGrid_Unloaded"
+                        ScrollViewer.CanContentScroll="True"
+                        EnableRowVirtualization="True"
+                        EnableColumnVirtualization="True"
+                        VirtualizingPanel.IsVirtualizing="True"
+                        VirtualizingPanel.ScrollUnit="Item"
+                        VirtualizingPanel.VirtualizationMode="Recycling">
+                <DataGrid.Resources>
+                  <Style TargetType="{x:Type DataGridRow}">
+                    <Setter Property="MinHeight" Value="34" />
+                    <EventSetter Event="PreviewMouseRightButtonDown" Handler="WatchDataGridRow_PreviewMouseRightButtonDown" />
+                  </Style>
+                  <Style TargetType="{x:Type DataGridCell}">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Padding" Value="4,2" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                    <Style.Triggers>
+                      <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
+                      </Trigger>
+                    </Style.Triggers>
+                  </Style>
+                </DataGrid.Resources>
+                <DataGrid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Remove" Click="RemoveWatchItemMenuItem_Click" />
+                  </ContextMenu>
+                </DataGrid.ContextMenu>
+                <DataGrid.Columns>
+                  <DataGridTemplateColumn Header="Address" Width="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Address}" ToolTip="{Binding ErrorText}">
+                          <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource AddressTextStyle}">
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasError}" Value="True">
+                                  <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                      <DataTemplate>
+                        <TextBox Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Type" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding DataType}" Style="{StaticResource ValueTextStyle}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                      <DataTemplate>
+                        <ComboBox ItemsSource="{Binding DataContext.ValueDataTypes, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  SelectedItem="{Binding DataType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectionChanged="WatchOptionComboBox_SelectionChanged" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Format" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding DisplayRadix}" Style="{StaticResource ValueTextStyle}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                      <DataTemplate>
+                        <ComboBox ItemsSource="{Binding DataContext.DisplayRadices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  SelectedItem="{Binding DisplayRadix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectionChanged="WatchOptionComboBox_SelectionChanged" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Value" Width="130">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                      <DataTemplate>
+                        <TextBox Text="{Binding ValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 GotKeyboardFocus="WatchValueTextBox_GotKeyboardFocus"
+                                 LostKeyboardFocus="WatchValueTextBox_LostKeyboardFocus"
+                                 KeyDown="WatchValueTextBox_KeyDown" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Hex" IsReadOnly="True" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding RawText}" Style="{StaticResource HexTextStyle}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Bits" Width="260">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <ItemsControl ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <WrapPanel VerticalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Comment" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                      <DataTemplate>
+                        <TextBox Text="{Binding Comment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                  </DataGridTemplateColumn>
+                </DataGrid.Columns>
+              </DataGrid>
+            </Grid>
+          </Border>
+        </TabItem>
+      </TabControl>
     </Grid>
   </DockPanel>
 </Window>
+
+
+

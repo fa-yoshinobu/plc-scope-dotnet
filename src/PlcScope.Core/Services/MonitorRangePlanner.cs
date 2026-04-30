@@ -1,8 +1,15 @@
-namespace PlcScope.Core.Services;
+﻿namespace PlcScope.Core.Services;
 
 using PlcScope.Core.Models;
 
-public sealed record DeviceDisplayRangeBounds(uint LowerBound, uint UpperBound, string LayoutKey, int? AddressWidth = null);
+public sealed record DeviceDisplayRangeSegment(uint LowerBound, uint UpperBound);
+
+public sealed record DeviceDisplayRangeBounds(
+    uint LowerBound,
+    uint UpperBound,
+    string LayoutKey,
+    int? AddressWidth = null,
+    IReadOnlyList<DeviceDisplayRangeSegment>? Segments = null);
 
 public sealed record MonitorRowAddressLayout(SequentialDeviceAddress GeneratedStartAddress, int StartAddressRowIndex);
 
@@ -42,7 +49,7 @@ public static class MonitorRangePlanner
         var rangePointCount = checked(rangeUpper - rangeLower + 1);
         if (rangePointCount < requiredPoints)
         {
-            error = $"{family.Code} は現在の表示形式に必要な範囲がありません。";
+            error = $"{family.Code} has no range required for the current display mode.";
             return false;
         }
 
@@ -171,3 +178,4 @@ public static class MonitorRangePlanner
         return checked(rowCount * pointsPerRow);
     }
 }
+

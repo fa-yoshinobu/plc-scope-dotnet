@@ -99,7 +99,7 @@ public sealed class ToyopucSessionTests
         Assert.Equal((uint)0x17FF, p1P.UpperBound);
         Assert.Equal((uint)0x0A00, p1P.PointCount);
         Assert.Equal("P1-P0000-P1-P01FF, P1-P1000-P1-P17FF", p1P.AddressRange);
-        Assert.Equal("複数の対応範囲があります。", p1P.Notes);
+        Assert.Equal("Multiple supported ranges are available.", p1P.Notes);
     }
 
     private static Task<Core.Abstractions.IPlcSession> CreateToyopucSessionAsync(string profile)

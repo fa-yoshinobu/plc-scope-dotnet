@@ -1,4 +1,4 @@
-namespace PlcScope.App.Windows;
+﻿namespace PlcScope.App.Windows;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -44,7 +44,7 @@ public partial class TraceLogWindow : Window
         if (_entries.Count == 0)
             return;
 
-        var result = MessageBox.Show(this, "通信ログの履歴を削除しますか?", "履歴削除", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var result = MessageBox.Show(this, "Clear communication log history?", "Clear history", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes)
             return;
 
@@ -55,7 +55,7 @@ public partial class TraceLogWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "通信ログを削除できません", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, "Could not clear communication log", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -73,7 +73,7 @@ public partial class TraceLogWindow : Window
             return string.Empty;
 
         var builder = new StringBuilder();
-        builder.AppendLine("時刻\tプロトコル\t方向\t概要\tペイロード");
+        builder.AppendLine("Time\tProtocol\tDirection\tSummary\tPayload");
         foreach (var entry in rows)
         {
             builder
@@ -104,3 +104,4 @@ public partial class TraceLogWindow : Window
         public string PayloadHex => Entry.PayloadHex;
     }
 }
+

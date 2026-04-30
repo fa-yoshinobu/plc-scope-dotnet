@@ -1,7 +1,7 @@
-<Window x:Class="PlcScope.App.ConnectionDialog"
+﻿<Window x:Class="PlcScope.App.ConnectionDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="接続設定"
+        Title="Connection settings"
         Width="760"
         Height="560"
         WindowStartupLocation="CenterOwner"
@@ -16,12 +16,12 @@
                 HorizontalAlignment="Right"
                 Margin="0,12,0,0">
       <Button Content="OK" Width="100" Margin="0,0,8,0" Click="OkButton_Click" Style="{StaticResource AccentButtonStyle}" />
-      <Button Content="キャンセル" Width="100" IsCancel="True" />
+      <Button Content="Cancel" Width="100" IsCancel="True" />
     </StackPanel>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <StackPanel>
-        <GroupBox Header="共通" Margin="0,0,0,12">
+        <GroupBox Header="Common" Margin="0,0,0,12">
           <Grid Margin="8">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="160" />
@@ -32,29 +32,33 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="プロトコル" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Protocol" VerticalAlignment="Center" Margin="0,0,8,8" />
             <ComboBox Grid.Row="0" Grid.Column="1"
                       Margin="0,0,0,8"
                       ItemsSource="{Binding Protocols}"
                       DisplayMemberPath="DisplayName"
                       SelectedItem="{Binding SelectedProtocol}" />
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="ホスト" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Host" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" />
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="ポート" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Port" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Port}" />
 
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="タイムアウト (秒)" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Row="3" Grid.Column="1" Width="120" Text="{Binding TimeoutSeconds}" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Timeout (s)" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="3" Grid.Column="1" Width="120" Margin="0,0,0,8" Text="{Binding TimeoutSeconds}" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Refresh interval ms" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Row="4" Grid.Column="1" Width="120" Text="{Binding AutoRefreshIntervalMs}" />
           </Grid>
         </GroupBox>
 
-        <GroupBox Header="通信" Margin="0,0,0,12">
+        <GroupBox Header="Transport" Margin="0,0,0,12">
           <StackPanel Orientation="Horizontal" Margin="8">
-            <TextBlock Text="方式" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBlock Text="Mode" VerticalAlignment="Center" Margin="0,0,8,0" />
             <ComboBox Width="160" ItemsSource="{Binding TransportModes}" SelectedItem="{Binding Transport}" />
           </StackPanel>
         </GroupBox>
@@ -73,19 +77,19 @@
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC ファミリ" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC family" VerticalAlignment="Center" Margin="0,0,8,8" />
             <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" ItemsSource="{Binding SlmpFamilies}" SelectedItem="{Binding SlmpPlcFamilyName}" />
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="ネットワーク" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Network" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding SlmpNetwork}" />
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="局番" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Station" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding SlmpStation}" />
 
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="モジュール I/O" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Module I/O" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" Text="{Binding SlmpModuleIo}" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="監視タイマ" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,0" />
             <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SlmpMonitoringTimer}" />
           </Grid>
         </GroupBox>
@@ -100,12 +104,12 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="機種" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Model" VerticalAlignment="Center" Margin="0,0,8,8" />
             <ComboBox Grid.Row="0" Grid.Column="1"
                       Margin="0,0,0,8"
                       ItemsSource="{Binding HostLinkModels}"
                       SelectedItem="{Binding HostLinkPlcModelName}" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="デバイスモード" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Device mode" VerticalAlignment="Center" Margin="0,0,8,0" />
             <ComboBox Grid.Row="1" Grid.Column="1"
                       ItemsSource="{Binding KeyenceDeviceModes}"
                       DisplayMemberPath="Label"
@@ -125,16 +129,16 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="機種" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Profile" VerticalAlignment="Center" Margin="0,0,8,8" />
             <ComboBox Grid.Row="0" Grid.Column="1"
                       Margin="0,0,0,8"
                       ItemsSource="{Binding ToyopucDeviceProfiles}"
                       SelectedItem="{Binding ToyopucDeviceProfile}" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="中継ホップ" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Relay hops" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucRelayHops}" />
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="ローカルポート" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Local port" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucLocalPort}" />
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="リトライ / 遅延 ms" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Retries / delay ms" VerticalAlignment="Center" Margin="0,0,8,0" />
             <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
               <TextBox Width="120" Margin="0,0,8,0" Text="{Binding ToyopucRetries}" />
               <TextBox Width="120" Text="{Binding ToyopucRetryDelayMs}" />

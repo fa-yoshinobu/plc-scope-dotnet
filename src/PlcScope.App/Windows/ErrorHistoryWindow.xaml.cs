@@ -1,4 +1,4 @@
-namespace PlcScope.App.Windows;
+﻿namespace PlcScope.App.Windows;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -44,7 +44,7 @@ public partial class ErrorHistoryWindow : Window
         if (_entries.Count == 0)
             return;
 
-        var result = MessageBox.Show(this, "エラー履歴を削除しますか?", "履歴削除", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var result = MessageBox.Show(this, "Clear error history?", "Clear history", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes)
             return;
 
@@ -55,7 +55,7 @@ public partial class ErrorHistoryWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "エラー履歴を削除できません", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, exception.Message, "Could not clear error history", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -73,7 +73,7 @@ public partial class ErrorHistoryWindow : Window
             return string.Empty;
 
         var builder = new StringBuilder();
-        builder.AppendLine("時刻\t操作\tメッセージ\t詳細");
+        builder.AppendLine("Time\tOperation\tMessage\tDetails");
         foreach (var entry in rows)
         {
             builder
@@ -102,3 +102,4 @@ public partial class ErrorHistoryWindow : Window
         public string? Details => Entry.Details;
     }
 }
+

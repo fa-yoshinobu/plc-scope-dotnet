@@ -1,38 +1,37 @@
-<Window x:Class="PlcScope.App.Windows.ErrorHistoryWindow"
+﻿<Window x:Class="PlcScope.App.Windows.ErrorHistoryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="エラー履歴"
-        Width="1000"
-        Height="640"
-        Background="{DynamicResource AppBackgroundBrush}"
-        Foreground="{DynamicResource AppForegroundBrush}">
+        Title="Error history"
+        Width="920"
+        Height="520"
+        WindowStartupLocation="CenterOwner">
   <DockPanel Margin="12">
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-      <Button Content="選択コピー" Click="CopySelectedButton_Click" Padding="10,4" Margin="0,0,6,0" />
-      <Button Content="全コピー" Click="CopyAllButton_Click" Padding="10,4" Margin="0,0,6,0" />
-      <Button Content="履歴削除" Click="ClearHistoryButton_Click" Padding="10,4" />
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+      <Button Content="Copy selected" Click="CopySelectedButton_Click" Padding="10,4" Margin="0,0,6,0" />
+      <Button Content="Copy all" Click="CopyAllButton_Click" Padding="10,4" Margin="0,0,6,0" />
+      <Button Content="Clear history" Click="ClearHistoryButton_Click" Padding="10,4" />
     </StackPanel>
-
     <DataGrid x:Name="ErrorDataGrid"
-              ItemsSource="{Binding}"
+              ItemsSource="{Binding Entries}"
               AutoGenerateColumns="False"
               IsReadOnly="True"
               SelectionMode="Extended"
               SelectionUnit="FullRow"
-              ClipboardCopyMode="IncludeHeader">
+              ClipboardCopyMode="IncludeHeader"
+              CanUserAddRows="False">
       <DataGrid.ContextMenu>
         <ContextMenu>
-          <MenuItem Header="選択コピー" Click="CopySelectedButton_Click" />
-          <MenuItem Header="全コピー" Click="CopyAllButton_Click" />
+          <MenuItem Header="Copy selected" Click="CopySelectedButton_Click" />
+          <MenuItem Header="Copy all" Click="CopyAllButton_Click" />
           <Separator />
-          <MenuItem Header="履歴削除" Click="ClearHistoryButton_Click" />
+          <MenuItem Header="Clear history" Click="ClearHistoryButton_Click" />
         </ContextMenu>
       </DataGrid.ContextMenu>
       <DataGrid.Columns>
-        <DataGridTextColumn Header="時刻" Binding="{Binding Timestamp}" Width="180" />
-        <DataGridTextColumn Header="操作" Binding="{Binding Operation}" Width="160" />
-        <DataGridTextColumn Header="メッセージ" Binding="{Binding Message}" Width="260" />
-        <DataGridTextColumn Header="詳細" Binding="{Binding Details}" Width="*" />
+        <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="180" />
+        <DataGridTextColumn Header="Operation" Binding="{Binding Operation}" Width="160" />
+        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="260" />
+        <DataGridTextColumn Header="Details" Binding="{Binding Details}" Width="*" />
       </DataGrid.Columns>
     </DataGrid>
   </DockPanel>
