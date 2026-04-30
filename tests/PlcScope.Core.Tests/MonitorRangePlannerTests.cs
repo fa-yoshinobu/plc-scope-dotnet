@@ -28,6 +28,50 @@ public sealed class MonitorRangePlannerTests
     }
 
     [Fact]
+    public void TryNormalizeStartAddressToRange_UsesCatalogAddressWidth()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Toyopuc);
+        var family = protocol.FindFamily("P1-D")!;
+        var startAddress = new SequentialDeviceAddress("P1-D", 0x12, 2, true);
+        var range = new DeviceDisplayRangeBounds(0, 0x0FFF, "P1-D:0:0FFF", AddressWidth: 4);
+
+        var normalized = MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            range,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word,
+            out var normalizedAddress,
+            out var error);
+
+        Assert.True(normalized);
+        Assert.Null(error);
+        Assert.Equal("P1-D0012", normalizedAddress.FormatOffset(0));
+    }
+
+    [Fact]
+    public void TryNormalizeStartAddressToRange_ShrinksAddressToCatalogWidth()
+    {
+        var protocol = ProtocolCatalog.Get(ProtocolKind.Toyopuc);
+        var family = protocol.FindFamily("GX")!;
+        var startAddress = new SequentialDeviceAddress("GX", 0, 5, true);
+        var range = new DeviceDisplayRangeBounds(0, 0xFFFF, "GX:0:FFFF", AddressWidth: 4);
+
+        var normalized = MonitorRangePlanner.TryNormalizeStartAddressToRange(
+            startAddress,
+            range,
+            protocol.Kind,
+            family,
+            BlockDisplayMode.Word,
+            out var normalizedAddress,
+            out var error);
+
+        Assert.True(normalized);
+        Assert.Null(error);
+        Assert.Equal("GX0000", normalizedAddress.FormatOffset(0));
+    }
+
+    [Fact]
     public void TryNormalizeStartAddressToRange_RejectsDisplayModeWhenRangeIsTooSmall()
     {
         var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);

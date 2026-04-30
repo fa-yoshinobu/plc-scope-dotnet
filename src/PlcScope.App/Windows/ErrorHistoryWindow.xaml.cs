@@ -6,29 +6,37 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
 using PlcScope.Core.Models;
 
 public partial class ErrorHistoryWindow : Window
 {
-    private readonly ObservableCollection<ErrorEntry> _entries;
+    private readonly ObservableCollection<ErrorEntryRow> _entries;
     private readonly Func<Task> _clearEntriesAsync;
 
     public ErrorHistoryWindow(IReadOnlyList<ErrorEntry> entries, Func<Task> clearEntriesAsync)
     {
         InitializeComponent();
-        _entries = new ObservableCollection<ErrorEntry>(entries);
+        _entries = new ObservableCollection<ErrorEntryRow>(entries.Select(static entry => new ErrorEntryRow(entry)));
         _clearEntriesAsync = clearEntriesAsync;
+        if (ErrorDataGrid.Columns[0] is DataGridTextColumn timestampColumn)
+        {
+            timestampColumn.Binding = new Binding(nameof(ErrorEntryRow.LocalTimestamp));
+            timestampColumn.Width = 210;
+        }
+
         DataContext = _entries;
     }
 
     private void CopySelectedButton_Click(object sender, RoutedEventArgs e)
     {
-        CopyEntries(ErrorDataGrid.SelectedItems.Cast<ErrorEntry>());
+        CopyEntries(ErrorDataGrid.SelectedItems.Cast<ErrorEntryRow>().Select(static row => row.Entry));
     }
 
     private void CopyAllButton_Click(object sender, RoutedEventArgs e)
     {
-        CopyEntries(_entries);
+        CopyEntries(_entries.Select(static row => row.Entry));
     }
 
     private async void ClearHistoryButton_Click(object sender, RoutedEventArgs e)
@@ -79,10 +87,18 @@ public partial class ErrorHistoryWindow : Window
     }
 
     private static string FormatTimestamp(DateTimeOffset timestamp) =>
-        timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff zzz", CultureInfo.InvariantCulture);
+        timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
     private static string Clean(string? value) =>
         string.IsNullOrEmpty(value)
             ? string.Empty
             : value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
+
+    private sealed record ErrorEntryRow(ErrorEntry Entry)
+    {
+        public string LocalTimestamp => FormatTimestamp(Entry.Timestamp);
+        public string Operation => Entry.Operation;
+        public string Message => Entry.Message;
+        public string? Details => Entry.Details;
+    }
 }

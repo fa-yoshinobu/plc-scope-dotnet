@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using PlcScope.Core.Models;
 using PlcScope.Infrastructure.Protocols;
 
@@ -5,6 +7,58 @@ namespace PlcScope.Core.Tests;
 
 public sealed class ToyopucSessionTests
 {
+    private const double LocalTestTimeoutSeconds = 3.0;
+
+    [Fact]
+    public async Task SendCpuCommandAsync_Stop_MapsToToyopucScanStop()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        byte[]? requestFrame = null;
+        var serverTask = Task.Run(async () =>
+        {
+            using var serverClient = await listener.AcceptTcpClientAsync();
+            await using var stream = serverClient.GetStream();
+            requestFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x32, new byte[] { 0x02, 0x00 }));
+        });
+
+        await using var session = await CreateConnectedToyopucSessionAsync(port);
+        await session.SendCpuCommandAsync(CpuCommand.Stop);
+        await serverTask;
+
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x04, 0x00, 0x32, 0x02, 0x00, 0x01 }, requestFrame);
+    }
+
+    [Fact]
+    public async Task SendCpuCommandAsync_Run_ReleasesScanStopThenResumesScan()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        byte[]? releaseFrame = null;
+        byte[]? resumeFrame = null;
+        var serverTask = Task.Run(async () =>
+        {
+            using var serverClient = await listener.AcceptTcpClientAsync();
+            await using var stream = serverClient.GetStream();
+            releaseFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x32, new byte[] { 0x02, 0x00 }));
+            resumeFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x32, new byte[] { 0x01, 0x00 }));
+        });
+
+        await using var session = await CreateConnectedToyopucSessionAsync(port);
+        await session.SendCpuCommandAsync(CpuCommand.Run);
+        await serverTask;
+
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x04, 0x00, 0x32, 0x02, 0x00, 0x00 }, releaseFrame);
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x03, 0x00, 0x32, 0x01, 0x00 }, resumeFrame);
+    }
+
     [Fact]
     public async Task ReadDeviceRangeCatalogAsync_UsesSelectedToyopucProfile()
     {
@@ -56,5 +110,50 @@ public sealed class ToyopucSessionTests
         };
 
         return new PlcSessionFactory().CreateAsync(settings);
+    }
+
+    private static async Task<Core.Abstractions.IPlcSession> CreateConnectedToyopucSessionAsync(int port)
+    {
+        var settings = ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc) with
+        {
+            Host = "127.0.0.1",
+            Port = port,
+            TimeoutSeconds = LocalTestTimeoutSeconds,
+        };
+
+        var session = await new PlcSessionFactory().CreateAsync(settings);
+        await session.ConnectAsync();
+        return session;
+    }
+
+    private static async Task<byte[]> ReadFrameAsync(NetworkStream stream)
+    {
+        var header = new byte[4];
+        await ReadExactlyAsync(stream, header);
+        var length = header[2] | (header[3] << 8);
+        var body = new byte[length];
+        await ReadExactlyAsync(stream, body);
+        return header.Concat(body).ToArray();
+    }
+
+    private static async Task ReadExactlyAsync(NetworkStream stream, byte[] buffer)
+    {
+        var offset = 0;
+        while (offset < buffer.Length)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(offset, buffer.Length - offset));
+            if (read == 0)
+                throw new IOException("Unexpected end of stream");
+
+            offset += read;
+        }
+    }
+
+    private static byte[] BuildResponse(int cmd, byte[] data)
+    {
+        var length = 1 + data.Length;
+        return new[] { (byte)0x80, (byte)0x00, (byte)(length & 0xFF), (byte)((length >> 8) & 0xFF), (byte)(cmd & 0xFF) }
+            .Concat(data)
+            .ToArray();
     }
 }

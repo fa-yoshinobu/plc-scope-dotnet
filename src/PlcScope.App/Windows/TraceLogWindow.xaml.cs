@@ -6,29 +6,37 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
 using PlcScope.Core.Models;
 
 public partial class TraceLogWindow : Window
 {
-    private readonly ObservableCollection<TraceEntry> _entries;
+    private readonly ObservableCollection<TraceEntryRow> _entries;
     private readonly Func<Task> _clearEntriesAsync;
 
     public TraceLogWindow(IReadOnlyList<TraceEntry> entries, Func<Task> clearEntriesAsync)
     {
         InitializeComponent();
-        _entries = new ObservableCollection<TraceEntry>(entries);
+        _entries = new ObservableCollection<TraceEntryRow>(entries.Select(static entry => new TraceEntryRow(entry)));
         _clearEntriesAsync = clearEntriesAsync;
+        if (TraceDataGrid.Columns[0] is DataGridTextColumn timestampColumn)
+        {
+            timestampColumn.Binding = new Binding(nameof(TraceEntryRow.LocalTimestamp));
+            timestampColumn.Width = 210;
+        }
+
         DataContext = _entries;
     }
 
     private void CopySelectedButton_Click(object sender, RoutedEventArgs e)
     {
-        CopyEntries(TraceDataGrid.SelectedItems.Cast<TraceEntry>());
+        CopyEntries(TraceDataGrid.SelectedItems.Cast<TraceEntryRow>().Select(static row => row.Entry));
     }
 
     private void CopyAllButton_Click(object sender, RoutedEventArgs e)
     {
-        CopyEntries(_entries);
+        CopyEntries(_entries.Select(static row => row.Entry));
     }
 
     private async void ClearHistoryButton_Click(object sender, RoutedEventArgs e)
@@ -80,10 +88,19 @@ public partial class TraceLogWindow : Window
     }
 
     private static string FormatTimestamp(DateTimeOffset timestamp) =>
-        timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff zzz", CultureInfo.InvariantCulture);
+        timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
     private static string Clean(string? value) =>
         string.IsNullOrEmpty(value)
             ? string.Empty
             : value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
+
+    private sealed record TraceEntryRow(TraceEntry Entry)
+    {
+        public string LocalTimestamp => FormatTimestamp(Entry.Timestamp);
+        public ProtocolKind Protocol => Entry.Protocol;
+        public TraceDirection Direction => Entry.Direction;
+        public string Summary => Entry.Summary;
+        public string PayloadHex => Entry.PayloadHex;
+    }
 }

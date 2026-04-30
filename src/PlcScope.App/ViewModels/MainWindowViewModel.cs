@@ -887,7 +887,8 @@ public partial class MainWindowViewModel : ObservableObject
             rangeBounds = new DeviceDisplayRangeBounds(
                 entry.LowerBound,
                 upperBound,
-                $"{entry.Device}:{entry.LowerBound}:{upperBound}:{entry.PointCount}");
+                $"{entry.Device}:{entry.LowerBound}:{upperBound}:{entry.PointCount}",
+                TryGetRangeAddressWidth(entry));
             return true;
         }
 
@@ -896,6 +897,24 @@ public partial class MainWindowViewModel : ObservableObject
             GetFallbackUpperBound(),
             $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:fallback");
         return true;
+    }
+
+    private static int? TryGetRangeAddressWidth(DeviceRangeEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.AddressRange))
+            return null;
+
+        var firstRange = entry.AddressRange.Split(',', 2)[0].Trim();
+        if (!firstRange.StartsWith(entry.Device, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var numberStart = entry.Device.Length;
+        var numberEnd = firstRange.IndexOf('-', numberStart);
+        if (numberEnd < 0)
+            numberEnd = firstRange.Length;
+
+        var width = numberEnd - numberStart;
+        return width > 0 ? width : null;
     }
 
     private bool TryGetSelectedDeviceRangeEntry(out DeviceRangeEntry entry)
@@ -1241,8 +1260,6 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (traceEntry.Direction == TraceDirection.Send)
             Interlocked.Increment(ref _communicationFrameCount);
-
-        _ = _logStore.AppendTraceAsync(traceEntry);
     }
 
     private void OnSessionErrorReceived(object? sender, ErrorEntry errorEntry) =>
@@ -1395,6 +1412,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var families = ProtocolCatalog.GetDeviceFamilies(protocol, ConnectionSettings.KeyenceDeviceMode)
             .Select(family => ProtocolCatalog.ApplyDeviceRangeNotation(family, _deviceRangeCatalog))
+            .Where(IsSelectableDeviceFamily)
             .ToArray();
         AvailableDeviceFamilies.Clear();
         foreach (var family in families)
@@ -1407,25 +1425,28 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void ApplyDeviceRangeCatalogNotationToDeviceFamilies()
     {
-        if (_deviceRangeCatalog is null || AvailableDeviceFamilies.Count == 0)
+        if (_deviceRangeCatalog is null)
             return;
 
-        var selectedFamilyCode = SelectedDeviceFamily.Code;
-        DeviceFamilyDefinition? selectedFamily = null;
+        var previousFamilyCode = SelectedDeviceFamily.Code;
+        var families = ProtocolCatalog.GetDeviceFamilies(SelectedProtocol, ConnectionSettings.KeyenceDeviceMode)
+            .Select(family => ProtocolCatalog.ApplyDeviceRangeNotation(family, _deviceRangeCatalog))
+            .Where(IsSelectableDeviceFamily)
+            .ToArray();
+        if (families.Length == 0)
+            return;
 
-        for (var index = 0; index < AvailableDeviceFamilies.Count; index++)
+        var selectedFamily = ResolveSelectableDeviceFamily(
+            SelectedProtocol,
+            families,
+            SelectedDeviceFamily,
+            ConnectionSettings.KeyenceDeviceMode);
+
+        AvailableDeviceFamilies.Clear();
+        foreach (var family in families)
         {
-            var current = AvailableDeviceFamilies[index];
-            var adjusted = ProtocolCatalog.ApplyDeviceRangeNotation(current, _deviceRangeCatalog);
-            if (adjusted != current)
-                AvailableDeviceFamilies[index] = adjusted;
-
-            if (string.Equals(adjusted.Code, selectedFamilyCode, StringComparison.OrdinalIgnoreCase))
-                selectedFamily = adjusted;
+            AvailableDeviceFamilies.Add(family);
         }
-
-        if (selectedFamily is null || selectedFamily == SelectedDeviceFamily)
-            return;
 
         _isApplyingDeviceRangeCatalogNotation = true;
         try
@@ -1436,6 +1457,21 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _isApplyingDeviceRangeCatalogNotation = false;
         }
+
+        if (!string.Equals(previousFamilyCode, selectedFamily.Code, StringComparison.OrdinalIgnoreCase))
+        {
+            StartAddress = DeviceAddressRangeProvider.GetDefaultAddress(selectedFamily);
+        }
+    }
+
+    private bool IsSelectableDeviceFamily(DeviceFamilyDefinition family)
+    {
+        if (_deviceRangeCatalog is null)
+            return true;
+
+        var entry = _deviceRangeCatalog.Entries.FirstOrDefault(item =>
+            string.Equals(item.Device, family.Code, StringComparison.OrdinalIgnoreCase));
+        return entry is null || entry.Supported;
     }
 
     private static DeviceFamilyDefinition ResolveSelectableDeviceFamily(
@@ -1707,9 +1743,7 @@ public partial class MainWindowViewModel : ObservableObject
             _ => "不明",
         };
 
-        return string.Equals(label, state.RawText, StringComparison.OrdinalIgnoreCase)
-            ? label
-            : $"{label} ({state.RawText})";
+        return label;
     }
 
     private static string TranslateCpuCommand(CpuCommand command) =>

@@ -395,7 +395,6 @@
                   ToolTip="{Binding CpuControlHint}" />
       </MenuItem>
       <MenuItem Header="ツール">
-        <MenuItem Header="通信ログ" Click="TraceLogMenuItem_Click" />
         <MenuItem Header="エラー履歴" Click="ErrorHistoryMenuItem_Click" />
       </MenuItem>
       <MenuItem Header="ヘルプ">
@@ -407,8 +406,6 @@
       <StatusBarItem Content="{Binding StatusText}" />
       <Separator />
       <StatusBarItem Content="{Binding LastReadText, StringFormat=最終読込: {0}}" />
-      <Separator />
-      <StatusBarItem Content="{Binding ResponseTimeText, StringFormat=応答: {0}}" />
       <Separator />
       <StatusBarItem Content="{Binding CommunicationRateText, StringFormat=通信: {0}}" />
       <Separator />
@@ -494,6 +491,7 @@
             <ComboBox ItemsSource="{Binding AvailableDeviceFamilies}"
                       DisplayMemberPath="DisplayName"
                       SelectedItem="{Binding SelectedDeviceFamily}"
+                      PreviewMouseWheel="DeviceFamilyComboBox_PreviewMouseWheel"
                       ToolTip="読込み対象のデバイス種別です。" />
           </StackPanel>
           <StackPanel Grid.Column="1" Style="{StaticResource FieldGroupStyle}">
