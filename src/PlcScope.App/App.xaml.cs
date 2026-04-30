@@ -114,6 +114,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        ApplyTheme(JsonSettingsStore.TryLoadThemeKey());
         base.OnStartup(e);
 
         var services = new ServiceCollection();

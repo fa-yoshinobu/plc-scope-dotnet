@@ -504,7 +504,9 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2" Style="{StaticResource FieldGroupStyle}">
                   <TextBlock Text="Start address" Style="{StaticResource FieldLabelTextStyle}" />
-                  <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=PropertyChanged}" ToolTip="Example: D0 or X0." />
+                  <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=LostFocus}"
+                           KeyDown="CommitTextBoxOnEnter_KeyDown"
+                           ToolTip="Example: D0 or X0." />
                 </StackPanel>
                 <StackPanel Grid.Column="3" Style="{StaticResource FieldGroupStyle}">
                   <TextBlock Text="Type" Style="{StaticResource FieldLabelTextStyle}" />
@@ -631,7 +633,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                       <DataTemplate>
-                        <TextBox Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                 KeyDown="CommitTextBoxOnEnter_KeyDown" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
                   </DataGridTemplateColumn>

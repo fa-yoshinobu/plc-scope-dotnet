@@ -30,7 +30,7 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private const int DefaultVisibleRowCount = 24;
     private const int ReadBufferRows = 0;
-    private const int PreferredGeneratedRowsBeforeStartAddress = DeviceAddressRangeProvider.MaxGeneratedDisplayRows / 2;
+    private const int PreferredGeneratedRowsBeforeStartAddress = DefaultVisibleRowCount * 2;
     private static readonly TimeSpan ScrollResumeDelay = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan LayoutRefreshDelay = TimeSpan.FromMilliseconds(250);
 
@@ -45,6 +45,7 @@ public partial class MainWindowViewModel : ObservableObject
     private IPlcSession? _session;
     private BlockSnapshot? _lastSnapshot;
     private readonly MonitorRowCollection _rows = new();
+    private readonly List<DisplayRowSegment> _displayRowSegments = [];
     private bool _refreshInFlight;
     private bool _isApplyingDeviceRangeCatalogNotation;
     private bool _settingsPersistenceEnabled;
@@ -567,21 +568,31 @@ public partial class MainWindowViewModel : ObservableObject
             }
 
             EnsureRowsForCurrentLayout();
-            if (!TryBuildVisibleReadPlan(out var plan))
+            var plans = BuildVisibleReadPlans();
+            if (plans.Count == 0)
                 return;
 
-            var result = await session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
-            if (_isInlineEditing || !ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
+            BlockReadResult? lastResult = null;
+            foreach (var plan in plans)
+            {
+                var result = await session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
+                if (_isInlineEditing || !ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
+                    return;
+
+                var resultWithComments = ApplyCsvComments(result);
+                _lastSnapshot = BlockDataBuilder.Build(resultWithComments);
+                if (string.Equals(plan.LayoutKey, _rowLayoutKey, StringComparison.Ordinal))
+                    ReplaceRows(plan.ReplacementStartIndex, _lastSnapshot.Rows);
+
+                lastResult = result;
+            }
+
+            if (lastResult is null)
                 return;
 
-            var resultWithComments = ApplyCsvComments(result);
-            _lastSnapshot = BlockDataBuilder.Build(resultWithComments);
-            if (string.Equals(plan.LayoutKey, _rowLayoutKey, StringComparison.Ordinal))
-                ReplaceRows(plan.ReplacementStartIndex, _lastSnapshot.Rows);
-
-            LastReadText = result.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-            ResponseTimeText = $"{result.ElapsedMilliseconds:0.0} ms";
-            CpuStateText = FormatCpuStateText(result.CpuState);
+            LastReadText = lastResult.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            ResponseTimeText = $"{lastResult.ElapsedMilliseconds:0.0} ms";
+            CpuStateText = FormatCpuStateText(lastResult.CpuState);
             StatusText = $"Connected: {SelectedProtocol.DisplayName}";
         }
         catch (Exception exception)
@@ -1116,16 +1127,18 @@ public partial class MainWindowViewModel : ObservableObject
             Rows.Clear();
             _rowLayoutKey = string.Empty;
             _generatedStartAddress = null;
+            _displayRowSegments.Clear();
             _startAddressRowIndex = 0;
             SetLayoutError("Check the start address.");
             return;
         }
 
-        if (!TryNormalizeStartAddressToRange(startAddress, out var normalizedStartAddress, out var rangeBounds, out var rangeError))
+        if (!TryNormalizeStartAddressToRange(startAddress, out var normalizedStartAddress, out _, out var rangeError))
         {
             Rows.Clear();
             _rowLayoutKey = string.Empty;
             _generatedStartAddress = null;
+            _displayRowSegments.Clear();
             _startAddressRowIndex = 0;
             SetLayoutError(rangeError ?? "Check the device range.");
             return;
@@ -1143,6 +1156,17 @@ public partial class MainWindowViewModel : ObservableObject
             startAddress = normalizedStartAddress;
         }
 
+        if (!TryResolveDisplayRangeBounds(out var rangeBounds, out rangeError))
+        {
+            Rows.Clear();
+            _rowLayoutKey = string.Empty;
+            _generatedStartAddress = null;
+            _displayRowSegments.Clear();
+            _startAddressRowIndex = 0;
+            SetLayoutError(rangeError ?? "Check the device range.");
+            return;
+        }
+
         var layoutKey = BuildRowLayoutKey();
         if (Rows.Count > 0 && string.Equals(layoutKey, _rowLayoutKey, StringComparison.Ordinal))
             return;
@@ -1150,18 +1174,19 @@ public partial class MainWindowViewModel : ObservableObject
         Rows.Clear();
         _rowLayoutKey = layoutKey;
         _generatedStartAddress = null;
+        _displayRowSegments.Clear();
         _startAddressRowIndex = 0;
 
-        var rowAddressLayout = BuildRowAddressLayout(startAddress, rangeBounds);
-        _generatedStartAddress = rowAddressLayout.GeneratedStartAddress;
-        _startAddressRowIndex = rowAddressLayout.StartAddressRowIndex;
+        ConfigureDisplayRowSegments(startAddress, rangeBounds);
+        if (_displayRowSegments.Count == 0)
+        {
+            SetLayoutError("Check the device range.");
+            return;
+        }
 
-        var availablePoints = MonitorRangePlanner.GetAvailablePointCount(_generatedStartAddress, rangeBounds);
-        var displayRows = Math.Min(
-            CalculateDisplayRowCount(availablePoints),
-            DeviceAddressRangeProvider.MaxGeneratedDisplayRows);
-
-        _rows.Configure(displayRows, rowIndex => CreatePlaceholderRow(rowIndex, _generatedStartAddress!));
+        _generatedStartAddress = _displayRowSegments[0].StartAddress;
+        var displayRows = _displayRowSegments[^1].StartRowIndex + _displayRowSegments[^1].RowCount;
+        _rows.Configure(displayRows, CreatePlaceholderRow);
 
         if (Rows.Count > 0)
         {
@@ -1170,55 +1195,74 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private bool TryBuildVisibleReadPlan(out VisibleReadPlan plan)
+    private IReadOnlyList<VisibleReadPlan> BuildVisibleReadPlans()
     {
-        plan = new VisibleReadPlan(BuildBlockQuery(StartAddress, 1), 0, _rowLayoutKey);
         if (Rows.Count == 0)
-            return false;
+            return [];
 
-        if (_generatedStartAddress is null)
-            return false;
+        if (_displayRowSegments.Count == 0)
+            return [];
 
         var firstRow = Math.Clamp(_visibleStartIndex - ReadBufferRows, 0, Rows.Count - 1);
         var lastRow = Math.Clamp(_visibleStartIndex + _visibleRowCount + ReadBufferRows - 1, firstRow, Rows.Count - 1);
-        if (!TryResolveDisplayRangeBounds(out var rangeBounds, out _))
-            return false;
+        var plans = new List<VisibleReadPlan>();
+        foreach (var rowSegment in _displayRowSegments)
+        {
+            var segmentFirstRow = Math.Max(firstRow, rowSegment.StartRowIndex);
+            var segmentLastRow = Math.Min(lastRow, rowSegment.StartRowIndex + rowSegment.RowCount - 1);
+            if (segmentFirstRow > segmentLastRow)
+                continue;
 
-        rangeBounds = SelectDisplayRangeSegment(_generatedStartAddress, rangeBounds);
-        var availablePoints = MonitorRangePlanner.GetAvailablePointCount(_generatedStartAddress, rangeBounds);
+            if (TryBuildVisibleReadPlan(rowSegment, segmentFirstRow, segmentLastRow, out var plan))
+                plans.Add(plan);
+        }
+
+        return plans;
+    }
+
+    private bool TryBuildVisibleReadPlan(
+        DisplayRowSegment rowSegment,
+        int firstRow,
+        int lastRow,
+        out VisibleReadPlan plan)
+    {
+        plan = new VisibleReadPlan(BuildBlockQuery(StartAddress, 1), 0, _rowLayoutKey);
+        var localFirstRow = firstRow - rowSegment.StartRowIndex;
+        var localLastRow = lastRow - rowSegment.StartRowIndex;
+        var availablePoints = rowSegment.AvailablePoints;
 
         var deviceOffset = 0;
         var itemCount = 0;
-        var replacementStartIndex = firstRow;
+        var replacementStartIndex = rowSegment.StartRowIndex + localFirstRow;
 
         if (SelectedDeviceFamily.Kind == DeviceKind.Word)
         {
             if (DisplayMode == BlockDisplayMode.BitExpand)
             {
-                var firstWord = firstRow / 17;
-                var lastWord = lastRow / 17;
+                var firstWord = localFirstRow / 17;
+                var lastWord = localLastRow / 17;
                 deviceOffset = firstWord;
                 itemCount = lastWord - firstWord + 1;
-                replacementStartIndex = firstWord * 17;
+                replacementStartIndex = rowSegment.StartRowIndex + firstWord * 17;
             }
             else if (DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32)
             {
-                deviceOffset = firstRow * GetDevicePointsPerGeneratedRow(DisplayMode);
-                itemCount = lastRow - firstRow + 1;
+                deviceOffset = localFirstRow * GetDevicePointsPerGeneratedRow(DisplayMode);
+                itemCount = localLastRow - localFirstRow + 1;
             }
             else
             {
-                deviceOffset = firstRow;
-                itemCount = lastRow - firstRow + 1;
+                deviceOffset = localFirstRow;
+                itemCount = localLastRow - localFirstRow + 1;
             }
         }
         else
         {
             var pointsPerRow = GetBitDevicePointsPerRow(DisplayMode);
-            deviceOffset = firstRow * pointsPerRow;
-            itemCount = (lastRow - firstRow + 1) * pointsPerRow;
+            deviceOffset = localFirstRow * pointsPerRow;
+            itemCount = (localLastRow - localFirstRow + 1) * pointsPerRow;
             if (DisplayMode == BlockDisplayMode.BitExpand)
-                itemCount = lastRow - firstRow + 1;
+                itemCount = localLastRow - localFirstRow + 1;
         }
 
         if (deviceOffset >= availablePoints)
@@ -1228,7 +1272,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (itemCount <= 0)
             return false;
 
-        var queryStartAddress = _generatedStartAddress.FormatOffset(deviceOffset);
+        var queryStartAddress = rowSegment.StartAddress.FormatOffset(deviceOffset);
         plan = new VisibleReadPlan(
             BuildBlockQuery(queryStartAddress, itemCount),
             replacementStartIndex,
@@ -1298,7 +1342,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
 
             var upperBound = ResolveUpperBound(entry);
-            if (upperBound < entry.LowerBound)
+            if (upperBound is null || upperBound.Value < entry.LowerBound)
             {
                 rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{entry.Device}:invalid");
                 error = $"{entry.Device} has an invalid device range.";
@@ -1307,18 +1351,16 @@ public partial class MainWindowViewModel : ObservableObject
 
             rangeBounds = new DeviceDisplayRangeBounds(
                 entry.LowerBound,
-                upperBound,
-                $"{entry.Device}:{entry.LowerBound}:{upperBound}:{entry.PointCount}",
+                upperBound.Value,
+                $"{entry.Device}:{entry.LowerBound}:{upperBound.Value}:{entry.PointCount}",
                 TryGetRangeAddressWidth(entry),
                 TryGetRangeSegments(entry));
             return true;
         }
 
-        rangeBounds = new DeviceDisplayRangeBounds(
-            0,
-            GetFallbackUpperBound(),
-            $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:fallback");
-        return true;
+        rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:missing");
+        error = $"{SelectedDeviceFamily.Code} does not have a device range catalog entry for the selected PLC.";
+        return false;
     }
 
     private static DeviceDisplayRangeBounds SelectDisplayRangeSegment(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
@@ -1361,7 +1403,7 @@ public partial class MainWindowViewModel : ObservableObject
             return null;
 
         var numberStart = entry.Device.Length;
-        var numberEnd = firstRange.IndexOf('-', numberStart);
+        var numberEnd = firstRange.IndexOf("..", numberStart, StringComparison.Ordinal);
         if (numberEnd < 0)
             numberEnd = firstRange.Length;
 
@@ -1371,34 +1413,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     private static IReadOnlyList<DeviceDisplayRangeSegment>? TryGetRangeSegments(DeviceRangeEntry entry)
     {
-        if (string.IsNullOrWhiteSpace(entry.AddressRange))
-            return null;
-
-        var segments = new List<DeviceDisplayRangeSegment>();
-        foreach (var rangeText in entry.AddressRange.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-        {
-            var endpoints = rangeText.Split('-', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            if (endpoints.Length != 2)
-                continue;
-
-            if (TryParseRangeAddressNumber(endpoints[0], entry.Device, out var lower)
-                && TryParseRangeAddressNumber(endpoints[1], entry.Device, out var upper)
-                && lower <= upper)
-            {
-                segments.Add(new DeviceDisplayRangeSegment(lower, upper));
-            }
-        }
-
+        var segments = MonitorRangePlanner.ParseAddressRangeSegments(entry.AddressRange, entry.Device);
         return segments.Count > 1 ? segments : null;
-    }
-
-    private static bool TryParseRangeAddressNumber(string address, string deviceCode, out uint number)
-    {
-        number = 0;
-        if (!address.StartsWith(deviceCode, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        return uint.TryParse(address[deviceCode.Length..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out number);
     }
 
     private bool TryGetSelectedDeviceRangeEntry(out DeviceRangeEntry entry)
@@ -1416,7 +1432,7 @@ public partial class MainWindowViewModel : ObservableObject
         return true;
     }
 
-    private uint ResolveUpperBound(DeviceRangeEntry entry)
+    private static uint? ResolveUpperBound(DeviceRangeEntry entry)
     {
         if (entry.UpperBound is { } upperBound)
             return upperBound;
@@ -1424,16 +1440,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (entry.PointCount is { } pointCount && pointCount > 0)
             return checked(entry.LowerBound + pointCount - 1);
 
-        return GetFallbackUpperBound();
-    }
-
-    private uint GetFallbackUpperBound()
-    {
-        var count = DeviceAddressRangeProvider.GetAvailablePointCount(
-            SelectedProtocol.Kind,
-            SelectedDeviceFamily,
-            $"{SelectedDeviceFamily.Code}0");
-        return count <= 0 ? 0 : (uint)(count - 1);
+        return null;
     }
 
     private MonitorRowAddressLayout BuildRowAddressLayout(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds) =>
@@ -1444,6 +1451,75 @@ public partial class MainWindowViewModel : ObservableObject
             SelectedDeviceFamily,
             DisplayMode,
             PreferredGeneratedRowsBeforeStartAddress);
+
+    private void ConfigureDisplayRowSegments(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
+    {
+        _displayRowSegments.Clear();
+
+        if (rangeBounds.Segments is not { Count: > 1 } segments)
+        {
+            var rowAddressLayout = BuildRowAddressLayout(startAddress, rangeBounds);
+            var availablePoints = MonitorRangePlanner.GetAvailablePointCount(rowAddressLayout.GeneratedStartAddress, rangeBounds);
+            var rowCount = Math.Min(CalculateDisplayRowCount(availablePoints), DeviceAddressRangeProvider.MaxGeneratedDisplayRows);
+            if (rowCount <= 0)
+                return;
+
+            _displayRowSegments.Add(new DisplayRowSegment(0, rowCount, rowAddressLayout.GeneratedStartAddress, availablePoints));
+            _startAddressRowIndex = rowAddressLayout.StartAddressRowIndex;
+            return;
+        }
+
+        var nextRowIndex = 0;
+        var startLogical = startAddress.ToLogicalNumber(startAddress.Number);
+        foreach (var segment in segments.OrderBy(static item => item.LowerBound))
+        {
+            if (nextRowIndex >= DeviceAddressRangeProvider.MaxGeneratedDisplayRows)
+                break;
+
+            var segmentBounds = rangeBounds with
+            {
+                LowerBound = segment.LowerBound,
+                UpperBound = segment.UpperBound,
+                Segments = null,
+            };
+            var segmentStartAddress = startAddress.WithLogicalNumber(startAddress.ToLogicalNumber(segment.LowerBound)) with
+            {
+                Prefix = SelectedDeviceFamily.Code,
+                Width = rangeBounds.AddressWidth ?? startAddress.Width,
+            };
+            var availablePoints = MonitorRangePlanner.GetAvailablePointCount(segmentStartAddress, segmentBounds);
+            var rowCount = Math.Min(
+                CalculateDisplayRowCount(availablePoints),
+                DeviceAddressRangeProvider.MaxGeneratedDisplayRows - nextRowIndex);
+            if (rowCount <= 0)
+                continue;
+
+            _displayRowSegments.Add(new DisplayRowSegment(nextRowIndex, rowCount, segmentStartAddress, availablePoints));
+
+            var lower = startAddress.ToLogicalNumber(segment.LowerBound);
+            var upper = startAddress.ToLogicalNumber(segment.UpperBound);
+            if (startLogical >= lower && startLogical <= upper)
+            {
+                var rowAddressLayout = BuildRowAddressLayout(startAddress, segmentBounds);
+                _startAddressRowIndex = nextRowIndex + rowAddressLayout.StartAddressRowIndex;
+            }
+
+            nextRowIndex += rowCount;
+        }
+    }
+
+    private DisplayRowSegment? FindDisplayRowSegment(int rowIndex) =>
+        _displayRowSegments.FirstOrDefault(segment =>
+            rowIndex >= segment.StartRowIndex && rowIndex < segment.StartRowIndex + segment.RowCount);
+
+    private MonitorRowViewModel CreatePlaceholderRow(int rowIndex)
+    {
+        var segment = FindDisplayRowSegment(rowIndex);
+        if (segment is null)
+            throw new ArgumentOutOfRangeException(nameof(rowIndex), rowIndex, "Row is outside the generated device ranges.");
+
+        return CreatePlaceholderRow(rowIndex - segment.StartRowIndex, segment.StartAddress);
+    }
 
     private MonitorRowViewModel CreatePlaceholderRow(int rowIndex, SequentialDeviceAddress startAddress)
     {
@@ -2308,6 +2384,12 @@ public partial class MainWindowViewModel : ObservableObject
         ThemeOption.All.FirstOrDefault(option => string.Equals(option.Key, key, StringComparison.OrdinalIgnoreCase)) ?? ThemeOption.Dark;
 
     private sealed record VisibleReadPlan(BlockQuery Query, int ReplacementStartIndex, string LayoutKey);
+
+    private sealed record DisplayRowSegment(
+        int StartRowIndex,
+        int RowCount,
+        SequentialDeviceAddress StartAddress,
+        int AvailablePoints);
 
     private void SetLayoutError(string message)
     {
