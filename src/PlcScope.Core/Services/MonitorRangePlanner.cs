@@ -2,7 +2,14 @@ namespace PlcScope.Core.Services;
 
 using PlcScope.Core.Models;
 
-public sealed record DeviceDisplayRangeBounds(uint LowerBound, uint UpperBound, string LayoutKey, int? AddressWidth = null);
+public sealed record DeviceDisplayRangeSegment(uint LowerBound, uint UpperBound);
+
+public sealed record DeviceDisplayRangeBounds(
+    uint LowerBound,
+    uint UpperBound,
+    string LayoutKey,
+    int? AddressWidth = null,
+    IReadOnlyList<DeviceDisplayRangeSegment>? Segments = null);
 
 public sealed record MonitorRowAddressLayout(SequentialDeviceAddress GeneratedStartAddress, int StartAddressRowIndex);
 

@@ -1,6 +1,7 @@
 namespace PlcScope.App.ViewModels;
 
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -765,6 +766,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (!TryResolveDisplayRangeBounds(out var rangeBounds, out _))
             return false;
 
+        rangeBounds = SelectDisplayRangeSegment(_generatedStartAddress, rangeBounds);
         var availablePoints = MonitorRangePlanner.GetAvailablePointCount(_generatedStartAddress, rangeBounds);
 
         var deviceOffset = 0;
@@ -847,6 +849,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (!TryResolveDisplayRangeBounds(out rangeBounds, out error))
             return false;
 
+        rangeBounds = SelectDisplayRangeSegment(startAddress, rangeBounds);
         return MonitorRangePlanner.TryNormalizeStartAddressToRange(
             startAddress,
             rangeBounds,
@@ -888,7 +891,8 @@ public partial class MainWindowViewModel : ObservableObject
                 entry.LowerBound,
                 upperBound,
                 $"{entry.Device}:{entry.LowerBound}:{upperBound}:{entry.PointCount}",
-                TryGetRangeAddressWidth(entry));
+                TryGetRangeAddressWidth(entry),
+                TryGetRangeSegments(entry));
             return true;
         }
 
@@ -897,6 +901,36 @@ public partial class MainWindowViewModel : ObservableObject
             GetFallbackUpperBound(),
             $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:fallback");
         return true;
+    }
+
+    private static DeviceDisplayRangeBounds SelectDisplayRangeSegment(SequentialDeviceAddress startAddress, DeviceDisplayRangeBounds rangeBounds)
+    {
+        if (rangeBounds.Segments is not { Count: > 0 } segments)
+            return rangeBounds;
+
+        var start = startAddress.ToLogicalNumber(startAddress.Number);
+        var selected = segments.FirstOrDefault(segment =>
+        {
+            var lower = startAddress.ToLogicalNumber(segment.LowerBound);
+            var upper = startAddress.ToLogicalNumber(segment.UpperBound);
+            return start >= lower && start <= upper;
+        });
+
+        selected ??= segments
+            .OrderBy(segment =>
+            {
+                var lower = startAddress.ToLogicalNumber(segment.LowerBound);
+                var upper = startAddress.ToLogicalNumber(segment.UpperBound);
+                return start < lower ? lower - start : start - upper;
+            })
+            .First();
+
+        return rangeBounds with
+        {
+            LowerBound = selected.LowerBound,
+            UpperBound = selected.UpperBound,
+            LayoutKey = $"{rangeBounds.LayoutKey}:{selected.LowerBound:X}-{selected.UpperBound:X}",
+        };
     }
 
     private static int? TryGetRangeAddressWidth(DeviceRangeEntry entry)
@@ -915,6 +949,38 @@ public partial class MainWindowViewModel : ObservableObject
 
         var width = numberEnd - numberStart;
         return width > 0 ? width : null;
+    }
+
+    private static IReadOnlyList<DeviceDisplayRangeSegment>? TryGetRangeSegments(DeviceRangeEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.AddressRange))
+            return null;
+
+        var segments = new List<DeviceDisplayRangeSegment>();
+        foreach (var rangeText in entry.AddressRange.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            var endpoints = rangeText.Split('-', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (endpoints.Length != 2)
+                continue;
+
+            if (TryParseRangeAddressNumber(endpoints[0], entry.Device, out var lower)
+                && TryParseRangeAddressNumber(endpoints[1], entry.Device, out var upper)
+                && lower <= upper)
+            {
+                segments.Add(new DeviceDisplayRangeSegment(lower, upper));
+            }
+        }
+
+        return segments.Count > 1 ? segments : null;
+    }
+
+    private static bool TryParseRangeAddressNumber(string address, string deviceCode, out uint number)
+    {
+        number = 0;
+        if (!address.StartsWith(deviceCode, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return uint.TryParse(address[deviceCode.Length..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out number);
     }
 
     private bool TryGetSelectedDeviceRangeEntry(out DeviceRangeEntry entry)
