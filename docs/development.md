@@ -1,81 +1,116 @@
-# 開発・ビルド手順
+# Development Notes
 
-## 必要環境
+## Requirements
 
 - Windows
 - .NET 9 SDK
+- Visual Studio 2022 or another editor with WPF support
 
-WPF アプリのため、macOS / Linux では `PlcScope.App` をビルドできません。
+`PlcScope.App` is a WPF application, so the app project is intended to build and run on Windows.
 
-## ソリューション構成
+## Solution Layout
 
 - `src/PlcScope.App`
-  WPF アプリ本体
+  WPF application, windows, XAML, and view models.
 - `src/PlcScope.Core`
-  モデル、表示変換、アドレス範囲、ブロックデータ構築
+  Protocol-neutral models, formatting, range planning, and block data builders.
 - `src/PlcScope.Infrastructure`
-  PLC 通信アダプタ、JSON 保存、ログ保存
+  PLC protocol adapters, JSON persistence, and log storage.
 - `tests/PlcScope.Core.Tests`
-  Core / Infrastructure の単体テスト
+  Unit tests for core services and infrastructure protocol behavior.
 
-## 使用ライブラリ
+## Dependencies
 
-- `PlcComm.Slmp` `0.1.11`
-- `PlcComm.KvHostLink` `0.1.3`
-- `PlcComm.Toyopuc` `0.1.3`
-- `CommunityToolkit.Mvvm` `8.4.0`
+Package versions are centralized in [Directory.Packages.props](../Directory.Packages.props).
 
-パッケージの集中管理は [Directory.Packages.props](../Directory.Packages.props) で行っています。
+Main libraries:
 
-## ビルド
+- `PlcComm.Slmp`
+- `PlcComm.KvHostLink`
+- `PlcComm.Toyopuc`
+- `CommunityToolkit.Mvvm`
+- `Microsoft.Extensions.DependencyInjection`
+
+When sibling PLC communication repositories exist next to this repository, project references are used for local development. Otherwise NuGet package references are used.
+
+## Build
+
+Build the full solution:
 
 ```powershell
-dotnet restore .\src\PlcScope.App\PlcScope.App.csproj
+dotnet build .\PlcScopeDotNet.sln
+```
+
+Build the app only:
+
+```powershell
 dotnet build .\src\PlcScope.App\PlcScope.App.csproj -c Release
 ```
 
-ソリューション全体を Visual Studio で開く場合は [PlcScopeDotNet.sln](../PlcScopeDotNet.sln) を使用します。
+## Test
 
-## 単一 EXE 発行
+Run all tests:
 
-`build.bat` で `win-x64` の自己完結型 single-file EXE を作成できます。
+```powershell
+dotnet test .\PlcScopeDotNet.sln
+```
+
+Run the core test project:
+
+```powershell
+dotnet test .\tests\PlcScope.Core.Tests\PlcScope.Core.Tests.csproj
+```
+
+## Publish
+
+`build.bat` creates a Windows x64 single-file build.
 
 ```cmd
 build.bat
 ```
 
-または構成を指定します。
+Specify configuration:
 
 ```cmd
 build.bat Release
 ```
 
-出力先:
+Typical output:
 
 ```text
 src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.App.exe
 ```
 
-ビルドログ:
-
-```text
-build.log
-```
-
-手動で発行する場合は、先に Runtime Identifier 付きで restore してください。これを行わないと `NETSDK1047` が出る場合があります。
+Manual publish:
 
 ```powershell
 dotnet restore .\src\PlcScope.App\PlcScope.App.csproj -r win-x64
 dotnet publish .\src\PlcScope.App\PlcScope.App.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false
 ```
 
-## テスト
+## Versioning
 
-```powershell
-dotnet test .\tests\PlcScope.Core.Tests\PlcScope.Core.Tests.csproj
-```
+The app version is defined in [PlcScope.App.csproj](../src/PlcScope.App/PlcScope.App.csproj).
 
-## 現在の制約
+For an application version bump, update all of:
 
-- `TOYOPUC` は現状 CPU RUN / STOP 未対応で、CPU 状態表示のみです。
-- 実 PLC との最終動作確認は Windows 環境で実施してください。
+- `Version`
+- `AssemblyVersion`
+- `FileVersion`
+- `AssemblyInformationalVersion`
+- `InformationalVersion`
+
+## Manual Validation
+
+Recommended checks before publishing:
+
+- build the full solution
+- run all tests
+- connect to each available PLC protocol
+- verify monitor visible-row refresh
+- verify watch list visible-row refresh
+- verify inline writes
+- verify bit toggles
+- verify CPU RUN/STOP for supported protocols
+- verify dark theme readability
+- verify error history and optional communication log behavior

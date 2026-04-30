@@ -75,7 +75,7 @@ public sealed class ToyopucSessionTests
         Assert.Equal((uint)0x0000, p1D.LowerBound);
         Assert.Equal((uint)0x0FFF, p1D.UpperBound);
         Assert.Equal((uint)0x1000, p1D.PointCount);
-        Assert.Equal("P1-D0000-P1-D0FFF", p1D.AddressRange);
+        Assert.Equal("P1-D0000..P1-D0FFF", p1D.AddressRange);
 
         var p1M = Assert.Single(catalog.Entries, entry => entry.Device == "P1-M");
         Assert.True(p1M.Supported);
@@ -98,7 +98,7 @@ public sealed class ToyopucSessionTests
         Assert.Equal((uint)0x0000, p1P.LowerBound);
         Assert.Equal((uint)0x17FF, p1P.UpperBound);
         Assert.Equal((uint)0x0A00, p1P.PointCount);
-        Assert.Equal("P1-P0000-P1-P01FF, P1-P1000-P1-P17FF", p1P.AddressRange);
+        Assert.Equal("P1-P0000..P1-P01FF, P1-P1000..P1-P17FF", p1P.AddressRange);
         Assert.Equal("Multiple supported ranges are available.", p1P.Notes);
     }
 

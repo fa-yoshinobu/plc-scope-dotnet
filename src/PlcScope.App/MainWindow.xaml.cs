@@ -221,6 +221,15 @@ public partial class MainWindow : Window
             DispatcherPriority.Loaded);
     }
 
+    private void CommitTextBoxOnEnter_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || sender is not TextBox textBox)
+            return;
+
+        textBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        e.Handled = true;
+    }
+
     private void WatchDataGrid_Loaded(object sender, RoutedEventArgs e)
     {
         _watchScrollViewer = FindDescendant<ScrollViewer>(WatchDataGrid);

@@ -1,6 +1,5 @@
 ﻿namespace PlcScope.Infrastructure.Protocols;
 
-using System.Globalization;
 using PlcComm.Toyopuc;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
@@ -302,7 +301,7 @@ internal sealed class ToyopucSession : PlcSessionBase
                 checked((uint)lowerBound),
                 checked((uint)upperBound),
                 pointCount,
-                string.Join(", ", ranges.Select(range => FormatDeviceRange(family.Code, range, width))),
+                ToyopucDeviceCatalog.FormatAddressRanges(family.Code, ranges, width),
                 "Hexadecimal",
                 nameof(ToyopucDeviceCatalog),
                 ranges.Count > 1 ? "Multiple supported ranges are available." : string.Empty);
@@ -339,10 +338,5 @@ internal sealed class ToyopucSession : PlcSessionBase
             : (familyCode, false);
     }
 
-    private static string FormatDeviceRange(string familyCode, ToyopucAddressRange range, int width) =>
-        $"{FormatDeviceAddress(familyCode, range.Start, width)}-{FormatDeviceAddress(familyCode, range.End, width)}";
-
-    private static string FormatDeviceAddress(string familyCode, int index, int width) =>
-        $"{familyCode}{index.ToString($"X{width}", CultureInfo.InvariantCulture)}";
 }
 

@@ -1,5 +1,6 @@
 ﻿namespace PlcScope.Core.Services;
 
+using System.Globalization;
 using PlcScope.Core.Models;
 
 public sealed record DeviceDisplayRangeSegment(uint LowerBound, uint UpperBound);
@@ -149,6 +150,28 @@ public static class MonitorRangePlanner
             _ => 16,
         };
 
+    public static IReadOnlyList<DeviceDisplayRangeSegment> ParseAddressRangeSegments(string? addressRange, string deviceCode)
+    {
+        if (string.IsNullOrWhiteSpace(addressRange) || string.IsNullOrWhiteSpace(deviceCode))
+            return [];
+
+        var segments = new List<DeviceDisplayRangeSegment>();
+        foreach (var rangeText in addressRange.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!TrySplitRangeEndpoints(rangeText, deviceCode, out var lowerText, out var upperText))
+                continue;
+
+            if (TryParseRangeAddressNumber(lowerText, deviceCode, out var lower)
+                && TryParseRangeAddressNumber(upperText, deviceCode, out var upper)
+                && lower <= upper)
+            {
+                segments.Add(new DeviceDisplayRangeSegment(lower, upper));
+            }
+        }
+
+        return segments;
+    }
+
     private static int CalculatePointOffsetBeforeStartAddress(
         SequentialDeviceAddress startAddress,
         DeviceDisplayRangeBounds rangeBounds,
@@ -176,6 +199,29 @@ public static class MonitorRangePlanner
         var rowCount = (int)Math.Min((uint)preferredRowsBeforeStartAddress, availableBeforeStart / (uint)pointsPerRow);
         startAddressRowIndex = rowCount;
         return checked(rowCount * pointsPerRow);
+    }
+
+    private static bool TrySplitRangeEndpoints(string rangeText, string deviceCode, out string lowerText, out string upperText)
+    {
+        lowerText = string.Empty;
+        upperText = string.Empty;
+
+        var separatorIndex = rangeText.IndexOf("..", StringComparison.Ordinal);
+        if (separatorIndex < 0)
+            return false;
+
+        lowerText = rangeText[..separatorIndex].Trim();
+        upperText = rangeText[(separatorIndex + 2)..].Trim();
+        return lowerText.Length > 0 && upperText.Length > 0;
+    }
+
+    private static bool TryParseRangeAddressNumber(string address, string deviceCode, out uint number)
+    {
+        number = 0;
+        if (!address.StartsWith(deviceCode, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return uint.TryParse(address[deviceCode.Length..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out number);
     }
 }
 

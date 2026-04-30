@@ -226,4 +226,19 @@ public sealed class MonitorRangePlannerTests
 
         Assert.Equal(3, rows);
     }
+
+    [Fact]
+    public void ParseAddressRangeSegments_HandlesExplicitRangeSeparator()
+    {
+        var segments = MonitorRangePlanner.ParseAddressRangeSegments(
+            "P1-P0000..P1-P01FF, P1-P1000..P1-P17FF",
+            "P1-P");
+
+        Assert.Equal(2, segments.Count);
+        Assert.Equal((uint)0x0000, segments[0].LowerBound);
+        Assert.Equal((uint)0x01FF, segments[0].UpperBound);
+        Assert.Equal((uint)0x1000, segments[1].LowerBound);
+        Assert.Equal((uint)0x17FF, segments[1].UpperBound);
+    }
+
 }

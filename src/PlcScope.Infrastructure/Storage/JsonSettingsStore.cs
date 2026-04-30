@@ -7,6 +7,23 @@ using PlcScope.Infrastructure.Serialization;
 
 public sealed class JsonSettingsStore : ISettingsStore
 {
+    public static string? TryLoadThemeKey()
+    {
+        try
+        {
+            if (!File.Exists(AppDataPaths.SettingsFile))
+                return null;
+
+            var json = File.ReadAllText(AppDataPaths.SettingsFile);
+            var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonDefaults.Options);
+            return settings?.UiTheme;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
         if (!File.Exists(AppDataPaths.SettingsFile))
