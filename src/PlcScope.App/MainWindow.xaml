@@ -494,6 +494,7 @@
             <ComboBox ItemsSource="{Binding AvailableDeviceFamilies}"
                       DisplayMemberPath="DisplayName"
                       SelectedItem="{Binding SelectedDeviceFamily}"
+                      PreviewMouseWheel="DeviceFamilyComboBox_PreviewMouseWheel"
                       ToolTip="読込み対象のデバイス種別です。" />
           </StackPanel>
           <StackPanel Grid.Column="1" Style="{StaticResource FieldGroupStyle}">

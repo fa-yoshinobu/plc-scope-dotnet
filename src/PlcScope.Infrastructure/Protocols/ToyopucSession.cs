@@ -92,8 +92,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             else
             {
                 elementAddresses = BuildAddresses(normalizedStart, query.EffectiveItemCount);
-                var snapshot = await _client!.ReadNamedAsync(elementAddresses, cancellationToken).ConfigureAwait(false);
-                bits = elementAddresses.Select(address => ToBoolean(snapshot[address])).ToArray();
+                bits = await ReadBitDevicesAsync(normalizedStart, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
             }
 
             CpuState? cpuState = null;
@@ -207,6 +206,47 @@ internal sealed class ToyopucSession : PlcSessionBase
             throw new ArgumentOutOfRangeException(nameof(offset), "Offset would move address index below zero.");
 
         return ToyopucAddress.Format(start, index);
+    }
+
+    private async Task<bool[]> ReadBitDevicesAsync(string normalizedStart, int bitCount, CancellationToken cancellationToken)
+    {
+        var start = _client!.ResolveDevice(normalizedStart);
+        if (start.Unit != "bit")
+        {
+            var result = await _client.ReadAsync(normalizedStart, bitCount, cancellationToken).ConfigureAwait(false);
+            return ToBooleanArray(result);
+        }
+
+        var bitOffset = start.Index % 16;
+        var packedWordCount = checked((bitOffset + bitCount + 15) / 16);
+        var packedStartAddress = FormatPackedWordAddress(start, start.Index / 16);
+        var words = await _client.ReadWordsAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
+
+        var bits = new bool[bitCount];
+        for (var index = 0; index < bitCount; index++)
+        {
+            var packedBitIndex = bitOffset + index;
+            bits[index] = ((words[packedBitIndex / 16] >> (packedBitIndex % 16)) & 0x1) != 0;
+        }
+
+        return bits;
+    }
+
+    private static bool[] ToBooleanArray(object result) =>
+        result is object[] values
+            ? values.Select(ToBoolean).ToArray()
+            : [ToBoolean(result)];
+
+    private static string FormatPackedWordAddress(ResolvedDevice bitAddress, int packedIndex)
+    {
+        var packed = bitAddress with
+        {
+            Text = string.Empty,
+            Unit = "word",
+            Index = packedIndex,
+            Packed = true,
+        };
+        return ToyopucAddress.Format(packed);
     }
 
     private static DeviceRangeEntry MapDeviceRangeEntry(DeviceFamilyDefinition family, string profile)

@@ -219,6 +219,12 @@ public partial class MainWindow : Window
             DispatcherPriority.Loaded);
     }
 
+    private void DeviceFamilyComboBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is ComboBox { IsDropDownOpen: false })
+            e.Handled = true;
+    }
+
     private static T? FindDescendant<T>(DependencyObject root)
         where T : DependencyObject
     {

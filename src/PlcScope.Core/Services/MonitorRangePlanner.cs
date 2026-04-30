@@ -2,7 +2,7 @@ namespace PlcScope.Core.Services;
 
 using PlcScope.Core.Models;
 
-public sealed record DeviceDisplayRangeBounds(uint LowerBound, uint UpperBound, string LayoutKey);
+public sealed record DeviceDisplayRangeBounds(uint LowerBound, uint UpperBound, string LayoutKey, int? AddressWidth = null);
 
 public sealed record MonitorRowAddressLayout(SequentialDeviceAddress GeneratedStartAddress, int StartAddressRowIndex);
 
@@ -49,7 +49,13 @@ public static class MonitorRangePlanner
         var startLogical = startAddress.ToLogicalNumber(startAddress.Number);
         var maxStart = rangeUpper - (uint)(requiredPoints - 1);
         var clampedNumber = Math.Clamp(startLogical, rangeLower, maxStart);
-        normalizedStartAddress = startAddress.WithLogicalNumber(clampedNumber) with { Prefix = family.Code };
+        normalizedStartAddress = startAddress.WithLogicalNumber(clampedNumber) with
+        {
+            Prefix = family.Code,
+            Width = rangeBounds.AddressWidth is { } width
+                ? width
+                : startAddress.Width,
+        };
         return true;
     }
 
