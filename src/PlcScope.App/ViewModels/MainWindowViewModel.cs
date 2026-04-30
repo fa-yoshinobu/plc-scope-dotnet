@@ -1260,8 +1260,6 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (traceEntry.Direction == TraceDirection.Send)
             Interlocked.Increment(ref _communicationFrameCount);
-
-        _ = _logStore.AppendTraceAsync(traceEntry);
     }
 
     private void OnSessionErrorReceived(object? sender, ErrorEntry errorEntry) =>
@@ -1745,9 +1743,7 @@ public partial class MainWindowViewModel : ObservableObject
             _ => "不明",
         };
 
-        return string.Equals(label, state.RawText, StringComparison.OrdinalIgnoreCase)
-            ? label
-            : $"{label} ({state.RawText})";
+        return label;
     }
 
     private static string TranslateCpuCommand(CpuCommand command) =>

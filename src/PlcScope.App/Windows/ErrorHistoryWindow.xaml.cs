@@ -87,7 +87,7 @@ public partial class ErrorHistoryWindow : Window
     }
 
     private static string FormatTimestamp(DateTimeOffset timestamp) =>
-        timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff zzz", CultureInfo.InvariantCulture);
+        timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
     private static string Clean(string? value) =>
         string.IsNullOrEmpty(value)

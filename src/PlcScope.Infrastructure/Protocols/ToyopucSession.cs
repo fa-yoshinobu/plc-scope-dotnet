@@ -168,8 +168,39 @@ internal sealed class ToyopucSession : PlcSessionBase
         return Task.FromResult(new DeviceRangeCatalog(profile, profile, entries));
     }
 
-    public override Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException("TOYOPUC CPU RUN/STOP is not implemented in the current public app surface.");
+    public override async Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        await ExecuteSerializedAsync(async () =>
+        {
+            if (Settings.ToyopucRelayHops is { Length: > 0 })
+            {
+                if (command == CpuCommand.Run)
+                {
+                    await _client!.RelayReleaseScanStopAsync(Settings.ToyopucRelayHops, cancellationToken).ConfigureAwait(false);
+                    await _client.RelayResumeScanAsync(Settings.ToyopucRelayHops, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _client!.RelayStopScanAsync(Settings.ToyopucRelayHops, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                if (command == CpuCommand.Run)
+                {
+                    await _client!.ReleaseScanStopAsync(cancellationToken).ConfigureAwait(false);
+                    await _client.ResumeScanAsync(cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _client!.StopScanAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            ClearCpuStateCache();
+        }, cancellationToken).ConfigureAwait(false);
+    }
 
     public override async ValueTask DisposeAsync()
     {

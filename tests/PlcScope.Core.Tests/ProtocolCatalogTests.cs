@@ -124,10 +124,10 @@ public sealed class ProtocolCatalogTests
     }
 
     [Fact]
-    public void Toyopuc_CpuControl_IsDisabled()
+    public void Toyopuc_CpuControl_IsEnabled()
     {
         var definition = ProtocolCatalog.Get(ProtocolKind.Toyopuc);
-        Assert.False(definition.Capabilities.SupportsCpuControl);
+        Assert.True(definition.Capabilities.SupportsCpuControl);
         Assert.True(definition.Capabilities.SupportsCpuStatus);
     }
 

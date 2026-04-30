@@ -72,7 +72,7 @@ public static class ProtocolCatalog
             new ProtocolCapabilities(
                 SupportsWrite: true,
                 SupportsComments: false,
-                SupportsCpuControl: false,
+                SupportsCpuControl: true,
                 SupportsCpuStatus: true,
                 SupportsTrace: true,
                 SupportsPasswordProtectedCpuCommands: false),
