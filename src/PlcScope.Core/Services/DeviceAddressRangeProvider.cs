@@ -62,8 +62,8 @@ public sealed record SequentialDeviceAddress(
 
 public static class DeviceAddressRangeProvider
 {
-    // Temporary UI guard until each protocol library exposes exact device ranges
-    // and the app can switch to a fully virtual data source.
+    // Guard generated monitor/watch rows so the UI stays bounded even for large
+    // runtime catalogs.
     public const int MaxGeneratedDisplayRows = 1_048_576;
 
     public static string GetDefaultAddress(DeviceFamilyDefinition family) =>
@@ -169,7 +169,7 @@ public static class DeviceAddressRangeProvider
         if (!TryParseAddress(startAddress, family, out var parsed))
             return 0;
 
-        var maxNumber = GetTemporaryMaxNumber(protocol, family);
+        var maxNumber = GetDisplayMaxNumber(protocol, family);
         if (parsed.Number > maxNumber)
             return 0;
 
@@ -177,13 +177,13 @@ public static class DeviceAddressRangeProvider
         return remaining > int.MaxValue ? int.MaxValue : (int)remaining;
     }
 
-    private static uint GetTemporaryMaxNumber(ProtocolKind protocol, DeviceFamilyDefinition family)
+    private static uint GetDisplayMaxNumber(ProtocolKind protocol, DeviceFamilyDefinition family)
     {
         if (protocol == ProtocolKind.Toyopuc)
-            return GetToyopucTemporaryMaxNumber(family);
+            return GetToyopucDisplayMaxNumber(family);
 
         if (protocol == ProtocolKind.HostLink)
-            return GetHostLinkTemporaryMaxNumber(family);
+            return GetHostLinkDisplayMaxNumber(family);
 
         if (family.UsesHexAddressing)
             return 0xFFFF;
@@ -194,7 +194,7 @@ public static class DeviceAddressRangeProvider
         };
     }
 
-    private static uint GetHostLinkTemporaryMaxNumber(DeviceFamilyDefinition family) =>
+    private static uint GetHostLinkDisplayMaxNumber(DeviceFamilyDefinition family) =>
         family.Code.ToUpperInvariant() switch
         {
             "R" => 199_915u,
@@ -214,7 +214,7 @@ public static class DeviceAddressRangeProvider
             _ => family.UsesHexAddressing ? 0xFFFFu : 999_999u,
         };
 
-    private static uint GetToyopucTemporaryMaxNumber(DeviceFamilyDefinition family)
+    private static uint GetToyopucDisplayMaxNumber(DeviceFamilyDefinition family)
     {
         var area = GetToyopucAreaCode(family.Code);
         return area switch
