@@ -2034,8 +2034,11 @@ public partial class MainWindowViewModel : ObservableObject
         else
             OnPropertyChanged(nameof(DisplayMode));
 
-        if (DisplayModeFromDataType(MonitorDataType) != current)
-            MonitorDataType = DataTypeFromDisplayMode(current);
+        var normalizedDataType = IsSlmpDWordOnlyFamily()
+            ? NormalizeDWordOnlyDataType(SelectedDeviceFamily, MonitorDataType)
+            : DataTypeFromDisplayMode(current);
+        if (MonitorDataType != normalizedDataType)
+            MonitorDataType = normalizedDataType;
     }
 
     private BlockDisplayMode NormalizeDisplayMode(BlockDisplayMode mode) =>
@@ -2257,6 +2260,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnMonitorDataTypeChanged(ValueDataType value)
     {
+        var normalizedDataType = NormalizeDWordOnlyDataType(SelectedDeviceFamily, value);
+        if (normalizedDataType != value)
+        {
+            MonitorDataType = normalizedDataType;
+            return;
+        }
+
         SelectedWriteDataType = value == ValueDataType.Bit && SelectedDeviceFamily.Kind == DeviceKind.Word
             ? ValueDataType.UInt16
             : value;

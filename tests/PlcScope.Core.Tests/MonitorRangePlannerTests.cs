@@ -322,11 +322,15 @@ public sealed class MonitorRangePlannerTests
         Assert.Equal(34, layout.StartAddressRowIndex);
     }
 
-    [Fact]
-    public void CalculateDisplayRowCount_TreatsSlmpDWordOnlyDeviceAsOneRowPerPoint()
+    [Theory]
+    [InlineData("LTN")]
+    [InlineData("LSTN")]
+    [InlineData("LCN")]
+    [InlineData("LZ")]
+    public void CalculateDisplayRowCount_TreatsSlmpDWordOnlyDeviceAsOneRowPerPoint(string deviceCode)
     {
         var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
-        var family = protocol.FindFamily("LZ")!;
+        var family = protocol.FindFamily(deviceCode)!;
 
         var rows = MonitorRangePlanner.CalculateDisplayRowCount(
             10,

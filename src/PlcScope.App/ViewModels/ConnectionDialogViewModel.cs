@@ -5,6 +5,8 @@ using PlcScope.Core.Models;
 using PlcScope.Core.Services;
 
 public sealed record KeyenceDeviceModeOption(KeyenceDeviceMode Mode, string Label);
+public sealed record TransportModeOption(TransportMode Mode, string Label);
+public sealed record SlmpPlcFamilyOption(string Value, string Label);
 
 public partial class ConnectionDialogViewModel : ObservableObject
 {
@@ -53,8 +55,11 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Port = settings.Port;
         TimeoutSeconds = settings.TimeoutSeconds;
         Transport = settings.Transport;
+        SelectedTransportMode = TransportModes.First(option => option.Mode == settings.Transport);
         AutoRefreshIntervalMs = settings.AutoRefreshIntervalMs;
         SlmpPlcFamilyName = settings.SlmpPlcFamilyName;
+        SelectedSlmpFamily = SlmpFamilies.FirstOrDefault(option => string.Equals(option.Value, settings.SlmpPlcFamilyName, StringComparison.OrdinalIgnoreCase))
+            ?? SlmpFamilies[0];
         SlmpNetwork = settings.SlmpNetwork;
         SlmpStation = settings.SlmpStation;
         SlmpModuleIo = settings.SlmpModuleIo;
@@ -72,7 +77,18 @@ public partial class ConnectionDialogViewModel : ObservableObject
     }
 
     public IReadOnlyList<ProtocolDefinition> Protocols { get; } = ProtocolCatalog.All;
-    public IReadOnlyList<string> SlmpFamilies { get; } = ["IqR", "IqF", "IqL", "QnU", "QnUDV", "MxR", "MxF"];
+    public IReadOnlyList<SlmpPlcFamilyOption> SlmpFamilies { get; } =
+    [
+        new("IqR", "iQ-R"),
+        new("IqF", "iQ-F"),
+        new("IqL", "iQ-L"),
+        new("MxR", "MX-R"),
+        new("MxF", "MX-F"),
+        new("QnUDV", "QnUDV"),
+        new("QnU", "QnU"),
+        new("QCPU", "QCPU"),
+        new("LCPU", "LCPU"),
+    ];
     public IReadOnlyList<string> HostLinkModels { get; } = DefaultHostLinkModels;
     public IReadOnlyList<KeyenceDeviceModeOption> KeyenceDeviceModes { get; } =
     [
@@ -81,7 +97,11 @@ public partial class ConnectionDialogViewModel : ObservableObject
     ];
 
     public IReadOnlyList<string> ToyopucDeviceProfiles { get; } = DefaultToyopucDeviceProfiles;
-    public IReadOnlyList<TransportMode> TransportModes { get; } = Enum.GetValues<TransportMode>();
+    public IReadOnlyList<TransportModeOption> TransportModes { get; } =
+    [
+        new(TransportMode.Tcp, "TCP"),
+        new(TransportMode.Udp, "UDP"),
+    ];
 
     [ObservableProperty]
     private ProtocolDefinition selectedProtocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
@@ -99,10 +119,16 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private TransportMode transport = TransportMode.Tcp;
 
     [ObservableProperty]
+    private TransportModeOption selectedTransportMode = new(TransportMode.Tcp, "TCP");
+
+    [ObservableProperty]
     private int autoRefreshIntervalMs = 500;
 
     [ObservableProperty]
     private string slmpPlcFamilyName = "IqR";
+
+    [ObservableProperty]
+    private SlmpPlcFamilyOption selectedSlmpFamily = new("IqR", "iQ-R");
 
     [ObservableProperty]
     private byte slmpNetwork;
@@ -150,9 +176,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Host = Host,
         Port = Port,
         TimeoutSeconds = TimeoutSeconds,
-        Transport = Transport,
+        Transport = SelectedTransportMode.Mode,
         AutoRefreshIntervalMs = AutoRefreshIntervalMs,
-        SlmpPlcFamilyName = SlmpPlcFamilyName,
+        SlmpPlcFamilyName = SelectedSlmpFamily.Value,
         SlmpNetwork = SlmpNetwork,
         SlmpStation = SlmpStation,
         SlmpModuleIo = SlmpModuleIo,
@@ -177,6 +203,16 @@ public partial class ConnectionDialogViewModel : ObservableObject
             Port = 8501;
         else if (value.Kind == ProtocolKind.Slmp || value.Kind == ProtocolKind.Toyopuc)
             Port = 1025;
+    }
+
+    partial void OnSelectedTransportModeChanged(TransportModeOption value)
+    {
+        Transport = value.Mode;
+    }
+
+    partial void OnSelectedSlmpFamilyChanged(SlmpPlcFamilyOption value)
+    {
+        SlmpPlcFamilyName = value.Value;
     }
 }
 
