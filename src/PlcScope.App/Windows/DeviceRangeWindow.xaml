@@ -7,10 +7,11 @@
         WindowStartupLocation="CenterOwner">
   <DockPanel Margin="12">
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-      <TextBlock Text="{Binding ModelText}" Margin="0,0,18,0" FontWeight="SemiBold" />
-      <TextBlock Text="{Binding FamilyText}" Foreground="{DynamicResource AppForegroundMutedBrush}" />
+      <TextBlock AutomationProperties.AutomationId="DeviceRangeModelText" Text="{Binding ModelText}" Margin="0,0,18,0" FontWeight="SemiBold" />
+      <TextBlock AutomationProperties.AutomationId="DeviceRangeFamilyText" Text="{Binding FamilyText}" Foreground="{DynamicResource AppForegroundMutedBrush}" />
     </StackPanel>
-    <DataGrid ItemsSource="{Binding Entries}"
+    <DataGrid AutomationProperties.AutomationId="DeviceRangeDataGrid"
+              ItemsSource="{Binding Entries}"
               AutoGenerateColumns="False"
               IsReadOnly="True"
               CanUserAddRows="False">

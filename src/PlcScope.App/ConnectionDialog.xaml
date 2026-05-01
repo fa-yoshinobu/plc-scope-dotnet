@@ -15,8 +15,8 @@
                 Orientation="Horizontal"
                 HorizontalAlignment="Right"
                 Margin="0,12,0,0">
-      <Button Content="OK" Width="100" Margin="0,0,8,0" Click="OkButton_Click" Style="{StaticResource AccentButtonStyle}" />
-      <Button Content="Cancel" Width="100" IsCancel="True" />
+      <Button Content="OK" AutomationProperties.AutomationId="ConnectionDialogOkButton" Width="100" Margin="0,0,8,0" Click="OkButton_Click" Style="{StaticResource AccentButtonStyle}" />
+      <Button Content="Cancel" AutomationProperties.AutomationId="ConnectionDialogCancelButton" Width="100" IsCancel="True" />
     </StackPanel>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -37,29 +37,34 @@
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Protocol" VerticalAlignment="Center" Margin="0,0,8,8" />
             <ComboBox Grid.Row="0" Grid.Column="1"
+                      AutomationProperties.AutomationId="ConnectionProtocolComboBox"
                       Margin="0,0,0,8"
                       ItemsSource="{Binding Protocols}"
                       DisplayMemberPath="DisplayName"
                       SelectedItem="{Binding SelectedProtocol}" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Host" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionHostTextBox" Margin="0,0,0,8" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Port" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding Port}" />
+            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionPortTextBox" Margin="0,0,0,8" Text="{Binding Port}" />
 
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Timeout (s)" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="3" Grid.Column="1" Width="120" Margin="0,0,0,8" Text="{Binding TimeoutSeconds}" />
+            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionTimeoutSecondsTextBox" Width="120" Margin="0,0,0,8" Text="{Binding TimeoutSeconds}" />
 
             <TextBlock Grid.Row="4" Grid.Column="0" Text="Refresh interval ms" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Row="4" Grid.Column="1" Width="120" Text="{Binding AutoRefreshIntervalMs}" />
+            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionRefreshIntervalTextBox" Width="120" Text="{Binding AutoRefreshIntervalMs}" />
           </Grid>
         </GroupBox>
 
         <GroupBox Header="Transport" Margin="0,0,0,12">
           <StackPanel Orientation="Horizontal" Margin="8">
             <TextBlock Text="Mode" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <ComboBox Width="160" ItemsSource="{Binding TransportModes}" SelectedItem="{Binding Transport}" />
+            <ComboBox Width="160"
+                      AutomationProperties.AutomationId="ConnectionTransportComboBox"
+                      ItemsSource="{Binding TransportModes}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedTransportMode}" />
           </StackPanel>
         </GroupBox>
 
@@ -78,19 +83,24 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC family" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" ItemsSource="{Binding SlmpFamilies}" SelectedItem="{Binding SlmpPlcFamilyName}" />
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      AutomationProperties.AutomationId="ConnectionSlmpFamilyComboBox"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding SlmpFamilies}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedSlmpFamily}" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Network" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding SlmpNetwork}" />
+            <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpNetworkTextBox" Margin="0,0,0,8" Text="{Binding SlmpNetwork}" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Station" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding SlmpStation}" />
+            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpStationTextBox" Margin="0,0,0,8" Text="{Binding SlmpStation}" />
 
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Module I/O" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" Text="{Binding SlmpModuleIo}" />
+            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpModuleIoTextBox" Margin="0,0,0,8" Text="{Binding SlmpModuleIo}" />
 
             <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SlmpMonitoringTimer}" />
+            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Text="{Binding SlmpMonitoringTimer}" />
           </Grid>
         </GroupBox>
 

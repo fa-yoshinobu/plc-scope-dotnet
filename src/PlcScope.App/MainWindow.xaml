@@ -371,34 +371,36 @@
   </Window.Resources>
 
   <DockPanel>
-    <Menu DockPanel.Dock="Top">
-      <MenuItem Header="File">
-        <MenuItem Header="New project" Click="NewProjectMenuItem_Click" />
-        <MenuItem Header="Open" Click="OpenProjectMenuItem_Click" />
-        <MenuItem Header="Import comment CSV" Click="ImportCommentCsvMenuItem_Click" />
-        <MenuItem Header="Save" Click="SaveProjectMenuItem_Click" />
-        <MenuItem Header="Save as" Click="SaveProjectAsMenuItem_Click" />
+    <Menu DockPanel.Dock="Top" AutomationProperties.AutomationId="MainMenu">
+      <MenuItem Header="File" AutomationProperties.AutomationId="FileMenu">
+        <MenuItem Header="New project" AutomationProperties.AutomationId="NewProjectMenuItem" Click="NewProjectMenuItem_Click" />
+        <MenuItem Header="Open" AutomationProperties.AutomationId="OpenProjectMenuItem" Click="OpenProjectMenuItem_Click" />
+        <MenuItem Header="Import comment CSV" AutomationProperties.AutomationId="ImportCommentCsvMenuItem" Click="ImportCommentCsvMenuItem_Click" />
+        <MenuItem Header="Save" AutomationProperties.AutomationId="SaveProjectMenuItem" Click="SaveProjectMenuItem_Click" />
+        <MenuItem Header="Save as" AutomationProperties.AutomationId="SaveProjectAsMenuItem" Click="SaveProjectAsMenuItem_Click" />
       </MenuItem>
-      <MenuItem Header="Connection">
-        <MenuItem Header="Connection settings" Click="ConnectionSettingsMenuItem_Click" />
+      <MenuItem Header="Connection" AutomationProperties.AutomationId="ConnectionMenu">
+        <MenuItem Header="Connection settings" AutomationProperties.AutomationId="ConnectionSettingsMenuItem" Click="ConnectionSettingsMenuItem_Click" />
       </MenuItem>
-      <MenuItem Header="CPU">
-        <MenuItem Header="Device ranges" Click="DeviceRangeMenuItem_Click" />
+      <MenuItem Header="CPU" AutomationProperties.AutomationId="CpuMenu">
+        <MenuItem Header="Device ranges" AutomationProperties.AutomationId="DeviceRangesMenuItem" Click="DeviceRangeMenuItem_Click" />
         <Separator />
         <MenuItem Header="CPU RUN"
+                  AutomationProperties.AutomationId="CpuRunMenuItem"
                   Command="{Binding CpuRunCommand}"
                   IsEnabled="{Binding CanIssueCpuControl}"
                   ToolTip="{Binding CpuControlHint}" />
         <MenuItem Header="CPU STOP"
+                  AutomationProperties.AutomationId="CpuStopMenuItem"
                   Command="{Binding CpuStopCommand}"
                   IsEnabled="{Binding CanIssueCpuControl}"
                   ToolTip="{Binding CpuControlHint}" />
       </MenuItem>
-      <MenuItem Header="Tools">
-        <MenuItem Header="Error history" Click="ErrorHistoryMenuItem_Click" />
+      <MenuItem Header="Tools" AutomationProperties.AutomationId="ToolsMenu">
+        <MenuItem Header="Error history" AutomationProperties.AutomationId="ErrorHistoryMenuItem" Click="ErrorHistoryMenuItem_Click" />
       </MenuItem>
-      <MenuItem Header="Help">
-        <MenuItem Header="About" Click="AboutMenuItem_Click" />
+      <MenuItem Header="Help" AutomationProperties.AutomationId="HelpMenu">
+        <MenuItem Header="About" AutomationProperties.AutomationId="AboutMenuItem" Click="AboutMenuItem_Click" />
       </MenuItem>
     </Menu>
 
@@ -433,15 +435,15 @@
           </Grid.ColumnDefinitions>
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-            <Button Content="Connection settings" Click="ConnectionSettingsMenuItem_Click" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Configure PLC communication settings." />
-            <Button Content="Connect" Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryToolbarButtonStyle}" ToolTip="Connect with the selected settings." />
-            <Button Content="Disconnect" Command="{Binding DisconnectCommand}" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Disconnect from the PLC." />
+            <Button Content="Connection settings" AutomationProperties.AutomationId="ConnectionSettingsButton" Click="ConnectionSettingsMenuItem_Click" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Configure PLC communication settings." />
+            <Button Content="Connect" AutomationProperties.AutomationId="ConnectButton" Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryToolbarButtonStyle}" ToolTip="Connect with the selected settings." />
+            <Button Content="Disconnect" AutomationProperties.AutomationId="DisconnectButton" Command="{Binding DisconnectCommand}" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Disconnect from the PLC." />
           </StackPanel>
 
           <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,10,0">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
               <Ellipse Width="10" Height="10" Margin="0,0,8,0" Style="{StaticResource StatusDotStyle}" />
-              <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <TextBlock AutomationProperties.AutomationId="ConnectionStatusText" Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
             </StackPanel>
           </Border>
 
@@ -474,8 +476,8 @@
         </Grid>
       </Border>
 
-      <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedMainTabIndex, Mode=TwoWay}">
-        <TabItem Header="Monitor">
+      <TabControl Grid.Row="1" AutomationProperties.AutomationId="MainTabControl" SelectedIndex="{Binding SelectedMainTabIndex, Mode=TwoWay}">
+        <TabItem Header="Monitor" AutomationProperties.AutomationId="MonitorTab">
           <Border Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppInputBrush}" Padding="0">
             <Grid>
               <Grid.RowDefinitions>
@@ -496,7 +498,8 @@
 
                 <StackPanel Grid.Column="1" Style="{StaticResource FieldGroupStyle}">
                   <TextBlock Text="Device" Style="{StaticResource FieldLabelTextStyle}" />
-                  <ComboBox ItemsSource="{Binding AvailableDeviceFamilies}"
+                  <ComboBox AutomationProperties.AutomationId="MonitorDeviceComboBox"
+                            ItemsSource="{Binding AvailableDeviceFamilies}"
                             DisplayMemberPath="DisplayName"
                             SelectedItem="{Binding SelectedDeviceFamily}"
                             PreviewMouseWheel="DeviceFamilyComboBox_PreviewMouseWheel"
@@ -504,17 +507,18 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2" Style="{StaticResource FieldGroupStyle}">
                   <TextBlock Text="Start address" Style="{StaticResource FieldLabelTextStyle}" />
-                  <TextBox Text="{Binding StartAddress, UpdateSourceTrigger=LostFocus}"
+                  <TextBox AutomationProperties.AutomationId="MonitorStartAddressTextBox"
+                           Text="{Binding StartAddress, UpdateSourceTrigger=LostFocus}"
                            KeyDown="CommitTextBoxOnEnter_KeyDown"
                            ToolTip="Example: D0 or X0." />
                 </StackPanel>
                 <StackPanel Grid.Column="3" Style="{StaticResource FieldGroupStyle}">
                   <TextBlock Text="Type" Style="{StaticResource FieldLabelTextStyle}" />
-                  <ComboBox ItemsSource="{Binding ValueDataTypes}" SelectedItem="{Binding MonitorDataType}" />
+                  <ComboBox AutomationProperties.AutomationId="MonitorDataTypeComboBox" ItemsSource="{Binding ValueDataTypes}" SelectedItem="{Binding MonitorDataType}" />
                 </StackPanel>
                 <StackPanel Grid.Column="4" Style="{StaticResource FieldGroupStyle}">
                   <TextBlock Text="Format" Style="{StaticResource FieldLabelTextStyle}" />
-                  <ComboBox ItemsSource="{Binding DisplayRadices}" SelectedItem="{Binding DisplayRadix}" />
+                  <ComboBox AutomationProperties.AutomationId="MonitorFormatComboBox" ItemsSource="{Binding DisplayRadices}" SelectedItem="{Binding DisplayRadix}" />
                 </StackPanel>
               </Grid>
 
@@ -534,6 +538,7 @@
               </Grid>
 
               <ListBox x:Name="MonitorListBox"
+                       AutomationProperties.AutomationId="MonitorListBox"
                        Grid.Row="2"
                        ItemsSource="{Binding Rows}"
                        SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
@@ -555,6 +560,7 @@
                 <ListBox.ContextMenu>
                   <ContextMenu>
                     <MenuItem Header="Add to watch list"
+                              AutomationProperties.AutomationId="AddMonitorRowToWatchMenuItem"
                               Click="AddMonitorRowToWatchMenuItem_Click" />
                   </ContextMenu>
                 </ListBox.ContextMenu>
@@ -563,7 +569,7 @@
           </Border>
         </TabItem>
 
-        <TabItem Header="Watch list">
+        <TabItem Header="Watch list" AutomationProperties.AutomationId="WatchTab">
           <Border Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppInputBrush}" Padding="0">
             <Grid>
               <Grid.RowDefinitions>
@@ -571,6 +577,7 @@
               </Grid.RowDefinitions>
 
               <DataGrid x:Name="WatchDataGrid"
+                        AutomationProperties.AutomationId="WatchDataGrid"
                         Grid.Row="0"
                         ItemsSource="{Binding WatchItems}"
                         SelectedItem="{Binding SelectedWatchItem, Mode=TwoWay}"
@@ -611,14 +618,14 @@
                 </DataGrid.Resources>
                 <DataGrid.ContextMenu>
                   <ContextMenu>
-                    <MenuItem Header="Remove" Click="RemoveWatchItemMenuItem_Click" />
+                    <MenuItem Header="Remove" AutomationProperties.AutomationId="RemoveWatchItemMenuItem" Click="RemoveWatchItemMenuItem_Click" />
                   </ContextMenu>
                 </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                   <DataGridTemplateColumn Header="Address" Width="140">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <TextBlock Text="{Binding Address}" ToolTip="{Binding ErrorText}">
+                        <TextBlock AutomationProperties.AutomationId="WatchAddressTextBlock" Text="{Binding Address}" ToolTip="{Binding ErrorText}">
                           <TextBlock.Style>
                             <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource AddressTextStyle}">
                               <Style.Triggers>
@@ -633,7 +640,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                       <DataTemplate>
-                        <TextBox Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                        <TextBox AutomationProperties.AutomationId="WatchAddressTextBox"
+                                 Text="{Binding Address, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
                                  KeyDown="CommitTextBoxOnEnter_KeyDown" />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
@@ -646,7 +654,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                       <DataTemplate>
-                        <ComboBox ItemsSource="{Binding DataContext.ValueDataTypes, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                        <ComboBox AutomationProperties.AutomationId="WatchTypeComboBox"
+                                  ItemsSource="{Binding DataContext.ValueDataTypes, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                   SelectedItem="{Binding DataType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   SelectionChanged="WatchOptionComboBox_SelectionChanged" />
                       </DataTemplate>
@@ -660,7 +669,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                       <DataTemplate>
-                        <ComboBox ItemsSource="{Binding DataContext.DisplayRadices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                        <ComboBox AutomationProperties.AutomationId="WatchFormatComboBox"
+                                  ItemsSource="{Binding DataContext.DisplayRadices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                   SelectedItem="{Binding DisplayRadix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                   SelectionChanged="WatchOptionComboBox_SelectionChanged" />
                       </DataTemplate>
@@ -674,7 +684,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                     <DataGridTemplateColumn.CellEditingTemplate>
                       <DataTemplate>
-                        <TextBox Text="{Binding ValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox AutomationProperties.AutomationId="WatchValueTextBox"
+                                 Text="{Binding ValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  GotKeyboardFocus="WatchValueTextBox_GotKeyboardFocus"
                                  LostKeyboardFocus="WatchValueTextBox_LostKeyboardFocus"
                                  KeyDown="WatchValueTextBox_KeyDown" />

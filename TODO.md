@@ -2,13 +2,11 @@
 
 ## Remaining Manual Validation
 
-- [ ] Verify SLMP device range acquisition with a real PLC.
 - [ ] Verify out-of-range address handling and scroll limits with a real PLC.
 - [ ] Verify Host Link monitor, write, and CPU RUN/STOP behavior with a real PLC.
 - [ ] Verify TOYOPUC monitor and write behavior across all target PLC profiles.
 - [ ] Verify TOYOPUC CPU STOP, stop release, and scan resume with relay hops.
 - [ ] Verify Watch list visible-row-only reads while scrolling through a large watch list.
-- [ ] Verify inline editing is not overwritten by periodic refresh in long-running operation.
 - [ ] Verify optional communication trace logging during long-running communication with a real PLC.
 
 ## Future Work
@@ -38,6 +36,7 @@
 - [x] Verify TOYOPUC profile range and split-range handling with unit tests.
 - [x] Normalize TOYOPUC prefixed addresses for word and bit devices.
 - [x] Verify TOYOPUC prefixed address parsing and range width handling with unit tests.
+- [x] Verify TOYOPUC PC10G UI operation for 2 minutes on a connected PLC: Monitor/Watch tab switching, monitor scrolling, monitor-to-watch registration, connection/RUN status retention, and inline edit pause during refresh.
 - [x] Persist Watch list entries in project files.
 - [x] Verify project JSON round-trip with Watch list entries.
 - [x] Persist error history immediately and keep the latest 500 records.
@@ -46,3 +45,7 @@
 - [x] Verify trace log buffering and clearing with unit tests.
 - [x] Rewrite README and docs in ASCII English.
 - [x] Bump app version to `0.1.2`.
+- [x] Verify SLMP device range acquisition and live monitor reads with an iQ-R PLC at `192.168.250.100:1025`.
+- [x] Verify SLMP monitor start-address keyboard entry against a live iQ-R PLC.
+- [x] Remove display padding from SLMP decimal device addresses in Monitor rows and scroll-updated Start address text.
+- [x] Verify SLMP decimal address display rules with unit tests for D/R/RD/SD/M families.

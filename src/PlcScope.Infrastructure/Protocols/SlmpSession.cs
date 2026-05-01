@@ -77,71 +77,78 @@ internal sealed class SlmpSession : PlcSessionBase
         ThrowIfNotConnected(_client is not null);
         var normalizedStart = NormalizeAddress(query.StartAddress, ResolveFamily(Definition, query.DeviceFamilyCode));
         var effectiveQuery = query with { StartAddress = normalizedStart };
-        return await ExecuteSerializedAsync(async () =>
+        try
         {
-            var timer = StartTimer();
-            IReadOnlyList<string> elementAddresses;
-            ushort[] words = [];
-            bool[] bits = [];
-            var comments = new Dictionary<string, string>();
-
-            if (query.DeviceKind == DeviceKind.Word)
+            return await ExecuteSerializedAsync(async () =>
             {
-                var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
-                if (IsLongCurrentValueDevice(start.Code) || IsDWordAddressedDevice(start.Code))
+                var timer = StartTimer();
+                IReadOnlyList<string> elementAddresses;
+                ushort[] words = [];
+                bool[] bits = [];
+                var comments = new Dictionary<string, string>();
+
+                if (query.DeviceKind == DeviceKind.Word)
                 {
-                    ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
-                    elementAddresses = BuildDWordElementAddresses(start, query.EffectiveItemCount);
-                    words = IsLongCurrentValueDevice(start.Code)
-                        ? await ReadLongCurrentValuesAsync(start, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false)
-                        : await ReadDWordAddressedValuesAsync(start, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
+                    var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
+                    if (IsLongCurrentValueDevice(start.Code) || IsDWordAddressedDevice(start.Code))
+                    {
+                        ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
+                        elementAddresses = BuildDWordElementAddresses(start, query.EffectiveItemCount, query.DeviceFamilyCode);
+                        words = IsLongCurrentValueDevice(start.Code)
+                            ? await ReadLongCurrentValuesAsync(start, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false)
+                            : await ReadDWordAddressedValuesAsync(start, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        var wordCount = query.DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32
+                            ? checked(query.EffectiveItemCount * 2)
+                            : query.EffectiveItemCount;
+                        ValidateDeviceRange(start, wordCount, "Read");
+                        elementAddresses = BuildAddresses(normalizedStart, wordCount, query.DeviceFamilyCode);
+                        words = await ReadWordsChunkedInternalAsync(normalizedStart, wordCount, cancellationToken).ConfigureAwait(false);
+                    }
                 }
                 else
                 {
-                    var wordCount = query.DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32
-                        ? checked(query.EffectiveItemCount * 2)
-                        : query.EffectiveItemCount;
-                    ValidateDeviceRange(start, wordCount, "Read");
-                    elementAddresses = BuildAddresses(normalizedStart, wordCount);
-                    words = await ReadWordsChunkedInternalAsync(normalizedStart, wordCount, cancellationToken).ConfigureAwait(false);
+                    var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
+                    ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
+                    elementAddresses = BuildAddresses(normalizedStart, query.EffectiveItemCount, query.DeviceFamilyCode);
+                    bits = IsLongTimerBitDevice(start.Code)
+                        ? await ReadLongTimerBitsAsync(start, query.EffectiveItemCount, comments, cancellationToken).ConfigureAwait(false)
+                        : await ReadBitsChunkedInternalAsync(normalizedStart, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
                 }
-            }
-            else
-            {
-                var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
-                ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
-                elementAddresses = BuildAddresses(normalizedStart, query.EffectiveItemCount);
-                bits = IsLongTimerBitDevice(start.Code)
-                    ? await ReadLongTimerBitsAsync(start, query.EffectiveItemCount, comments, cancellationToken).ConfigureAwait(false)
-                    : await ReadBitsChunkedInternalAsync(normalizedStart, query.EffectiveItemCount, cancellationToken).ConfigureAwait(false);
-            }
 
-            CpuState? cpuState = null;
-            try
-            {
-                cpuState = await ReadCpuStateForBlockAsync(ReadCpuStateInternalAsync, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception)
-            {
-                EmitError(new ErrorEntry(
+                CpuState? cpuState = null;
+                try
+                {
+                    cpuState = await ReadCpuStateForBlockAsync(ReadCpuStateInternalAsync, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    EmitError(new ErrorEntry(
+                        DateTimeOffset.UtcNow,
+                        "SLMP CPU state read",
+                        exception.Message,
+                        FormatSlmpErrorDetails(exception)));
+                    cpuState = null;
+                }
+
+                timer.Stop();
+                return new BlockReadResult(
+                    effectiveQuery,
+                    elementAddresses,
+                    words,
+                    bits,
+                    comments,
                     DateTimeOffset.UtcNow,
-                    "SLMP CPU state read",
-                    exception.Message,
-                    FormatSlmpErrorDetails(exception)));
-                cpuState = null;
-            }
-
-            timer.Stop();
-            return new BlockReadResult(
-                effectiveQuery,
-                elementAddresses,
-                words,
-                bits,
-                comments,
-                DateTimeOffset.UtcNow,
-                timer.Elapsed.TotalMilliseconds,
-                cpuState);
-        }, cancellationToken).ConfigureAwait(false);
+                    timer.Elapsed.TotalMilliseconds,
+                    cpuState);
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            throw new InvalidOperationException(FormatReadFailureMessage(effectiveQuery), exception);
+        }
     }
 
     public override async Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default)
@@ -255,29 +262,46 @@ internal sealed class SlmpSession : PlcSessionBase
         DisposeSynchronization();
     }
 
-    private IReadOnlyList<string> BuildAddresses(string startAddress, int count)
+    private IReadOnlyList<string> BuildAddresses(string startAddress, int count, string deviceFamilyCode)
     {
         var start = SlmpAddress.Parse(startAddress, _plcFamily);
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
-            addresses[index] = SlmpAddress.Format(start with { Number = checked(start.Number + (uint)index) }, _plcFamily);
+            addresses[index] = FormatDisplayAddress(start with { Number = checked(start.Number + (uint)index) }, deviceFamilyCode);
         }
 
         return addresses;
     }
 
-    private IReadOnlyList<string> BuildDWordElementAddresses(SlmpDeviceAddress start, int count)
+    private IReadOnlyList<string> BuildDWordElementAddresses(SlmpDeviceAddress start, int count, string deviceFamilyCode)
     {
         var addresses = new string[checked(count * 2)];
         for (var index = 0; index < count; index++)
         {
-            var address = SlmpAddress.Format(start with { Number = checked(start.Number + (uint)index) }, _plcFamily);
+            var address = FormatDisplayAddress(start with { Number = checked(start.Number + (uint)index) }, deviceFamilyCode);
             addresses[index * 2] = address;
             addresses[(index * 2) + 1] = address;
         }
 
         return addresses;
+    }
+
+    private string FormatDisplayAddress(SlmpDeviceAddress address, string deviceFamilyCode)
+    {
+        var family = ResolveFamily(Definition, deviceFamilyCode)
+            ?? throw new ArgumentException($"Unknown SLMP device family: {deviceFamilyCode}", nameof(deviceFamilyCode));
+        if (!family.UsesHexAddressing
+            && family.AddressDisplayRule is DeviceAddressDisplayRule.Default or DeviceAddressDisplayRule.DecimalNoPadding)
+        {
+            return family.Code + address.Number.ToString(CultureInfo.InvariantCulture);
+        }
+        if (family.Code is "X" or "Y" && SlmpPlcFamilyProfiles.UsesIqFXyOctal(_plcFamily))
+            return family.Code + Convert.ToString(address.Number, 8).ToUpperInvariant();
+        if (family.UsesHexAddressing)
+            return family.Code + address.Number.ToString("X", CultureInfo.InvariantCulture);
+
+        return SlmpAddress.Format(address, _plcFamily);
     }
 
     private async Task<ushort[]> ReadWordsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
@@ -571,6 +595,11 @@ internal sealed class SlmpSession : PlcSessionBase
 
         return exception.ToString();
     }
+
+    private static string FormatReadFailureMessage(BlockQuery query) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"SLMP read failed. Device={query.DeviceFamilyCode}; Start={query.StartAddress}; Count={query.EffectiveItemCount}; Mode={query.DisplayMode}; Kind={query.DeviceKind}; Radix={query.DisplayRadix}");
 
     private static SlmpPlcFamily ResolvePlcFamily(string familyName)
     {

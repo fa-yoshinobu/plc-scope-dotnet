@@ -14,7 +14,10 @@ public sealed record DeviceFamilyDefinition(
     string DisplayName,
     DeviceKind Kind,
     bool UsesHexAddressing = false,
-    DeviceAddressDisplayRule AddressDisplayRule = DeviceAddressDisplayRule.Default);
+    DeviceAddressDisplayRule AddressDisplayRule = DeviceAddressDisplayRule.Default)
+{
+    public override string ToString() => DisplayName;
+}
 
 public sealed record ProtocolDefinition(
     ProtocolKind Kind,

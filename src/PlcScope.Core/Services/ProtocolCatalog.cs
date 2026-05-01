@@ -34,15 +34,15 @@ public static class ProtocolCatalog
                 SupportsPasswordProtectedCpuCommands: true),
             ConnectionSettings.CreateDefault(ProtocolKind.Slmp),
             [
-                Bit("X", true), Bit("Y", true), Bit("M"), Bit("B", true), Bit("SB", true), Bit("F"), Bit("V"),
-                Bit("L"), Bit("SM"),
-                Word("D"), Word("W", true), Word("SW", true), Word("R"),
-                Bit("TS"), Bit("TC"), Word("TN"), Bit("STS"), Bit("STC"), Word("STN"),
-                Bit("CS"), Bit("CC"), Word("CN"),
-                Bit("LTS"), Bit("LTC"), Word("LTN"),
-                Bit("LSTS"), Bit("LSTC"), Word("LSTN"),
-                Bit("LCS"), Bit("LCC"), Word("LCN"),
-                Word("Z"), Word("LZ"), Word("ZR"), Word("RD"), Word("SD"),
+                Bit("X", true), Bit("Y", true), SlmpDecimalBit("M"), Bit("B", true), Bit("SB", true), SlmpDecimalBit("F"), SlmpDecimalBit("V"),
+                SlmpDecimalBit("L"), SlmpDecimalBit("SM"),
+                SlmpDecimalWord("D"), Word("W", true), Word("SW", true), SlmpDecimalWord("R"),
+                SlmpDecimalBit("TS"), SlmpDecimalBit("TC"), SlmpDecimalWord("TN"), SlmpDecimalBit("STS"), SlmpDecimalBit("STC"), SlmpDecimalWord("STN"),
+                SlmpDecimalBit("CS"), SlmpDecimalBit("CC"), SlmpDecimalWord("CN"),
+                SlmpDecimalBit("LTS"), SlmpDecimalBit("LTC"), SlmpDecimalWord("LTN"),
+                SlmpDecimalBit("LSTS"), SlmpDecimalBit("LSTC"), SlmpDecimalWord("LSTN"),
+                SlmpDecimalBit("LCS"), SlmpDecimalBit("LCC"), SlmpDecimalWord("LCN"),
+                SlmpDecimalWord("Z"), SlmpDecimalWord("LZ"), SlmpDecimalWord("ZR"), SlmpDecimalWord("RD"), SlmpDecimalWord("SD"),
             ],
             DefaultWordFamilyCode: "D",
             DefaultBitFamilyCode: "M"),
@@ -107,17 +107,18 @@ public static class ProtocolCatalog
         DeviceFamilyDefinition family,
         DeviceRangeCatalog? catalog)
     {
-        if (catalog is null || family.AddressDisplayRule != DeviceAddressDisplayRule.Default)
+        if (catalog is null
+            || family.AddressDisplayRule is DeviceAddressDisplayRule.KeyenceBitBank or DeviceAddressDisplayRule.KeyenceXymBit)
             return family;
 
         var entry = catalog.Entries.FirstOrDefault(item =>
             string.Equals(item.Device, family.Code, StringComparison.OrdinalIgnoreCase));
-        if (entry is null || !TryGetUsesHexAddressing(entry.Notation, out var usesHexAddressing))
+        if (entry is null || !TryGetAddressNotation(entry.Notation, family, out var usesHexAddressing, out var displayRule))
             return family;
 
-        return family.UsesHexAddressing == usesHexAddressing
+        return family.UsesHexAddressing == usesHexAddressing && family.AddressDisplayRule == displayRule
             ? family
-            : family with { UsesHexAddressing = usesHexAddressing };
+            : family with { UsesHexAddressing = usesHexAddressing, AddressDisplayRule = displayRule };
     }
 
     public static DeviceFamilyDefinition GetDefaultWordFamily(
@@ -146,27 +147,52 @@ public static class ProtocolCatalog
     private static DeviceFamilyDefinition Bit(string code, bool usesHex = false) =>
         new(code, code, DeviceKind.Bit, usesHex);
 
+    private static DeviceFamilyDefinition SlmpDecimalWord(string code) =>
+        new(code, code, DeviceKind.Word, false, DeviceAddressDisplayRule.DecimalNoPadding);
+
+    private static DeviceFamilyDefinition SlmpDecimalBit(string code) =>
+        new(code, code, DeviceKind.Bit, false, DeviceAddressDisplayRule.DecimalNoPadding);
+
     private static DeviceFamilyDefinition KeyenceBitBank(string code) =>
         new(code, code, DeviceKind.Bit, false, DeviceAddressDisplayRule.KeyenceBitBank);
 
     private static DeviceFamilyDefinition KeyenceXymBit(string code) =>
         new(code, code, DeviceKind.Bit, false, DeviceAddressDisplayRule.KeyenceXymBit);
 
-    private static bool TryGetUsesHexAddressing(string notation, out bool usesHexAddressing)
+    private static bool TryGetAddressNotation(
+        string notation,
+        DeviceFamilyDefinition family,
+        out bool usesHexAddressing,
+        out DeviceAddressDisplayRule displayRule)
     {
-        if (string.Equals(notation, "Hexadecimal", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(notation, "Hexadecimal", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(notation, "Base16", StringComparison.OrdinalIgnoreCase))
         {
             usesHexAddressing = true;
+            displayRule = DeviceAddressDisplayRule.Default;
             return true;
         }
 
-        if (string.Equals(notation, "Decimal", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(notation, "Decimal", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(notation, "Base10", StringComparison.OrdinalIgnoreCase))
         {
             usesHexAddressing = false;
+            displayRule = family.AddressDisplayRule == DeviceAddressDisplayRule.DecimalNoPadding
+                ? DeviceAddressDisplayRule.DecimalNoPadding
+                : DeviceAddressDisplayRule.Default;
+            return true;
+        }
+
+        if (string.Equals(notation, "Octal", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(notation, "Base8", StringComparison.OrdinalIgnoreCase))
+        {
+            usesHexAddressing = false;
+            displayRule = DeviceAddressDisplayRule.OctalNoPadding;
             return true;
         }
 
         usesHexAddressing = false;
+        displayRule = family.AddressDisplayRule;
         return false;
     }
 
