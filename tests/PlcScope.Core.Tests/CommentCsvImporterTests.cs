@@ -61,4 +61,47 @@ public sealed class CommentCsvImporterTests
 
         Assert.Equal("速度, 現在値", comments["D0"]);
     }
+
+    [Fact]
+    public void Parse_GxWorksTabDelimitedCsv_UsesDeviceNameAndCommentColumns()
+    {
+        const string text = """
+            "SIP FX5UC"
+            "デバイス名"	"コメント"
+            "M0"	"異常発生"
+            "R29000.0"	"Y OFFで計測開始フラグ1-1"
+            """;
+
+        var comments = CommentCsvImporter.Parse(text, ProtocolKind.Slmp);
+
+        Assert.Equal("異常発生", comments["M0"]);
+        Assert.Equal("Y OFFで計測開始フラグ1-1", comments["R29000.0"]);
+        Assert.False(comments.ContainsKey("デバイス名"));
+    }
+
+    [Fact]
+    public async Task LoadAsync_Utf16GxWorksCsv_DecodesMelsecComments()
+    {
+        const string text = """
+            "（プロジェクト未設定）"
+            "デバイス名"	"コメント"
+            "X0A"	"軸３エラー検出"
+            "Y41A"	"データ保護キー3"
+            """;
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.csv");
+        try
+        {
+            await File.WriteAllTextAsync(path, text, System.Text.Encoding.Unicode);
+
+            var comments = await CommentCsvImporter.LoadAsync(path, ProtocolKind.Slmp);
+
+            Assert.Equal("軸３エラー検出", comments["X0A"]);
+            Assert.Equal("データ保護キー3", comments["Y41A"]);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
 }

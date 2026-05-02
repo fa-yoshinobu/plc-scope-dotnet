@@ -34,7 +34,10 @@ public static class CommentCsvImporter
                 continue;
 
             var address = row[0].Trim().ToUpperInvariant();
-            if (address.Length == 0 || address.Contains('.', StringComparison.Ordinal) || !address.Any(char.IsLetterOrDigit))
+            if (!IsPlausibleDeviceAddress(address))
+                continue;
+
+            if (protocol == ProtocolKind.HostLink && address.Contains('.', StringComparison.Ordinal))
                 continue;
 
             var comment = FindComment(row, protocol);
@@ -96,6 +99,11 @@ public static class CommentCsvImporter
 
         return row.Skip(1).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
+
+    private static bool IsPlausibleDeviceAddress(string address) =>
+        address.Length > 0
+        && address.Any(static character => character is >= 'A' and <= 'Z')
+        && address.Any(static character => character is >= '0' and <= '9');
 
     private static IEnumerable<IReadOnlyList<string>> ReadRows(string text, char delimiter)
     {

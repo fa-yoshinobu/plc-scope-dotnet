@@ -107,7 +107,7 @@ Project JSON files contain:
 - connection settings
 - monitor block definitions
 - watch list entries
-- comment CSV path
+- comment CSV paths; comment text is kept in external CSV files and is not copied into the project JSON
 
 Watch list entries persist only address, type, format, enable flag, and comment. Value, raw hex text, bit cells, and error state are runtime display fields and are not saved.
 

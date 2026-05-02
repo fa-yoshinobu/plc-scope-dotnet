@@ -104,6 +104,7 @@ public partial class MainWindow : Window
         var dialog = new OpenFileDialog
         {
             Filter = "Comment CSV (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt|All files (*.*)|*.*",
+            Multiselect = true,
         };
 
         if (dialog.ShowDialog(this) != true)
@@ -111,7 +112,7 @@ public partial class MainWindow : Window
 
         try
         {
-            await ViewModel.ImportCommentCsvAsync(dialog.FileName).ConfigureAwait(true);
+            await ViewModel.ImportCommentCsvAsync(dialog.FileNames).ConfigureAwait(true);
         }
         catch (Exception exception)
         {

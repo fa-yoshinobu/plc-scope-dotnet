@@ -3,12 +3,12 @@
 public sealed record ProjectFile
 {
     public string ProjectVersion { get; init; } = "1.0";
-    public string Name { get; init; } = "Untitled";
     public DateTimeOffset LastSavedUtc { get; init; } = DateTimeOffset.UtcNow;
     public ConnectionSettings Connection { get; init; } = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
     public List<BlockQuery> Blocks { get; init; } = [CreateDefaultBlock()];
     public List<WatchItem> WatchItems { get; init; } = [];
     public string? SelectedBlockId { get; init; }
+    public List<string>? CommentCsvPaths { get; init; }
     public string? CommentCsvPath { get; init; }
 
     public static BlockQuery CreateDefaultBlock() => new()

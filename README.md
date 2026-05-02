@@ -18,7 +18,7 @@ PLC Scope is a Windows PLC I/O monitor for reading and writing device values fro
 - Edit values inline and write with `Enter`.
 - Toggle writable bit cells from the monitor and watch views.
 - Display Word, DWord, Float32, Bit, decimal, hexadecimal, and binary formats.
-- Import comments from CSV.
+- Import comments from one or more external CSV files.
 - Save and load projects as JSON.
 - Switch light and dark themes.
 - View recent error history.
@@ -66,7 +66,7 @@ For bit cells, click the bit button to toggle the value when writing is supporte
 Open logs from the `Tools` menu.
 
 - `Error history`: recent user-visible communication and validation errors
-- `Communication log`: optional frame log for protocol troubleshooting
+- `Trace log`: optional frame log for protocol troubleshooting
 
 Logs are stored next to the executable when write permission is available:
 
@@ -83,7 +83,7 @@ Projects are saved as JSON and include:
 - monitor block settings
 - watch list entries
 - display settings used by the project
-- optional comment CSV path
+- optional comment CSV paths; comment text stays in the external CSV files
 
 Application settings are stored under `%LOCALAPPDATA%\PlcScope\settings.json`.
 
@@ -115,7 +115,7 @@ dotnet publish .\src\PlcScope.App\PlcScope.App.csproj -c Release -r win-x64 --se
 
 ## Version
 
-Current version: `0.1.2`
+Current version: `0.1.3`
 
 ## License
 
