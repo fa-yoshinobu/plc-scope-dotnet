@@ -107,7 +107,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private ProtocolDefinition selectedProtocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
 
     [ObservableProperty]
-    private string host = "192.168.1.10";
+    private string host = "192.168.250.100";
 
     [ObservableProperty]
     private int port = 1025;
@@ -215,4 +215,3 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpPlcFamilyName = value.Value;
     }
 }
-
