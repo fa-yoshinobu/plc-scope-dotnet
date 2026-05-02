@@ -1,5 +1,6 @@
 namespace PlcScope.App;
 
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
@@ -129,6 +130,22 @@ public partial class App : Application
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         mainWindow.Show();
+
+        if (e.Args.Length > 0 && File.Exists(e.Args[0]))
+        {
+            var projectPath = e.Args[0];
+            mainWindow.Dispatcher.BeginInvoke(async () =>
+            {
+                try
+                {
+                    await mainWindow.ViewModel.LoadProjectAsync(projectPath).ConfigureAwait(true);
+                }
+                catch (Exception exception)
+                {
+                    MessageBox.Show(mainWindow, exception.Message, "Could not open project", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            });
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

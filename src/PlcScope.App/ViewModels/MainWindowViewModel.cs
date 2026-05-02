@@ -61,6 +61,7 @@ public partial class MainWindowViewModel : ObservableObject
     private SequentialDeviceAddress? _generatedStartAddress;
     private DeviceRangeCatalog? _deviceRangeCatalog;
     private readonly Dictionary<string, string> _commentCsvComments = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _commentCsvPaths = [];
     private string? _inlineEditingAddress;
     private string? _layoutErrorText;
     private string _rowLayoutKey = string.Empty;
@@ -107,6 +108,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync);
         DisconnectCommand = new AsyncRelayCommand(DisconnectAsync);
+        ToggleConnectionCommand = new AsyncRelayCommand(ToggleConnectionAsync);
         ReadOnceCommand = new AsyncRelayCommand(ReadOnceAsync);
         WritePanelCommand = new AsyncRelayCommand(WritePanelAsync);
         CpuRunCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Run));
@@ -130,6 +132,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public IAsyncRelayCommand ConnectCommand { get; }
     public IAsyncRelayCommand DisconnectCommand { get; }
+    public IAsyncRelayCommand ToggleConnectionCommand { get; }
     public IAsyncRelayCommand ReadOnceCommand { get; }
     public IAsyncRelayCommand WritePanelCommand { get; }
     public IAsyncRelayCommand CpuRunCommand { get; }
@@ -239,6 +242,18 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsConnected => ConnectionState == ConnectionState.Connected;
     public bool CanUseWritePanel => IsConnected && SelectedProtocol.Capabilities.SupportsWrite;
     public bool CanIssueCpuControl => IsConnected && SelectedProtocol.Capabilities.SupportsCpuControl;
+    public string ConnectionToggleText => ConnectionState switch
+    {
+        ConnectionState.Connected => "Disconnect",
+        ConnectionState.Connecting => "Connecting...",
+        _ => "Connect",
+    };
+    public string ConnectionToggleToolTip => ConnectionState == ConnectionState.Connected
+        ? "Disconnect from the PLC."
+        : "Connect with the selected settings.";
+    public string SelectedPlcModelText => $"PLC: {FormatSelectedPlcModel(ConnectionSettings)}";
+    public string UiAutomationStateText =>
+        $"monitorStart={_visibleStartIndex};monitorCount={_visibleRowCount};monitorRows={Rows.Count};watchStart={_visibleWatchStartIndex};watchCount={_visibleWatchRowCount};watchRows={WatchItems.Count};inlineEditing={_isInlineEditing};scrollPaused={_isScrollReadPaused}";
     public string CpuControlHint
     {
         get
@@ -285,10 +300,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task SaveProjectAsync(string path)
     {
+        var displayName = GetProjectDisplayName(path);
         var project = BuildProjectFile();
         await _projectStore.SaveAsync(path, project).ConfigureAwait(true);
         CurrentProjectPath = path;
-        ProjectName = "Untitled";
+        ProjectName = displayName;
     }
 
     public async Task LoadProjectAsync(string path)
@@ -299,7 +315,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task ApplyProjectAsync(ProjectFile project, string? path = null)
     {
-        ProjectName = "Untitled";
+        ProjectName = GetProjectDisplayName(path);
         CurrentProjectPath = path ?? string.Empty;
 
         var activeBlock = project.Blocks.FirstOrDefault() ?? ProjectFile.CreateDefaultBlock();
@@ -321,8 +337,9 @@ public partial class MainWindowViewModel : ObservableObject
         {
             WatchItems.Add(new WatchItemViewModel(item));
         }
+        OnPropertyChanged(nameof(UiAutomationStateText));
 
-        await LoadProjectCommentCsvAsync(project.CommentCsvPath).ConfigureAwait(true);
+        await LoadProjectCommentCsvAsync(GetProjectCommentCsvPaths(project)).ConfigureAwait(true);
     }
 
     public void NewProject()
@@ -330,6 +347,7 @@ public partial class MainWindowViewModel : ObservableObject
         ProjectName = "Untitled";
         CurrentProjectPath = string.Empty;
         CommentCsvPath = string.Empty;
+        _commentCsvPaths.Clear();
         _commentCsvComments.Clear();
         ErrorText = string.Empty;
         ConnectionSettings = ConnectionSettings.CreateDefault(SelectedProtocol.Kind);
@@ -352,12 +370,17 @@ public partial class MainWindowViewModel : ObservableObject
         _lastSnapshot = null;
         _rowLayoutKey = string.Empty;
         EnsureRowsForCurrentLayout();
+        OnPropertyChanged(nameof(UiAutomationStateText));
     }
 
-    public async Task ImportCommentCsvAsync(string path)
+    public Task ImportCommentCsvAsync(string path) =>
+        ImportCommentCsvAsync([path]);
+
+    public async Task ImportCommentCsvAsync(IReadOnlyList<string> paths)
     {
-        var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
-        SetCommentCsv(path, comments);
+        var normalizedPaths = NormalizeCommentCsvPaths(paths);
+        var comments = await LoadCommentCsvFilesAsync(normalizedPaths).ConfigureAwait(true);
+        SetCommentCsv(normalizedPaths, comments);
         ErrorText = string.Empty;
         ErrorText = string.Empty;
 
@@ -398,6 +421,7 @@ public partial class MainWindowViewModel : ObservableObject
         _refreshTimer.Stop();
         _scrollResumeTimer.Stop();
         _scrollResumeTimer.Start();
+        OnPropertyChanged(nameof(UiAutomationStateText));
     }
 
     public void UpdateVisibleRowRange(int firstIndex, int visibleCount)
@@ -409,6 +433,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         _visibleStartIndex = normalizedFirst;
         _visibleRowCount = normalizedCount;
+        OnPropertyChanged(nameof(UiAutomationStateText));
 
         if (ConnectionState == ConnectionState.Connected && !_isScrollReadPaused && !_isInlineEditing)
             _ = ReadOnceAsync();
@@ -423,6 +448,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         _visibleWatchStartIndex = normalizedFirst;
         _visibleWatchRowCount = normalizedCount;
+        OnPropertyChanged(nameof(UiAutomationStateText));
 
         if (ConnectionState == ConnectionState.Connected && SelectedMainTabIndex == 1 && !_isScrollReadPaused && !_isInlineEditing)
             _ = ReadOnceAsync();
@@ -436,6 +462,7 @@ public partial class MainWindowViewModel : ObservableObject
         _isInlineEditing = true;
         _inlineEditingAddress = row?.Address ?? _inlineEditingAddress;
         _refreshTimer.Stop();
+        OnPropertyChanged(nameof(UiAutomationStateText));
     }
 
     public void EndInlineEdit(MonitorRowViewModel? row = null, bool force = false)
@@ -449,6 +476,7 @@ public partial class MainWindowViewModel : ObservableObject
         _isInlineEditing = false;
         _inlineEditingAddress = null;
         RestartTimer();
+        OnPropertyChanged(nameof(UiAutomationStateText));
 
         if (ConnectionState == ConnectionState.Connected)
             _ = ReadOnceAsync();
@@ -521,10 +549,22 @@ public partial class MainWindowViewModel : ObservableObject
         catch (Exception exception)
         {
             await DisposeSessionAsync().ConfigureAwait(true);
-            await LogErrorAsync("Connect", exception).ConfigureAwait(true);
+            await LogErrorAsync(
+                "Connect",
+                exception,
+                FormatConnectionContext(ConnectionSettings),
+                FormatConnectionError(ConnectionSettings, exception)).ConfigureAwait(true);
             ConnectionState = ConnectionState.Error;
             StatusText = "Connection error";
         }
+    }
+
+    private async Task ToggleConnectionAsync()
+    {
+        if (ConnectionState == ConnectionState.Connected)
+            await DisconnectAsync().ConfigureAwait(true);
+        else
+            await ConnectAsync().ConfigureAwait(true);
     }
 
     private async Task DisconnectAsync()
@@ -1080,66 +1120,19 @@ public partial class MainWindowViewModel : ObservableObject
             if (ShouldKeepExistingRowDuringRefresh(Rows[rowIndex], rows[index]))
                 continue;
 
-            if (IsSameVisibleRow(Rows[rowIndex], rows[index]))
+            if (MonitorRowRefreshComparer.IsSameVisibleRow(
+                    Rows[rowIndex],
+                    rows[index],
+                    SelectedProtocol.Capabilities.SupportsWrite,
+                    CanToggleNumericBits()))
                 continue;
 
             Rows[rowIndex] = CreateRowViewModel(rows[index]);
         }
     }
 
-    private static bool IsSameVisibleRow(MonitorRowViewModel existingRow, MonitorRow nextRow) =>
-        existingRow switch
-        {
-            WordRowViewModel existing when nextRow is WordMonitorRow next =>
-                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
-                && existing.Value == next.Value
-                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
-                && BitsMatch(existing.Bits, next.Bits),
-            PackedBitRowViewModel existing when nextRow is PackedBitMonitorRow next =>
-                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
-                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
-                && BitsMatch(existing.Bits, next.Bits),
-            SingleBitRowViewModel existing when nextRow is SingleBitMonitorRow next =>
-                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
-                && existing.Value == next.Value
-                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal),
-            DWordRowViewModel existing when nextRow is DWordMonitorRow next =>
-                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
-                && existing.Value == next.Value
-                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
-                && BitsMatch(existing.Bits, next.Bits),
-            FloatRowViewModel existing when nextRow is FloatMonitorRow next =>
-                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
-                && existing.Value.Equals(next.Value)
-                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
-                && BitsMatch(existing.Bits, next.Bits),
-            ExpandedWordHeaderRowViewModel existing when nextRow is ExpandedWordHeaderMonitorRow next =>
-                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
-                && existing.Value == next.Value
-                && string.Equals(existing.Comment, next.Comment ?? string.Empty, StringComparison.Ordinal)
-                && BitsMatch(existing.Bits, next.Bits),
-            ExpandedBitRowViewModel existing when nextRow is ExpandedBitMonitorRow next =>
-                string.Equals(existing.Address, next.Address, StringComparison.Ordinal)
-                && existing.BitIndex == next.BitIndex
-                && existing.Value == next.Value,
-            _ => false,
-        };
-
-    private static bool BitsMatch(IReadOnlyList<BitCellViewModel> existingBits, IReadOnlyList<BitCellState> nextBits)
-    {
-        if (existingBits.Count != nextBits.Count)
-            return false;
-
-        for (var index = 0; index < existingBits.Count; index++)
-        {
-            if (existingBits[index].BitIndex != nextBits[index].Index
-                || existingBits[index].IsOn != nextBits[index].Value
-                || !string.Equals(existingBits[index].Address, nextBits[index].Address, StringComparison.Ordinal))
-                return false;
-        }
-
-        return true;
-    }
+    private bool CanToggleNumericBits() =>
+        SelectedProtocol.Capabilities.SupportsWrite && !IsSlmpDWordOnlyFamily();
 
     private bool ShouldKeepExistingRowDuringRefresh(MonitorRowViewModel existingRow, MonitorRow nextRow)
     {
@@ -1165,13 +1158,6 @@ public partial class MainWindowViewModel : ObservableObject
         {
             ResetGeneratedRows();
             SetLayoutError("Check the start address.");
-            return;
-        }
-
-        if (IsWaitingForDeviceRangeCatalog())
-        {
-            ResetGeneratedRows();
-            ClearLayoutError();
             return;
         }
 
@@ -1221,6 +1207,7 @@ public partial class MainWindowViewModel : ObservableObject
         _generatedStartAddress = _displayRowSegments[0].StartAddress;
         var displayRows = _displayRowSegments[^1].StartRowIndex + _displayRowSegments[^1].RowCount;
         _rows.Configure(displayRows, CreatePlaceholderRow);
+        OnPropertyChanged(nameof(UiAutomationStateText));
 
         if (Rows.Count > 0)
         {
@@ -1361,8 +1348,7 @@ public partial class MainWindowViewModel : ObservableObject
         error = null;
         if (IsWaitingForDeviceRangeCatalog())
         {
-            rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:disconnected");
-            return false;
+            return TryBuildStaticDisplayRangeBounds(out rangeBounds, out error);
         }
 
         if (TryGetSelectedDeviceRangeEntry(out var entry))
@@ -1401,6 +1387,38 @@ public partial class MainWindowViewModel : ObservableObject
         rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:missing");
         error = $"{SelectedDeviceFamily.Code} does not have a device range catalog entry for the selected PLC.";
         return false;
+    }
+
+    private bool TryBuildStaticDisplayRangeBounds(out DeviceDisplayRangeBounds rangeBounds, out string? error)
+    {
+        error = null;
+        rangeBounds = new DeviceDisplayRangeBounds(0, 0, $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:static:invalid");
+
+        var defaultAddress = DeviceAddressRangeProvider.GetDefaultAddress(SelectedDeviceFamily);
+        if (!DeviceAddressRangeProvider.TryParseAddress(defaultAddress, SelectedDeviceFamily, out var lowerAddress))
+        {
+            error = $"Could not resolve the default address for {SelectedDeviceFamily.Code}.";
+            return false;
+        }
+
+        var pointCount = DeviceAddressRangeProvider.GetAvailablePointCount(
+            SelectedProtocol.Kind,
+            SelectedDeviceFamily,
+            defaultAddress);
+        if (pointCount <= 0)
+        {
+            error = $"{SelectedDeviceFamily.Code} has no displayable static range.";
+            return false;
+        }
+
+        var lowerLogical = lowerAddress.ToLogicalNumber(lowerAddress.Number);
+        var upperLogical = checked(lowerLogical + (uint)(pointCount - 1));
+        rangeBounds = new DeviceDisplayRangeBounds(
+            lowerAddress.Number,
+            lowerAddress.FromLogicalNumber(upperLogical),
+            $"{SelectedProtocol.Kind}:{SelectedDeviceFamily.Code}:static:{pointCount}",
+            lowerAddress.Width);
+        return true;
     }
 
     private bool IsWaitingForDeviceRangeCatalog() =>
@@ -1824,14 +1842,29 @@ public partial class MainWindowViewModel : ObservableObject
             : message;
     }
 
-    private async Task LogErrorAsync(string operation, Exception exception, string? context = null)
+    private async Task LogErrorAsync(string operation, Exception exception, string? context = null, string? message = null)
     {
-        ErrorText = exception.Message;
+        message ??= exception.Message;
+        ErrorText = message;
         var details = string.IsNullOrWhiteSpace(context)
             ? exception.ToString()
             : string.Concat(context, Environment.NewLine, exception);
-        await _logStore.AppendErrorAsync(new ErrorEntry(DateTimeOffset.UtcNow, operation, exception.Message, details)).ConfigureAwait(true);
+        await _logStore.AppendErrorAsync(new ErrorEntry(DateTimeOffset.UtcNow, operation, message, details)).ConfigureAwait(true);
     }
+
+    private static string FormatConnectionError(ConnectionSettings settings, Exception exception)
+    {
+        var endpoint = $"{settings.Host}:{settings.Port}";
+        if (exception is OperationCanceledException)
+            return $"Connection timed out after {settings.Timeout.TotalSeconds:0.#} s: {endpoint} ({settings.Transport}).";
+
+        return exception.Message;
+    }
+
+    private static string FormatConnectionContext(ConnectionSettings settings) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"Protocol={settings.Protocol}; Host={settings.Host}; Port={settings.Port}; Transport={settings.Transport}; TimeoutSeconds={settings.Timeout.TotalSeconds:0.###}");
 
     private static string FormatReadOperation(BlockQuery? query) =>
         query is null ? "Read" : $"Read {query.DeviceFamilyCode}";
@@ -1866,6 +1899,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         _scrollResumeTimer.Stop();
         _isScrollReadPaused = false;
+        OnPropertyChanged(nameof(UiAutomationStateText));
         RestartTimer();
 
         if (ConnectionState == ConnectionState.Connected)
@@ -1888,10 +1922,19 @@ public partial class MainWindowViewModel : ObservableObject
         CommunicationRateText = $"{count} frames/s";
     }
 
-    private void OnTraceReceived(object? sender, TraceEntry traceEntry)
+    private async void OnTraceReceived(object? sender, TraceEntry traceEntry)
     {
         if (traceEntry.Direction == TraceDirection.Send)
             Interlocked.Increment(ref _communicationFrameCount);
+
+        try
+        {
+            await _logStore.AppendTraceAsync(traceEntry).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Trace logging is optional; communication should not fail if persistence is unavailable.
+        }
     }
 
     private async void OnSessionErrorReceived(object? sender, ErrorEntry errorEntry)
@@ -1931,35 +1974,71 @@ public partial class MainWindowViewModel : ObservableObject
 
     private ProjectFile BuildProjectFile() => new()
     {
-        Name = ProjectName,
         Connection = ConnectionSettings with { AutoRefreshIntervalMs = AutoRefreshIntervalMs },
         Blocks = [BuildProjectBlockQuery()],
         WatchItems = WatchItems.Select(static item => item.ToModel()).ToList(),
-        CommentCsvPath = string.IsNullOrWhiteSpace(CommentCsvPath) ? null : CommentCsvPath,
+        CommentCsvPath = _commentCsvPaths.Count == 1 ? _commentCsvPaths[0] : null,
+        CommentCsvPaths = _commentCsvPaths.Count > 1 ? _commentCsvPaths.ToList() : null,
     };
 
-    private async Task LoadProjectCommentCsvAsync(string? path)
+    private async Task LoadProjectCommentCsvAsync(IReadOnlyList<string> paths)
     {
-        CommentCsvPath = path ?? string.Empty;
+        var normalizedPaths = NormalizeCommentCsvPaths(paths);
+        SetCommentCsvPaths(normalizedPaths);
         _commentCsvComments.Clear();
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        if (normalizedPaths.Count == 0)
             return;
 
-        try
+        var errors = new List<string>();
+        foreach (var path in normalizedPaths)
         {
-            var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
-            SetCommentCsv(path, comments);
+            if (!File.Exists(path))
+            {
+                errors.Add($"Missing: {path}");
+                continue;
+            }
+
+            try
+            {
+                var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
+                AddCommentCsvComments(comments);
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"{Path.GetFileName(path)}: {exception.Message}");
+            }
         }
-        catch (Exception exception)
+
+        UpdateWatchCommentsFromCsv();
+
+        if (errors.Count > 0)
         {
-            ErrorText = $"Could not load comment CSV: {exception.Message}";
+            ErrorText = $"Could not load comment CSV: {string.Join("; ", errors)}";
         }
     }
 
-    private void SetCommentCsv(string path, IReadOnlyDictionary<string, string> comments)
+    private void SetCommentCsv(IReadOnlyList<string> paths, IReadOnlyDictionary<string, string> comments)
     {
-        CommentCsvPath = path;
+        SetCommentCsvPaths(paths);
         _commentCsvComments.Clear();
+        AddCommentCsvComments(comments);
+        UpdateWatchCommentsFromCsv();
+    }
+
+    private void SetCommentCsvPaths(IReadOnlyList<string> paths)
+    {
+        _commentCsvPaths.Clear();
+        _commentCsvPaths.AddRange(paths);
+        CommentCsvPath = paths.Count switch
+        {
+            0 => string.Empty,
+            1 => paths[0],
+            _ => $"{paths.Count} comment CSV files",
+        };
+    }
+
+    private void AddCommentCsvComments(IReadOnlyDictionary<string, string> comments)
+    {
         foreach (var (address, comment) in comments)
         {
             foreach (var key in GetCommentAddressKeys(address))
@@ -1969,6 +2048,56 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private void UpdateWatchCommentsFromCsv()
+    {
+        foreach (var item in WatchItems)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Comment))
+                continue;
+
+            foreach (var key in GetCommentAddressKeys(item.Address))
+            {
+                if (_commentCsvComments.TryGetValue(key, out var comment))
+                {
+                    item.Comment = comment;
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>> LoadCommentCsvFilesAsync(IReadOnlyList<string> paths)
+    {
+        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in paths)
+        {
+            var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
+            foreach (var (address, comment) in comments)
+            {
+                merged[address] = comment;
+            }
+        }
+
+        return merged;
+    }
+
+    private static IReadOnlyList<string> GetProjectCommentCsvPaths(ProjectFile project)
+    {
+        if (project.CommentCsvPaths is { Count: > 0 })
+            return NormalizeCommentCsvPaths(project.CommentCsvPaths);
+
+        return string.IsNullOrWhiteSpace(project.CommentCsvPath)
+            ? []
+            : [project.CommentCsvPath];
+    }
+
+    private static IReadOnlyList<string> NormalizeCommentCsvPaths(IEnumerable<string> paths) =>
+        paths
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(static path => path.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     private BlockReadResult ApplyCsvComments(BlockReadResult result)
     {
         if (_commentCsvComments.Count == 0)
@@ -1977,33 +2106,24 @@ public partial class MainWindowViewModel : ObservableObject
         var comments = new Dictionary<string, string>(result.Comments, StringComparer.OrdinalIgnoreCase);
         foreach (var address in result.ElementAddresses)
         {
-            if (!comments.ContainsKey(address) && _commentCsvComments.TryGetValue(address, out var comment))
-                comments[address] = comment;
+            if (comments.ContainsKey(address))
+                continue;
+
+            foreach (var key in GetCommentAddressKeys(address))
+            {
+                if (_commentCsvComments.TryGetValue(key, out var comment))
+                {
+                    comments[address] = comment;
+                    break;
+                }
+            }
         }
 
         return result with { Comments = comments };
     }
 
-    private IEnumerable<string> GetCommentAddressKeys(string rawAddress)
-    {
-        var cleaned = rawAddress.Trim().ToUpperInvariant();
-        if (cleaned.Length == 0)
-            yield break;
-
-        yield return cleaned;
-
-        var families = ProtocolCatalog.GetDeviceFamilies(SelectedProtocol, ConnectionSettings.KeyenceDeviceMode)
-            .OrderByDescending(family => family.Code.Length);
-        foreach (var family in families)
-        {
-            if (!DeviceAddressRangeProvider.TryParseAddress(cleaned, family, out var address))
-                continue;
-
-            yield return address.FormatOffset(0);
-            yield return (address with { Width = 1 }).FormatOffset(0);
-            yield break;
-        }
-    }
+    private IEnumerable<string> GetCommentAddressKeys(string rawAddress) =>
+        CommentAddressKeyProvider.GetKeys(rawAddress, SelectedProtocol, ConnectionSettings.KeyenceDeviceMode);
 
     private void RefreshDisplayModes()
     {
@@ -2204,6 +2324,11 @@ public partial class MainWindowViewModel : ObservableObject
         _ = PersistUiSettingsAsync();
     }
 
+    partial void OnConnectionSettingsChanged(ConnectionSettings value)
+    {
+        OnPropertyChanged(nameof(SelectedPlcModelText));
+    }
+
     partial void OnSelectedDeviceFamilyChanged(DeviceFamilyDefinition value)
     {
         RefreshDisplayModes();
@@ -2352,6 +2477,8 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(CanUseWritePanel));
         OnPropertyChanged(nameof(CanIssueCpuControl));
+        OnPropertyChanged(nameof(ConnectionToggleText));
+        OnPropertyChanged(nameof(ConnectionToggleToolTip));
     }
 
     private MonitorRowViewModel CreateReadOnlyRowViewModel(MonitorRow row) =>
@@ -2435,6 +2562,46 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private static string FormatSelectedPlcModel(ConnectionSettings settings) =>
+        settings.Protocol switch
+        {
+            ProtocolKind.Slmp => FormatSlmpPlcFamily(settings.SlmpPlcFamilyName),
+            ProtocolKind.HostLink => FormatHostLinkPlcModel(settings.HostLinkPlcModelName, settings.KeyenceDeviceMode),
+            ProtocolKind.Toyopuc => FormatToyopucDeviceProfile(settings.ToyopucDeviceProfile),
+            _ => settings.Protocol.ToString(),
+        };
+
+    private static string FormatSlmpPlcFamily(string familyName) =>
+        familyName switch
+        {
+            "IqR" => "iQ-R",
+            "IqF" => "iQ-F",
+            "IqL" => "iQ-L",
+            "MxR" => "MX-R",
+            "MxF" => "MX-F",
+            _ => string.IsNullOrWhiteSpace(familyName) ? "MELSEC" : familyName,
+        };
+
+    private static string FormatHostLinkPlcModel(string modelName, KeyenceDeviceMode deviceMode)
+    {
+        var model = string.IsNullOrWhiteSpace(modelName) ? "KEYENCE KV" : modelName;
+        return deviceMode == KeyenceDeviceMode.Xym ? $"{model} / XYM" : model;
+    }
+
+    private static string FormatToyopucDeviceProfile(string? profile) =>
+        string.IsNullOrWhiteSpace(profile)
+            ? "TOYOPUC"
+            : profile.Replace(':', ' ');
+
+    private static string GetProjectDisplayName(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "Untitled";
+
+        var fileName = Path.GetFileName(path);
+        return string.IsNullOrWhiteSpace(fileName) ? "Untitled" : fileName;
+    }
+
     private static string FormatCpuStateText(CpuState? state)
     {
         if (state is null)
@@ -2486,6 +2653,7 @@ public partial class MainWindowViewModel : ObservableObject
         _generatedStartAddress = null;
         _displayRowSegments.Clear();
         _startAddressRowIndex = 0;
+        OnPropertyChanged(nameof(UiAutomationStateText));
     }
 
     private void ClearLayoutError()

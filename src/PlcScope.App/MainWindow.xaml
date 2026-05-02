@@ -11,6 +11,8 @@
         Height="920"
         MinWidth="1200"
         MinHeight="720"
+        AutomationProperties.AutomationId="MainWindow"
+        AutomationProperties.HelpText="{Binding UiAutomationStateText}"
         FontSize="{Binding SelectedFontSizeOption.Size}"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource AppForegroundBrush}">
@@ -73,6 +75,7 @@
     </Style>
 
     <Style x:Key="InlineValueTextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="AutomationProperties.AutomationId" Value="MonitorInlineValueTextBox" />
       <Setter Property="Margin" Value="8,2" />
       <Setter Property="Background" Value="{DynamicResource AppWriteInputBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
@@ -215,8 +218,9 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <TextBox Grid.Column="1"
+                 AutomationProperties.AutomationId="MonitorInlineValueTextBox"
                  Style="{StaticResource InlineValueTextBoxStyle}"
                  IsEnabled="{Binding CanEdit}"
                  Text="{Binding EditableValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -237,18 +241,20 @@
       <Grid MinHeight="34">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="140" />
+          <ColumnDefinition Width="120" />
+          <ColumnDefinition Width="110" />
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
-        <ItemsControl Grid.Column="1" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <ItemsControl Grid.Column="1" Grid.ColumnSpan="3" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <WrapPanel VerticalAlignment="Center" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
         </ItemsControl>
-        <TextBlock Grid.Column="2" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
+        <TextBlock Grid.Column="4" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
@@ -257,13 +263,14 @@
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="140" />
           <ColumnDefinition Width="120" />
-          <ColumnDefinition Width="90" />
+          <ColumnDefinition Width="110" />
           <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <Button Grid.Column="1" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource BitStateButtonStyle}" />
         <TextBlock Grid.Column="2" Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
-        <TextBlock Grid.Column="3" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
+        <TextBlock Grid.Column="4" Text="{Binding Comment}" Style="{StaticResource CommentTextStyle}" />
       </Grid>
     </DataTemplate>
 
@@ -276,8 +283,9 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <TextBox Grid.Column="1"
+                 AutomationProperties.AutomationId="MonitorInlineValueTextBox"
                  Style="{StaticResource InlineValueTextBoxStyle}"
                  IsEnabled="{Binding CanEdit}"
                  Text="{Binding EditableValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -303,8 +311,9 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <TextBox Grid.Column="1"
+                 AutomationProperties.AutomationId="MonitorInlineValueTextBox"
                  Style="{StaticResource InlineValueTextBoxStyle}"
                  IsEnabled="{Binding CanEdit}"
                  Text="{Binding EditableValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -330,7 +339,7 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" FontWeight="SemiBold" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" FontWeight="SemiBold" Style="{StaticResource AddressTextStyle}" />
         <TextBlock Grid.Column="1" Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
         <TextBlock Grid.Column="2" Text="{Binding HexText}" Style="{StaticResource HexTextStyle}" />
         <ItemsControl Grid.Column="3" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">
@@ -353,7 +362,7 @@
           <ColumnDefinition Width="90" />
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
         <TextBlock Grid.Column="1" Text="{Binding BitIndex, StringFormat=b{0}}" VerticalAlignment="Center" Margin="8,0" />
         <Button Grid.Column="2" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource BitStateButtonStyle}" />
         <TextBlock Grid.Column="3" Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
@@ -397,6 +406,7 @@
                   ToolTip="{Binding CpuControlHint}" />
       </MenuItem>
       <MenuItem Header="Tools" AutomationProperties.AutomationId="ToolsMenu">
+        <MenuItem Header="Trace log" AutomationProperties.AutomationId="TraceLogMenuItem" Click="TraceLogMenuItem_Click" />
         <MenuItem Header="Error history" AutomationProperties.AutomationId="ErrorHistoryMenuItem" Click="ErrorHistoryMenuItem_Click" />
       </MenuItem>
       <MenuItem Header="Help" AutomationProperties.AutomationId="HelpMenu">
@@ -404,17 +414,25 @@
       </MenuItem>
     </Menu>
 
-    <StatusBar DockPanel.Dock="Bottom">
-      <StatusBarItem Content="{Binding StatusText}" />
-      <Separator />
-      <StatusBarItem Content="{Binding LastReadText, StringFormat=Last read: {0}}" />
-      <Separator />
-      <StatusBarItem Content="{Binding CommunicationRateText, StringFormat=Traffic: {0}}" />
-      <Separator />
-      <StatusBarItem Content="{Binding CpuStateText, StringFormat=CPU: {0}}" />
+    <StatusBar DockPanel.Dock="Bottom" AutomationProperties.AutomationId="MainStatusBar">
+      <StatusBarItem>
+        <TextBlock AutomationProperties.AutomationId="SelectedPlcModelStatusText" Text="{Binding SelectedPlcModelText}" />
+      </StatusBarItem>
       <Separator />
       <StatusBarItem>
-        <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource AppDangerBrush}" TextTrimming="CharacterEllipsis" />
+        <TextBlock AutomationProperties.AutomationId="LastReadStatusText" Text="{Binding LastReadText, StringFormat=Last read: {0}}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock AutomationProperties.AutomationId="TrafficStatusText" Text="{Binding CommunicationRateText, StringFormat=Traffic: {0}}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock AutomationProperties.AutomationId="CpuStatusText" Text="{Binding CpuStateText, StringFormat=CPU: {0}}" />
+      </StatusBarItem>
+      <Separator />
+      <StatusBarItem>
+        <TextBlock AutomationProperties.AutomationId="ErrorStatusText" Text="{Binding ErrorText}" Foreground="{DynamicResource AppDangerBrush}" TextTrimming="CharacterEllipsis" />
       </StatusBarItem>
     </StatusBar>
 
@@ -436,8 +454,11 @@
 
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
             <Button Content="Connection settings" AutomationProperties.AutomationId="ConnectionSettingsButton" Click="ConnectionSettingsMenuItem_Click" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Configure PLC communication settings." />
-            <Button Content="Connect" AutomationProperties.AutomationId="ConnectButton" Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryToolbarButtonStyle}" ToolTip="Connect with the selected settings." />
-            <Button Content="Disconnect" AutomationProperties.AutomationId="DisconnectButton" Command="{Binding DisconnectCommand}" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Disconnect from the PLC." />
+            <Button Content="{Binding ConnectionToggleText}"
+                    AutomationProperties.AutomationId="ConnectionToggleButton"
+                    Command="{Binding ToggleConnectionCommand}"
+                    Style="{StaticResource PrimaryToolbarButtonStyle}"
+                    ToolTip="{Binding ConnectionToggleToolTip}" />
           </StackPanel>
 
           <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,10,0">
@@ -453,7 +474,7 @@
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="Project" Foreground="{DynamicResource AppForegroundMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBlock Grid.Column="1" Text="{Binding ProjectName}" Foreground="{DynamicResource AppValueBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" AutomationProperties.AutomationId="ProjectNameTextBlock" Text="{Binding ProjectName}" Foreground="{DynamicResource AppValueBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
           </Grid>
 
           <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">

@@ -14,7 +14,6 @@ public sealed class JsonStoreTests
         {
             var project = new ProjectFile
             {
-                Name = "Test Project",
                 Connection = ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with { Host = "10.0.0.5" },
                 Blocks =
                 [
@@ -37,16 +36,24 @@ public sealed class JsonStoreTests
                         Comment = "watch",
                     },
                 ],
+                CommentCsvPaths =
+                [
+                    @"D:\github\local\gxw2_com.csv",
+                    @"D:\github\local\gxw3_com.csv",
+                ],
             };
 
             await store.SaveAsync(path, project);
             var loaded = await store.LoadAsync(path);
+            var json = await File.ReadAllTextAsync(path);
 
-            Assert.Equal("Test Project", loaded.Name);
+            Assert.DoesNotContain("\"name\"", json, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("10.0.0.5", loaded.Connection.Host);
             Assert.Equal("DM100", loaded.Blocks[0].StartAddress);
             Assert.Equal("DM200", loaded.WatchItems[0].Address);
             Assert.Equal(DisplayRadix.Hexadecimal, loaded.WatchItems[0].DisplayRadix);
+            Assert.Equal(2, loaded.CommentCsvPaths?.Count);
+            Assert.DoesNotContain("異常発生", json, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
