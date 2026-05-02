@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PlcScope.Core\PlcScope.Core.csproj" />
+    <ProjectReference Include="..\..\..\plc-comm-slmp-dotnet\src\PlcComm.Slmp\PlcComm.Slmp.csproj" Condition="Exists('..\..\..\plc-comm-slmp-dotnet\src\PlcComm.Slmp\PlcComm.Slmp.csproj')" />
+    <ProjectReference Include="..\..\..\plc-comm-hostlink-dotnet\src\PlcComm.KvHostLink\PlcComm.KvHostLink.csproj" Condition="Exists('..\..\..\plc-comm-hostlink-dotnet\src\PlcComm.KvHostLink\PlcComm.KvHostLink.csproj')" />
+    <ProjectReference Include="..\..\..\plc-comm-computerlink-dotnet\src\Toyopuc\PlcComm.Toyopuc.csproj" Condition="Exists('..\..\..\plc-comm-computerlink-dotnet\src\Toyopuc\PlcComm.Toyopuc.csproj')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PlcComm.Slmp" Condition="!Exists('..\..\..\plc-comm-slmp-dotnet\src\PlcComm.Slmp\PlcComm.Slmp.csproj')" />
+    <PackageReference Include="PlcComm.KvHostLink" Condition="!Exists('..\..\..\plc-comm-hostlink-dotnet\src\PlcComm.KvHostLink\PlcComm.KvHostLink.csproj')" />
+    <PackageReference Include="PlcComm.Toyopuc" Condition="!Exists('..\..\..\plc-comm-computerlink-dotnet\src\Toyopuc\PlcComm.Toyopuc.csproj')" />
+  </ItemGroup>
+
+</Project>

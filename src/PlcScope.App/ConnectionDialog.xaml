@@ -1,0 +1,161 @@
+﻿<Window x:Class="PlcScope.App.ConnectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Connection settings"
+        Width="760"
+        Height="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource AppForegroundBrush}">
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+  </Window.Resources>
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Bottom"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Margin="0,12,0,0">
+      <Button Content="OK" AutomationProperties.AutomationId="ConnectionDialogOkButton" Width="100" Margin="0,0,8,0" Click="OkButton_Click" Style="{StaticResource AccentButtonStyle}" />
+      <Button Content="Cancel" AutomationProperties.AutomationId="ConnectionDialogCancelButton" Width="100" IsCancel="True" />
+    </StackPanel>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <GroupBox Header="Common" Margin="0,0,0,12">
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="160" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Protocol" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      AutomationProperties.AutomationId="ConnectionProtocolComboBox"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding Protocols}"
+                      DisplayMemberPath="DisplayName"
+                      SelectedItem="{Binding SelectedProtocol}" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Host" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionHostTextBox" Margin="0,0,0,8" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Port" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionPortTextBox" Margin="0,0,0,8" Text="{Binding Port}" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Timeout (s)" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionTimeoutSecondsTextBox" Width="120" Margin="0,0,0,8" Text="{Binding TimeoutSeconds}" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Refresh interval ms" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionRefreshIntervalTextBox" Width="120" Text="{Binding AutoRefreshIntervalMs}" />
+          </Grid>
+        </GroupBox>
+
+        <GroupBox Header="Transport" Margin="0,0,0,12">
+          <StackPanel Orientation="Horizontal" Margin="8">
+            <TextBlock Text="Mode" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox Width="160"
+                      AutomationProperties.AutomationId="ConnectionTransportComboBox"
+                      ItemsSource="{Binding TransportModes}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedTransportMode}" />
+          </StackPanel>
+        </GroupBox>
+
+        <GroupBox Header="SLMP" Visibility="{Binding IsSlmpSelected, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,0,0,12">
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="180" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC family" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      AutomationProperties.AutomationId="ConnectionSlmpFamilyComboBox"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding SlmpFamilies}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedSlmpFamily}" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Network" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpNetworkTextBox" Margin="0,0,0,8" Text="{Binding SlmpNetwork}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Station" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpStationTextBox" Margin="0,0,0,8" Text="{Binding SlmpStation}" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Module I/O" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpModuleIoTextBox" Margin="0,0,0,8" Text="{Binding SlmpModuleIo}" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Text="{Binding SlmpMonitoringTimer}" />
+          </Grid>
+        </GroupBox>
+
+        <GroupBox Header="Host Link" Visibility="{Binding IsHostLinkSelected, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,0,0,12">
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="180" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Model" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding HostLinkModels}"
+                      SelectedItem="{Binding HostLinkPlcModelName}" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Device mode" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{Binding KeyenceDeviceModes}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedKeyenceDeviceMode}" />
+          </Grid>
+        </GroupBox>
+
+        <GroupBox Header="TOYOPUC" Visibility="{Binding IsToyopucSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="180" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Profile" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding ToyopucDeviceProfiles}"
+                      SelectedItem="{Binding ToyopucDeviceProfile}" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Relay hops" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucRelayHops}" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Local port" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucLocalPort}" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Retries / delay ms" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
+              <TextBox Width="120" Margin="0,0,8,0" Text="{Binding ToyopucRetries}" />
+              <TextBox Width="120" Text="{Binding ToyopucRetryDelayMs}" />
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>
