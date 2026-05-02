@@ -38,8 +38,8 @@ public sealed class JsonStoreTests
                 ],
                 CommentCsvPaths =
                 [
-                    @"D:\github\local\gxw2_com.csv",
-                    @"D:\github\local\gxw3_com.csv",
+                    @"C:\plc-scope-test\comments-a.csv",
+                    @"C:\plc-scope-test\comments-b.csv",
                 ],
             };
 
@@ -53,7 +53,7 @@ public sealed class JsonStoreTests
             Assert.Equal("DM200", loaded.WatchItems[0].Address);
             Assert.Equal(DisplayRadix.Hexadecimal, loaded.WatchItems[0].DisplayRadix);
             Assert.Equal(2, loaded.CommentCsvPaths?.Count);
-            Assert.DoesNotContain("異常発生", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("runtime-only value", json, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

@@ -10,16 +10,31 @@ public sealed class CommentCsvImporterTests
     {
         const string text = """
             device,no,comment
-            R000,,運転中
-            R001,,停止中
-            R000.01,,無視
+            R000,,Comment A
+            R001,,Comment B
+            R000.01,,Bit comment
             """;
 
         var comments = CommentCsvImporter.Parse(text, ProtocolKind.HostLink);
 
-        Assert.Equal("運転中", comments["R000"]);
-        Assert.Equal("停止中", comments["R001"]);
+        Assert.Equal("Comment A", comments["R000"]);
+        Assert.Equal("Comment B", comments["R001"]);
         Assert.False(comments.ContainsKey("R000.01"));
+    }
+
+    [Fact]
+    public void Parse_KeyenceMultiLanguageCsv_PrefersComment1Column()
+    {
+        const string text = """
+            ,,Comment1,Comment2,Comment3,Comment4
+            CR000,,Comment one A,Comment two A,Comment three A,Comment four A
+            CR001,,Comment one B,Comment two B,Comment three B,Comment four B
+            """;
+
+        var comments = CommentCsvImporter.Parse(text, ProtocolKind.HostLink);
+
+        Assert.Equal("Comment one A", comments["CR000"]);
+        Assert.Equal("Comment one B", comments["CR001"]);
     }
 
     [Fact]
@@ -28,24 +43,40 @@ public sealed class CommentCsvImporterTests
         const string text = """
             header1,header2
             device,comment
-            D0,速度
-            M1,起動
+            D0,Speed
+            M1,Start
             """;
 
         var comments = CommentCsvImporter.Parse(text, ProtocolKind.Slmp);
 
-        Assert.Equal("速度", comments["D0"]);
-        Assert.Equal("起動", comments["M1"]);
+        Assert.Equal("Speed", comments["D0"]);
+        Assert.Equal("Start", comments["M1"]);
+    }
+
+    [Fact]
+    public void Parse_UnsortedToyopucCsv_UsesSecondColumn()
+    {
+        const string text = """
+            P2-K002,Toyopuc comment B,,
+            P1-K001,Toyopuc comment A,,
+            P3-K003,Toyopuc comment C,,
+            """;
+
+        var comments = CommentCsvImporter.Parse(text, ProtocolKind.Toyopuc);
+
+        Assert.Equal("Toyopuc comment A", comments["P1-K001"]);
+        Assert.Equal("Toyopuc comment B", comments["P2-K002"]);
+        Assert.Equal("Toyopuc comment C", comments["P3-K003"]);
     }
 
     [Fact]
     public void Parse_TabDelimitedCsv_DetectsTabDelimiter()
     {
-        const string text = "device\tcomment\r\nDM0\t品種番号\r\n";
+        const string text = "device\tcomment\r\nDM0\tProduct code\r\n";
 
         var comments = CommentCsvImporter.Parse(text, ProtocolKind.HostLink);
 
-        Assert.Equal("品種番号", comments["DM0"]);
+        Assert.Equal("Product code", comments["DM0"]);
     }
 
     [Fact]
@@ -54,39 +85,39 @@ public sealed class CommentCsvImporterTests
         const string text = """
             header1,header2
             device,comment
-            D0,"速度, 現在値"
+            D0,"Speed, current"
             """;
 
         var comments = CommentCsvImporter.Parse(text, ProtocolKind.Slmp);
 
-        Assert.Equal("速度, 現在値", comments["D0"]);
+        Assert.Equal("Speed, current", comments["D0"]);
     }
 
     [Fact]
     public void Parse_GxWorksTabDelimitedCsv_UsesDeviceNameAndCommentColumns()
     {
         const string text = """
-            "SIP FX5UC"
-            "デバイス名"	"コメント"
-            "M0"	"異常発生"
-            "R29000.0"	"Y OFFで計測開始フラグ1-1"
+            "Project"
+            "Device Name"	"Comment"
+            "M0"	"Alarm"
+            "R29000.0"	"Trigger flag"
             """;
 
         var comments = CommentCsvImporter.Parse(text, ProtocolKind.Slmp);
 
-        Assert.Equal("異常発生", comments["M0"]);
-        Assert.Equal("Y OFFで計測開始フラグ1-1", comments["R29000.0"]);
-        Assert.False(comments.ContainsKey("デバイス名"));
+        Assert.Equal("Alarm", comments["M0"]);
+        Assert.Equal("Trigger flag", comments["R29000.0"]);
+        Assert.False(comments.ContainsKey("Device Name"));
     }
 
     [Fact]
     public async Task LoadAsync_Utf16GxWorksCsv_DecodesMelsecComments()
     {
         const string text = """
-            "（プロジェクト未設定）"
-            "デバイス名"	"コメント"
-            "X0A"	"軸３エラー検出"
-            "Y41A"	"データ保護キー3"
+            "Project"
+            "Device Name"	"Comment"
+            "X0A"	"Axis alarm"
+            "Y41A"	"Data protect key"
             """;
         var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.csv");
         try
@@ -95,8 +126,8 @@ public sealed class CommentCsvImporterTests
 
             var comments = await CommentCsvImporter.LoadAsync(path, ProtocolKind.Slmp);
 
-            Assert.Equal("軸３エラー検出", comments["X0A"]);
-            Assert.Equal("データ保護キー3", comments["Y41A"]);
+            Assert.Equal("Axis alarm", comments["X0A"]);
+            Assert.Equal("Data protect key", comments["Y41A"]);
         }
         finally
         {
