@@ -3,7 +3,7 @@ namespace PlcScope.Core.Models;
 public sealed record ConnectionSettings
 {
     public ProtocolKind Protocol { get; init; } = ProtocolKind.Slmp;
-    public string Host { get; init; } = "192.168.1.10";
+    public string Host { get; init; } = "192.168.250.100";
     public int Port { get; init; } = 1025;
     public double TimeoutSeconds { get; init; } = 3;
     public TransportMode Transport { get; init; } = TransportMode.Tcp;
