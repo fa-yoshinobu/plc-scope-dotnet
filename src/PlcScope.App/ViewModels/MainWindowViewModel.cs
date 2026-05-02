@@ -388,6 +388,36 @@ public partial class MainWindowViewModel : ObservableObject
             await ReadOnceAsync().ConfigureAwait(true);
     }
 
+    public async Task ImportWatchListCsvAsync(string path, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var text = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(true);
+        var items = WatchListCsvSerializer.Parse(text);
+        WatchItems.Clear();
+        foreach (var item in items)
+        {
+            WatchItems.Add(new WatchItemViewModel(item));
+        }
+
+        UpdateWatchCommentsFromCsv();
+        SelectedWatchItem = WatchItems.FirstOrDefault();
+        ErrorText = string.Empty;
+        OnPropertyChanged(nameof(UiAutomationStateText));
+
+        if (IsConnected && SelectedMainTabIndex == 1)
+            await ReadOnceAsync().ConfigureAwait(true);
+    }
+
+    public async Task ExportWatchListCsvAsync(string path, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var text = WatchListCsvSerializer.Format(WatchItems.Select(static item => item.ToModel()));
+        await File.WriteAllTextAsync(path, text, cancellationToken).ConfigureAwait(true);
+        ErrorText = string.Empty;
+    }
+
     public Task<IReadOnlyList<TraceEntry>> LoadTraceEntriesAsync(int maxCount = 500) =>
         _logStore.LoadRecentTraceAsync(maxCount);
 
@@ -719,6 +749,24 @@ public partial class MainWindowViewModel : ObservableObject
         SelectedWatchItem = WatchItems.LastOrDefault();
     }
 
+    public void MoveWatchItemToIndex(WatchItemViewModel item, int insertionIndex)
+    {
+        var currentIndex = WatchItems.IndexOf(item);
+        if (currentIndex < 0)
+            return;
+
+        var boundedInsertionIndex = Math.Clamp(insertionIndex, 0, WatchItems.Count);
+        var targetIndex = currentIndex < boundedInsertionIndex
+            ? boundedInsertionIndex - 1
+            : boundedInsertionIndex;
+
+        if (currentIndex == targetIndex)
+            return;
+
+        WatchItems.Move(currentIndex, targetIndex);
+        SelectedWatchItem = item;
+    }
+
     private async Task ReadWatchListAsync()
     {
         if (_session is null || ConnectionState != ConnectionState.Connected)
@@ -796,6 +844,13 @@ public partial class MainWindowViewModel : ObservableObject
         if (item.DataType != dataType)
             item.DataType = dataType;
 
+        var displayMode = dataType switch
+        {
+            ValueDataType.Bit => BlockDisplayMode.BitExpand,
+            ValueDataType.Int32 or ValueDataType.UInt32 => BlockDisplayMode.DWord,
+            ValueDataType.Float32 => BlockDisplayMode.Float32,
+            _ => BlockDisplayMode.Word,
+        };
         var query = new BlockQuery
         {
             Protocol = SelectedProtocol.Kind,
@@ -803,25 +858,22 @@ public partial class MainWindowViewModel : ObservableObject
             DeviceKind = family.Kind,
             AddressDisplayRule = family.AddressDisplayRule,
             StartAddress = item.Address,
-            ItemCount = 1,
+            ItemCount = GetWatchReadPointCount(family, displayMode),
             DisplayRadix = item.DisplayRadix,
-            DisplayMode = dataType switch
-            {
-                ValueDataType.Bit => BlockDisplayMode.Word,
-                ValueDataType.Int32 or ValueDataType.UInt32 => BlockDisplayMode.DWord,
-                ValueDataType.Float32 => BlockDisplayMode.Float32,
-                _ => BlockDisplayMode.Word,
-            },
+            DisplayMode = displayMode,
         };
 
         var result = await _session.ReadBlockAsync(query).ConfigureAwait(true);
         var normalizedAddress = result.ElementAddresses.FirstOrDefault() ?? item.Address;
-        if (dataType == ValueDataType.Bit || family.Kind == DeviceKind.Bit)
+        if (dataType == ValueDataType.Bit)
         {
             var value = result.BitValues.FirstOrDefault();
-            item.Bits.Clear();
+            SetWatchDirectBit(item, normalizedAddress, value, CanToggleWatchBits(family));
             return (value ? "1" : "0", string.Empty);
         }
+
+        if (family.Kind == DeviceKind.Bit)
+            return ReadWatchBitDeviceItem(item, dataType, item.DisplayRadix, result, family);
 
         if (dataType == ValueDataType.Float32)
         {
@@ -846,6 +898,79 @@ public partial class MainWindowViewModel : ObservableObject
             ? FormatInt16(unchecked((short)word), item.DisplayRadix)
             : NumericFormatter.FormatWord(word, item.DisplayRadix);
         return (text, $"0x{word:X4}");
+    }
+
+    private (string ValueText, string RawText) ReadWatchBitDeviceItem(
+        WatchItemViewModel item,
+        ValueDataType dataType,
+        DisplayRadix displayRadix,
+        BlockReadResult result,
+        DeviceFamilyDefinition family)
+    {
+        if (dataType == ValueDataType.Float32)
+        {
+            var raw = PackBits(result.BitValues, 32);
+            SetWatchBits(item, result.BitValues, result.ElementAddresses, 32, CanToggleWatchBits(family));
+            return (NumericFormatter.FormatFloat(NumericFormatter.RawBitsToFloat(raw)), $"0x{raw:X8}");
+        }
+
+        if (dataType is ValueDataType.Int32 or ValueDataType.UInt32)
+        {
+            var raw = PackBits(result.BitValues, 32);
+            SetWatchBits(item, result.BitValues, result.ElementAddresses, 32, CanToggleWatchBits(family));
+            var valueText = dataType == ValueDataType.Int32
+                ? FormatInt32(unchecked((int)raw), displayRadix)
+                : NumericFormatter.FormatDWord(raw, displayRadix);
+            return (valueText, $"0x{raw:X8}");
+        }
+
+        var word = (ushort)PackBits(result.BitValues, 16);
+        SetWatchBits(item, result.BitValues, result.ElementAddresses, 16, CanToggleWatchBits(family));
+        var text = dataType == ValueDataType.Int16
+            ? FormatInt16(unchecked((short)word), displayRadix)
+            : NumericFormatter.FormatWord(word, displayRadix);
+        return (text, $"0x{word:X4}");
+    }
+
+    private int GetWatchReadPointCount(DeviceFamilyDefinition family, BlockDisplayMode displayMode)
+    {
+        if (family.Kind != DeviceKind.Bit)
+            return 1;
+
+        return MonitorRangePlanner.GetBitDevicePointsPerRow(SelectedProtocol.Kind, family, displayMode);
+    }
+
+    private static uint PackBits(IReadOnlyList<bool> bits, int bitCount)
+    {
+        uint value = 0;
+        var count = Math.Min(bitCount, bits.Count);
+        for (var index = 0; index < count; index++)
+        {
+            if (bits[index])
+                value |= 1u << index;
+        }
+
+        return value;
+    }
+
+    private void SetWatchDirectBit(WatchItemViewModel item, string address, bool value, bool canToggle)
+    {
+        if (item.Bits.Count == 1
+            && item.Bits[0].BitIndex == 0
+            && string.Equals(item.Bits[0].Address, address, StringComparison.Ordinal))
+        {
+            item.Bits[0].IsOn = value;
+            item.Bits[0].CanToggle = canToggle;
+            return;
+        }
+
+        item.Bits.Clear();
+        item.Bits.Add(new BitCellViewModel(
+            0,
+            value,
+            address,
+            canToggle,
+            canToggle ? next => WriteWatchDirectBitAsync(address, next) : null));
     }
 
     private void SetWatchBits(WatchItemViewModel item, string wordAddress, uint value, int bitCount, bool canToggleBits)
@@ -886,6 +1011,70 @@ public partial class MainWindowViewModel : ObservableObject
                 $"{wordAddress}.{bitIndex}",
                 canToggleBits,
                 canToggleBits ? next => WriteWatchBitAsync(wordAddress, bitIndex, next) : null));
+        }
+    }
+
+    private void SetWatchBits(
+        WatchItemViewModel item,
+        IReadOnlyList<bool> values,
+        IReadOnlyList<string> addresses,
+        int bitCount,
+        bool canToggleBits)
+    {
+        if (item.Bits.Count == bitCount)
+        {
+            var canReuse = true;
+            for (var index = 0; index < bitCount; index++)
+            {
+                var sourceIndex = bitCount - 1 - index;
+                var expectedAddress = sourceIndex < addresses.Count ? addresses[sourceIndex] : string.Empty;
+                if (item.Bits[index].BitIndex != sourceIndex
+                    || !string.Equals(item.Bits[index].Address, expectedAddress, StringComparison.Ordinal))
+                {
+                    canReuse = false;
+                    break;
+                }
+            }
+
+            if (canReuse)
+            {
+                foreach (var bit in item.Bits)
+                {
+                    bit.IsOn = bit.BitIndex < values.Count && values[bit.BitIndex];
+                    bit.CanToggle = canToggleBits;
+                }
+
+                return;
+            }
+        }
+
+        item.Bits.Clear();
+        for (var bit = bitCount - 1; bit >= 0; bit--)
+        {
+            var bitIndex = bit;
+            var address = bitIndex < addresses.Count ? addresses[bitIndex] : string.Empty;
+            item.Bits.Add(new BitCellViewModel(
+                bitIndex,
+                bitIndex < values.Count && values[bitIndex],
+                address,
+                canToggleBits,
+                canToggleBits && !string.IsNullOrWhiteSpace(address) ? next => WriteWatchDirectBitAsync(address, next) : null));
+        }
+    }
+
+    private async Task WriteWatchDirectBitAsync(string address, bool value)
+    {
+        if (_session is null)
+            return;
+
+        try
+        {
+            await _session.WriteAsync(new WriteRequest(address, ValueDataType.Bit, value)).ConfigureAwait(true);
+            await ReadWatchListAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            await LogErrorAsync("Watch bit", exception).ConfigureAwait(true);
         }
     }
 

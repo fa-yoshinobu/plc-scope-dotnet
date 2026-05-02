@@ -49,8 +49,7 @@ public sealed class MainWindowUiTests
             Assert.NotNull(FindFirst(window, condition.ByAutomationId("MonitorListBox")));
 
             FindFirst(window, condition.ByAutomationId("WatchTab")).Click();
-            var watchGrid = FindFirst(window, condition.ByAutomationId("WatchDataGrid")).AsGrid();
-            Assert.NotNull(watchGrid);
+            Assert.NotNull(FindFirst(window, condition.ByAutomationId("WatchListBox")));
         }
         finally
         {
@@ -109,7 +108,7 @@ public sealed class MainWindowUiTests
                 timeoutMessage: $"Expected monitor start to move after start address edit. Current state: {window.HelpText}");
 
             FindFirst(window, condition.ByAutomationId("WatchTab")).Click();
-            var watchGrid = FindFirst(window, condition.ByAutomationId("WatchDataGrid"));
+            var watchGrid = FindFirst(window, condition.ByAutomationId("WatchListBox"));
             var initialWatchStart = GetStateInt(window, "watchStart");
             ScrollDownUntilStateIncreases(window, watchGrid, condition, "watchStart", initialWatchStart);
         }

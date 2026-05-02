@@ -14,7 +14,6 @@ public partial class WatchItemViewModel : ObservableObject
     public WatchItemViewModel(WatchItem item)
     {
         Id = string.IsNullOrWhiteSpace(item.Id) ? Guid.NewGuid().ToString("N") : item.Id;
-        IsEnabled = item.IsEnabled;
         Address = item.Address;
         DataType = item.DataType;
         DisplayRadix = item.DisplayRadix;
@@ -22,9 +21,6 @@ public partial class WatchItemViewModel : ObservableObject
     }
 
     public string Id { get; }
-
-    [ObservableProperty]
-    private bool isEnabled = true;
 
     [ObservableProperty]
     private string address = string.Empty;
@@ -58,7 +54,6 @@ public partial class WatchItemViewModel : ObservableObject
     public WatchItem ToModel() => new()
     {
         Id = Id,
-        IsEnabled = IsEnabled,
         Address = Address,
         DataType = DataType,
         DisplayRadix = DisplayRadix,

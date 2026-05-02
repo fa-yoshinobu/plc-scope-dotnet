@@ -26,7 +26,6 @@ public sealed record ProjectFile
 public sealed record WatchItem
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
-    public bool IsEnabled { get; init; } = true;
     public string Address { get; init; } = string.Empty;
     public ValueDataType DataType { get; init; } = ValueDataType.UInt16;
     public DisplayRadix DisplayRadix { get; init; } = DisplayRadix.Decimal;
