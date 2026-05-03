@@ -32,7 +32,7 @@ public sealed class JsonStoreTests
                     {
                         Address = "DM200",
                         DataType = ValueDataType.UInt16,
-                        DisplayRadix = DisplayRadix.Hexadecimal,
+                        DisplayRadix = DisplayRadix.Hex,
                         Comment = "watch",
                     },
                 ],
@@ -51,7 +51,7 @@ public sealed class JsonStoreTests
             Assert.Equal("10.0.0.5", loaded.Connection.Host);
             Assert.Equal("DM100", loaded.Blocks[0].StartAddress);
             Assert.Equal("DM200", loaded.WatchItems[0].Address);
-            Assert.Equal(DisplayRadix.Hexadecimal, loaded.WatchItems[0].DisplayRadix);
+            Assert.Equal(DisplayRadix.Hex, loaded.WatchItems[0].DisplayRadix);
             Assert.Equal(2, loaded.CommentCsvPaths?.Count);
             Assert.DoesNotContain("runtime-only value", json, StringComparison.OrdinalIgnoreCase);
         }

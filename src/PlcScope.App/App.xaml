@@ -21,6 +21,7 @@
     <SolidColorBrush x:Key="AppAccentForegroundBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="AppAccentHoverBrush" Color="#1D4ED8" />
     <SolidColorBrush x:Key="AppSelectionBrush" Color="#1E3A8A" />
+    <SolidColorBrush x:Key="AppSelectionForegroundBrush" Color="#F9FAFB" />
     <SolidColorBrush x:Key="AppRowHoverBrush" Color="#27364A" />
     <SolidColorBrush x:Key="AppSuccessBrush" Color="#22C55E" />
     <SolidColorBrush x:Key="AppSuccessSoftBrush" Color="#12351F" />
@@ -43,6 +44,7 @@
     <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F9FAFB" />
     <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#1F2937" />
     <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#F9FAFB" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#1E3A8A" />
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#1E3A8A" />
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#F9FAFB" />
     <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#1E3A8A" />
@@ -287,6 +289,7 @@
         </Trigger>
         <Trigger Property="IsSelected" Value="True">
           <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
         </Trigger>
       </Style.Triggers>
     </Style>
@@ -316,13 +319,99 @@
     <Style TargetType="{x:Type MenuItem}">
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
       <Setter Property="Padding" Value="10,5" />
-      <Style.Triggers>
-        <Trigger Property="IsHighlighted" Value="True">
-          <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
-          <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
-        </Trigger>
-      </Style.Triggers>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type MenuItem}">
+            <Border x:Name="MenuItemBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="Transparent"
+                    BorderThickness="0"
+                    SnapsToDevicePixels="True">
+              <Grid>
+                <ContentPresenter ContentSource="Header"
+                                  Margin="{TemplateBinding Padding}"
+                                  RecognizesAccessKey="True"
+                                  TextElement.Foreground="{TemplateBinding Foreground}" />
+                <Popup x:Name="PART_Popup"
+                       AllowsTransparency="False"
+                       Focusable="False"
+                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                       Placement="Bottom"
+                       PopupAnimation="None">
+                  <Border Background="{DynamicResource AppPanelBrush}"
+                          BorderBrush="{DynamicResource AppBorderBrush}"
+                          BorderThickness="1"
+                          MinWidth="180">
+                    <ScrollViewer CanContentScroll="True"
+                                  VerticalScrollBarVisibility="Auto">
+                      <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </ScrollViewer>
+                  </Border>
+                </Popup>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Role" Value="SubmenuItem">
+                <Setter TargetName="PART_Popup" Property="Placement" Value="Right" />
+              </Trigger>
+              <Trigger Property="Role" Value="SubmenuHeader">
+                <Setter TargetName="PART_Popup" Property="Placement" Value="Right" />
+              </Trigger>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="MenuItemBorder" Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+                <Setter TargetName="MenuItemBorder" Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+              </Trigger>
+              <Trigger Property="IsSubmenuOpen" Value="True">
+                <Setter TargetName="MenuItemBorder" Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+                <Setter TargetName="MenuItemBorder" Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource AppForegroundMutedBrush}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type ContextMenu}">
+      <Setter Property="Background" Value="{DynamicResource AppPanelBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="SnapsToDevicePixels" Value="True" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ContextMenu}">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    SnapsToDevicePixels="True">
+              <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type Separator}">
+      <Setter Property="Background" Value="{DynamicResource AppBorderSubtleBrush}" />
+      <Setter Property="Margin" Value="0,3" />
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type Separator}">
+            <Border Height="{TemplateBinding Height}"
+                    Margin="{TemplateBinding Margin}"
+                    Background="{TemplateBinding Background}"
+                    SnapsToDevicePixels="True" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <Style TargetType="{x:Type StatusBar}">
@@ -380,6 +469,7 @@
     <Style TargetType="{x:Type ListBoxItem}">
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="Transparent" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Padding" Value="4,2" />
       <Setter Property="Template">
@@ -392,11 +482,13 @@
                     SnapsToDevicePixels="True">
               <ContentPresenter Margin="{TemplateBinding Padding}"
                                 HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -425,6 +517,48 @@
       <Setter Property="BorderThickness" Value="0,0,1,1" />
       <Setter Property="Padding" Value="8,7" />
       <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type DataGridColumnHeader}">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                RecognizesAccessKey="True"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="{x:Type GridViewColumnHeader}">
+      <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+      <Setter Property="Padding" Value="8,7" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                RecognizesAccessKey="True"
+                                TextElement.Foreground="{TemplateBinding Foreground}" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <Style TargetType="{x:Type DataGridCell}">
@@ -434,7 +568,7 @@
       <Style.Triggers>
         <Trigger Property="IsSelected" Value="True">
           <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
-          <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
         </Trigger>
       </Style.Triggers>
     </Style>

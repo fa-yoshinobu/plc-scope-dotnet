@@ -23,7 +23,6 @@
         <ContextMenu>
           <MenuItem Header="Copy selected" Click="CopySelectedButton_Click" />
           <MenuItem Header="Copy all" Click="CopyAllButton_Click" />
-          <Separator />
           <MenuItem Header="Clear history" Click="ClearHistoryButton_Click" />
         </ContextMenu>
       </DataGrid.ContextMenu>

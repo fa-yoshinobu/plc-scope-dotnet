@@ -48,7 +48,16 @@
     <TabControl Grid.Row="2">
       <TabItem Header="Libraries">
         <Grid Margin="8">
-          <ListView x:Name="LibrariesListView">
+          <ListView x:Name="LibrariesListView"
+                    Focusable="False"
+                    SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+              <Style TargetType="{x:Type ListViewItem}">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="IsHitTestVisible" Value="False" />
+                <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+              </Style>
+            </ListView.ItemContainerStyle>
             <ListView.View>
               <GridView>
                 <GridViewColumn Header="Library" Width="220" DisplayMemberBinding="{Binding Name}" />

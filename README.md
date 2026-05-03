@@ -1,6 +1,19 @@
 # PLC Scope
 
-PLC Scope is a Windows PLC I/O monitor for reading and writing device values from a desktop UI.
+![Version](https://img.shields.io/badge/version-0.1.3-blue)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D4)
+![.NET](https://img.shields.io/badge/.NET-9.0-512BD4)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+PLC Scope is a Windows desktop tool for monitoring and writing PLC device values.
+
+It is intended for live I/O checks: select a protocol, connect to a PLC, monitor a device range, and keep frequently used devices in a watch list.
+
+## Requirements
+
+- Windows
+- .NET 9 Runtime for framework-dependent builds
+- A PLC reachable by one of the supported protocols
 
 ## Supported Protocols
 
@@ -10,18 +23,102 @@ PLC Scope is a Windows PLC I/O monitor for reading and writing device values fro
 
 ## Main Features
 
-- Monitor visible PLC device ranges with periodic refresh.
-- Read only the visible monitor rows to reduce PLC and UI load.
-- Add monitor addresses to a watch view from the monitor context menu.
-- Watch list and monitor view are separated by tabs.
-- Watch list reads only the visible watch rows.
+- Monitor PLC device ranges with periodic refresh.
+- Read only visible monitor rows to reduce PLC and UI load.
+- Add monitor rows to the watch list from the right-click menu.
+- Keep monitor and watch list views in separate tabs.
+- Read only visible watch list rows.
+- Reorder watch list rows by drag and drop.
+- Import and export the watch list as CSV.
+- Import comments from one or more external comment CSV files.
+- Display values as `Dec` or `Hex`.
+- Display word bits as clickable bit cells.
 - Edit values inline and write with `Enter`.
-- Toggle writable bit cells from the monitor and watch views.
-- Display Word, DWord, Float32, Bit, decimal, hexadecimal, and binary formats.
-- Import comments from one or more external CSV files.
-- Save and load projects as JSON.
+- Pause refresh while a value is being edited so input is not overwritten.
+- Clamp out-of-range integer input to the target type range before writing.
+- Save and load project files as JSON.
 - Switch light and dark themes.
-- View recent error history.
+- View recent error history and optional protocol trace logs.
+
+## Basic Use
+
+1. Open `Connection settings`.
+2. Select the protocol and PLC connection settings.
+3. Click `Connect`.
+4. On the `Monitor` tab, choose `Device`, `Start address`, `Type`, and `Format`.
+5. Use the `Watch list` tab for devices you want to keep visible.
+
+## Monitor
+
+The Monitor tab shows a device range starting at `Start address`.
+
+Columns:
+
+- `Address`: PLC device address.
+- `Value`: editable value for writable numeric and bit rows.
+- `Hex`: raw hexadecimal value where applicable.
+- `Bits`: bit cells for word and packed bit displays.
+- `Comment`: imported comment text.
+
+For word bit expansion, child addresses such as `D0.0` are indented in the `Address` column. The other columns stay aligned with the parent word row.
+
+## Watch List
+
+Add an item from the Monitor tab by right-clicking a monitor row and selecting `Add to watch list`.
+
+The Watch list supports:
+
+- address, type, format, value, raw hex, bit cells, and comment columns
+- `Dec` and `Hex` formats
+- word bit addresses such as `D0.0`
+- duplicate address prevention
+- invalid address highlighting
+- row removal from the right-click menu or the `Delete` key
+- drag-and-drop row ordering
+- CSV import and export
+- immediate refresh when `Type` or `Format` changes
+
+When the address is a normal word address such as `D0`, `Bit` is not offered as a type. Use a word bit address such as `D0.0` when you want to monitor a single bit inside a word.
+
+## Writing Values
+
+Inline editing is available in the Monitor and Watch list views.
+
+- `Enter`: write the edited value
+- `Esc`: cancel monitor inline edit
+- Up / Down in a value cell: move to the value cell above or below
+
+Periodic refresh pauses while a value cell is being edited.
+
+Integer input above the target range is clamped before writing. Examples:
+
+- `Bit`: values less than `1` become `0`; values `1` or greater become `1`
+- `UInt16`: maximum `65535`
+- `Int16`: maximum `32767`
+- `UInt32`: maximum `4294967295`
+- `Int32`: maximum `2147483647`
+
+For bit cells, click the bit button to toggle the value when writing is supported by the selected protocol and device.
+
+## Comments
+
+Use `File` -> `Import comment CSV` to load comment text.
+
+The application can read comments from multiple CSV files. If multiple comments match the same device, `Comment1` has priority when it is present.
+
+Comment CSV files stay external to the project file. Project JSON stores the comment CSV paths, not the CSV contents.
+
+## Projects And Settings
+
+Projects are saved as JSON and include:
+
+- connection settings
+- monitor block settings
+- watch list entries
+- display settings used by the project
+- optional comment CSV paths
+
+Application settings are stored under `%LOCALAPPDATA%\PlcScope\settings.json`.
 
 ## TOYOPUC Notes
 
@@ -39,28 +136,6 @@ Use the `CPU` menu to issue `CPU RUN` or `CPU STOP`.
 
 Unsupported protocols disable CPU control. The status bar shows the latest CPU state when the protocol can read it.
 
-## Watch List
-
-Add an item from the Monitor tab by right-clicking a monitor row and selecting `Add to watch list`.
-
-The Watch tab supports:
-
-- address, type, format, value, raw hex, bit cells, and comment columns
-- duplicate address prevention
-- invalid address highlighting
-- row removal from the context menu or the `Delete` key
-- immediate refresh when `Type` or `Format` changes
-
-## Writing Values
-
-Inline editing is available in the monitor and watch views.
-
-- `Enter`: write the edited value
-- `Esc`: cancel monitor inline edit
-- periodic refresh pauses while editing to avoid overwriting input
-
-For bit cells, click the bit button to toggle the value when writing is supported by the protocol and device.
-
 ## Logs
 
 Open logs from the `Tools` menu.
@@ -74,18 +149,6 @@ Logs are stored next to the executable when write permission is available:
 - `error.log.jsonl`
 
 Each log keeps the latest 500 entries.
-
-## Projects And Settings
-
-Projects are saved as JSON and include:
-
-- connection settings
-- monitor block settings
-- watch list entries
-- display settings used by the project
-- optional comment CSV paths; comment text stays in the external CSV files
-
-Application settings are stored under `%LOCALAPPDATA%\PlcScope\settings.json`.
 
 ## Development
 
@@ -101,10 +164,16 @@ Test:
 dotnet test .\PlcScopeDotNet.sln
 ```
 
-Publish a Windows x64 folder build:
+Publish a Windows x64 single-file build:
 
-```powershell
-dotnet publish .\src\PlcScope.App\PlcScope.App.csproj -c Release -r win-x64 --self-contained false
+```cmd
+build.bat Release
+```
+
+Typical output:
+
+```text
+src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.App.exe
 ```
 
 ## Documentation

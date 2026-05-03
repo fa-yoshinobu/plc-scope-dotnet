@@ -9,18 +9,16 @@ public static class NumericFormatter
     public static string FormatWord(ushort value, DisplayRadix radix) =>
         radix switch
         {
-            DisplayRadix.Decimal => value.ToString(CultureInfo.InvariantCulture),
-            DisplayRadix.Hexadecimal => $"0x{value:X4}",
-            DisplayRadix.Binary => Convert.ToString(value, 2).PadLeft(16, '0'),
+            DisplayRadix.Dec => value.ToString(CultureInfo.InvariantCulture),
+            DisplayRadix.Hex => $"0x{value:X4}",
             _ => value.ToString(CultureInfo.InvariantCulture),
         };
 
     public static string FormatDWord(uint value, DisplayRadix radix) =>
         radix switch
         {
-            DisplayRadix.Decimal => value.ToString(CultureInfo.InvariantCulture),
-            DisplayRadix.Hexadecimal => $"0x{value:X8}",
-            DisplayRadix.Binary => Convert.ToString(value, 2).PadLeft(32, '0'),
+            DisplayRadix.Dec => value.ToString(CultureInfo.InvariantCulture),
+            DisplayRadix.Hex => $"0x{value:X8}",
             _ => value.ToString(CultureInfo.InvariantCulture),
         };
 
@@ -37,10 +35,9 @@ public static class NumericFormatter
         var normalized = NormalizeNumericText(text);
         return radix switch
         {
-            DisplayRadix.Decimal => ushort.Parse(normalized, CultureInfo.InvariantCulture),
-            DisplayRadix.Hexadecimal => ushort.Parse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-            DisplayRadix.Binary => Convert.ToUInt16(normalized, 2),
-            _ => ushort.Parse(normalized, CultureInfo.InvariantCulture),
+            DisplayRadix.Dec => (ushort)ParseUnsignedWithUpperClamp(normalized, ushort.MaxValue, isHex: false),
+            DisplayRadix.Hex => (ushort)ParseUnsignedWithUpperClamp(normalized, ushort.MaxValue, isHex: true),
+            _ => (ushort)ParseUnsignedWithUpperClamp(normalized, ushort.MaxValue, isHex: false),
         };
     }
 
@@ -49,10 +46,9 @@ public static class NumericFormatter
         var normalized = NormalizeNumericText(text);
         return radix switch
         {
-            DisplayRadix.Decimal => uint.Parse(normalized, CultureInfo.InvariantCulture),
-            DisplayRadix.Hexadecimal => uint.Parse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture),
-            DisplayRadix.Binary => Convert.ToUInt32(normalized, 2),
-            _ => uint.Parse(normalized, CultureInfo.InvariantCulture),
+            DisplayRadix.Dec => (uint)ParseUnsignedWithUpperClamp(normalized, uint.MaxValue, isHex: false),
+            DisplayRadix.Hex => (uint)ParseUnsignedWithUpperClamp(normalized, uint.MaxValue, isHex: true),
+            _ => (uint)ParseUnsignedWithUpperClamp(normalized, uint.MaxValue, isHex: false),
         };
     }
 
@@ -65,11 +61,12 @@ public static class NumericFormatter
             {
                 "1" or "TRUE" or "ON" => true,
                 "0" or "FALSE" or "OFF" => false,
+                _ when decimal.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitValue) => bitValue >= 1,
                 _ => throw new FormatException("Bit value must be 0/1, ON/OFF, or TRUE/FALSE."),
             },
-            ValueDataType.Int16 => unchecked((short)ParseWord(normalized, radix)),
+            ValueDataType.Int16 => ParseInt16(normalized, radix),
             ValueDataType.UInt16 => ParseWord(normalized, radix),
-            ValueDataType.Int32 => unchecked((int)ParseDWord(normalized, radix)),
+            ValueDataType.Int32 => ParseInt32(normalized, radix),
             ValueDataType.UInt32 => ParseDWord(normalized, radix),
             ValueDataType.Float32 => float.Parse(normalized, CultureInfo.InvariantCulture),
             _ => throw new ArgumentOutOfRangeException(nameof(dataType), dataType, null),
@@ -95,4 +92,68 @@ public static class NumericFormatter
             .Replace("0X", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("0B", string.Empty, StringComparison.OrdinalIgnoreCase)
             .ToUpperInvariant();
+
+    private static short ParseInt16(string normalized, DisplayRadix radix)
+    {
+        if (radix == DisplayRadix.Hex)
+        {
+            if (normalized.Length > 4)
+                return short.MaxValue;
+
+            return unchecked((short)ushort.Parse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+        }
+
+        return (short)ParseSignedWithRangeClamp(normalized, short.MinValue, short.MaxValue);
+    }
+
+    private static int ParseInt32(string normalized, DisplayRadix radix)
+    {
+        if (radix == DisplayRadix.Hex)
+        {
+            if (normalized.Length > 8)
+                return int.MaxValue;
+
+            return unchecked((int)uint.Parse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+        }
+
+        return (int)ParseSignedWithRangeClamp(normalized, int.MinValue, int.MaxValue);
+    }
+
+    private static ulong ParseUnsignedWithUpperClamp(string normalized, ulong maxValue, bool isHex)
+    {
+        if (isHex)
+        {
+            var maxDigits = maxValue == ushort.MaxValue ? 4 : 8;
+            if (normalized.Length > maxDigits)
+                return maxValue;
+
+            return ulong.Parse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        }
+
+        if (decimal.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            return value > maxValue ? maxValue : checked((ulong)value);
+
+        if (normalized.All(char.IsDigit))
+            return maxValue;
+
+        return ulong.Parse(normalized, CultureInfo.InvariantCulture);
+    }
+
+    private static long ParseSignedWithRangeClamp(string normalized, long minValue, long maxValue)
+    {
+        if (decimal.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+        {
+            if (value > maxValue)
+                return maxValue;
+            if (value < minValue)
+                return minValue;
+
+            return checked((long)value);
+        }
+
+        if (normalized.All(char.IsDigit))
+            return maxValue;
+
+        return long.Parse(normalized, CultureInfo.InvariantCulture);
+    }
 }

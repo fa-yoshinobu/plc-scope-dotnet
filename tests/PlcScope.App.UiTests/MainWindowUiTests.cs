@@ -49,8 +49,7 @@ public sealed class MainWindowUiTests
             Assert.NotNull(FindFirst(window, condition.ByAutomationId("MonitorListBox")));
 
             FindFirst(window, condition.ByAutomationId("WatchTab")).Click();
-            var watchGrid = FindFirst(window, condition.ByAutomationId("WatchDataGrid")).AsGrid();
-            Assert.NotNull(watchGrid);
+            Assert.NotNull(FindFirst(window, condition.ByAutomationId("WatchListBox")));
         }
         finally
         {
@@ -109,7 +108,7 @@ public sealed class MainWindowUiTests
                 timeoutMessage: $"Expected monitor start to move after start address edit. Current state: {window.HelpText}");
 
             FindFirst(window, condition.ByAutomationId("WatchTab")).Click();
-            var watchGrid = FindFirst(window, condition.ByAutomationId("WatchDataGrid"));
+            var watchGrid = FindFirst(window, condition.ByAutomationId("WatchListBox"));
             var initialWatchStart = GetStateInt(window, "watchStart");
             ScrollDownUntilStateIncreases(window, watchGrid, condition, "watchStart", initialWatchStart);
         }
@@ -148,6 +147,44 @@ public sealed class MainWindowUiTests
                 () => !GetStateBool(window, "inlineEditing"),
                 timeout: TimeSpan.FromSeconds(5),
                 throwOnTimeout: true);
+        }
+        finally
+        {
+            CloseApp(app);
+        }
+    }
+
+    [Fact]
+    public void MonitorInlineValue_DownKeyMovesFocusToNextValue()
+    {
+        var app = LaunchApp();
+        try
+        {
+            using var automation = new UIA3Automation();
+            var window = WaitForMainWindow(app, automation);
+            var condition = automation.ConditionFactory;
+
+            Retry.WhileFalse(
+                () => window.FindAllDescendants(condition.ByAutomationId("MonitorInlineValueTextBox")).Length >= 2,
+                timeout: TimeSpan.FromSeconds(5),
+                throwOnTimeout: true,
+                timeoutMessage: $"Expected at least two monitor value boxes. Current state: {window.HelpText}");
+
+            var valueBoxes = window
+                .FindAllDescendants(condition.ByAutomationId("MonitorInlineValueTextBox"))
+                .Select(element => element.AsTextBox())
+                .OrderBy(element => element.BoundingRectangle.Top)
+                .ToArray();
+
+            valueBoxes[0].Focus();
+            Keyboard.Press(FlaUI.Core.WindowsAPI.VirtualKeyShort.DOWN);
+            Keyboard.Type("123");
+
+            Retry.WhileFalse(
+                () => string.Equals(valueBoxes[1].Text, "123", StringComparison.Ordinal),
+                timeout: TimeSpan.FromSeconds(2),
+                throwOnTimeout: true,
+                timeoutMessage: "Expected Down key in a monitor value box to focus the next value box before typing.");
         }
         finally
         {
@@ -308,7 +345,7 @@ public sealed class MainWindowUiTests
         var watchItems = string.Join(
             "," + Environment.NewLine,
             Enumerable.Range(0, 160).Select(index =>
-                $$"""{"address":"D{{index}}","dataType":"UInt16","displayRadix":"Decimal","comment":"watch {{index}}"}"""));
+                $$"""{"address":"D{{index}}","dataType":"UInt16","displayRadix":"Dec","comment":"watch {{index}}"}"""));
         var json = $$"""
         {
           "projectVersion": "1.0",
@@ -321,7 +358,7 @@ public sealed class MainWindowUiTests
               "startAddress": "D0",
               "itemCount": 160,
               "displayMode": "Word",
-              "displayRadix": "Decimal"
+              "displayRadix": "Dec"
             }
           ],
           "watchItems": [

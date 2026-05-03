@@ -6,17 +6,28 @@ using PlcScope.Core.Services;
 public sealed class NumericFormatterTests
 {
     [Fact]
-    public void FormatWord_FormatsHexAndBinary()
+    public void FormatWord_FormatsDecAndHex()
     {
-        Assert.Equal("0x00FF", NumericFormatter.FormatWord(0x00FF, DisplayRadix.Hexadecimal));
-        Assert.Equal("0000000011111111", NumericFormatter.FormatWord(0x00FF, DisplayRadix.Binary));
+        Assert.Equal("0x00FF", NumericFormatter.FormatWord(0x00FF, DisplayRadix.Hex));
+        Assert.Equal("255", NumericFormatter.FormatWord(0x00FF, DisplayRadix.Dec));
     }
 
     [Fact]
     public void ParseByType_ParsesSignedAndFloat()
     {
-        Assert.Equal((short)-2, NumericFormatter.ParseByType("FFFE", ValueDataType.Int16, DisplayRadix.Hexadecimal));
-        Assert.Equal(3.5f, NumericFormatter.ParseByType("3.5", ValueDataType.Float32, DisplayRadix.Decimal));
+        Assert.Equal((short)-2, NumericFormatter.ParseByType("FFFE", ValueDataType.Int16, DisplayRadix.Hex));
+        Assert.Equal(3.5f, NumericFormatter.ParseByType("3.5", ValueDataType.Float32, DisplayRadix.Dec));
+    }
+
+    [Fact]
+    public void ParseByType_ClampsIntegerValuesAboveTypeRange()
+    {
+        Assert.Equal(true, NumericFormatter.ParseByType("2", ValueDataType.Bit, DisplayRadix.Dec));
+        Assert.Equal(false, NumericFormatter.ParseByType("-1", ValueDataType.Bit, DisplayRadix.Dec));
+        Assert.Equal(ushort.MaxValue, NumericFormatter.ParseByType("70000", ValueDataType.UInt16, DisplayRadix.Dec));
+        Assert.Equal(short.MaxValue, NumericFormatter.ParseByType("40000", ValueDataType.Int16, DisplayRadix.Dec));
+        Assert.Equal(uint.MaxValue, NumericFormatter.ParseByType("999999999999999999999", ValueDataType.UInt32, DisplayRadix.Dec));
+        Assert.Equal(int.MaxValue, NumericFormatter.ParseByType("FFFFFFFFF", ValueDataType.Int32, DisplayRadix.Hex));
     }
 
     [Fact]

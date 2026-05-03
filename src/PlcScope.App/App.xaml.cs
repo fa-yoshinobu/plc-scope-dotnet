@@ -35,6 +35,7 @@ public partial class App : Application
                 ["AppAccentForegroundBrush"] = "#FFFFFF",
                 ["AppAccentHoverBrush"] = "#1D4ED8",
                 ["AppSelectionBrush"] = "#1E3A8A",
+                ["AppSelectionForegroundBrush"] = "#F9FAFB",
                 ["AppRowHoverBrush"] = "#27364A",
                 ["AppSuccessBrush"] = "#22C55E",
                 ["AppSuccessSoftBrush"] = "#12351F",
@@ -71,6 +72,7 @@ public partial class App : Application
                 ["AppAccentForegroundBrush"] = "#FFFFFF",
                 ["AppAccentHoverBrush"] = "#166534",
                 ["AppSelectionBrush"] = "#BBF7D0",
+                ["AppSelectionForegroundBrush"] = "#030712",
                 ["AppRowHoverBrush"] = "#F0FDF4",
                 ["AppSuccessBrush"] = "#16A34A",
                 ["AppSuccessSoftBrush"] = "#DCFCE7",
@@ -107,10 +109,11 @@ public partial class App : Application
         SetBrush(SystemColors.WindowTextBrushKey, colors["AppForegroundStrongBrush"]);
         SetBrush(SystemColors.MenuBrushKey, colors["AppHeaderBrush"]);
         SetBrush(SystemColors.MenuTextBrushKey, colors["AppForegroundStrongBrush"]);
+        SetBrush(SystemColors.MenuHighlightBrushKey, colors["AppSelectionBrush"]);
         SetBrush(SystemColors.HighlightBrushKey, colors["AppSelectionBrush"]);
-        SetBrush(SystemColors.HighlightTextBrushKey, colors["AppForegroundStrongBrush"]);
+        SetBrush(SystemColors.HighlightTextBrushKey, colors["AppSelectionForegroundBrush"]);
         SetBrush(SystemColors.InactiveSelectionHighlightBrushKey, colors["AppSelectionBrush"]);
-        SetBrush(SystemColors.InactiveSelectionHighlightTextBrushKey, colors["AppForegroundBrush"]);
+        SetBrush(SystemColors.InactiveSelectionHighlightTextBrushKey, colors["AppSelectionForegroundBrush"]);
     }
 
     protected override void OnStartup(StartupEventArgs e)

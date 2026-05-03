@@ -50,9 +50,8 @@ public enum BitDisplayMode
 
 public enum DisplayRadix
 {
-    Decimal,
-    Hexadecimal,
-    Binary,
+    Dec,
+    Hex,
 }
 
 public enum ValueDataType

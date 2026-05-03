@@ -27,9 +27,9 @@ internal sealed partial class AboutWindow : Window
             new LibraryInfo("PlcScope.Infrastructure", GetAssemblyVersionText(typeof(PlcSessionFactory).Assembly), "MIT", "PLC communication adapters"),
             new LibraryInfo("CommunityToolkit.Mvvm", GetAssemblyVersionText(typeof(ObservableObject).Assembly), "MIT", "MVVM helpers"),
             new LibraryInfo("Microsoft.Extensions.DependencyInjection", GetAssemblyVersionText(typeof(ServiceCollection).Assembly), "MIT", "Dependency injection"),
-            new LibraryInfo("PlcComm.Slmp", GetAssemblyVersionText("PlcComm.Slmp"), "See package", "MELSEC SLMP communication"),
-            new LibraryInfo("PlcComm.KvHostLink", GetAssemblyVersionText("PlcComm.KvHostLink"), "See package", "KEYENCE Host Link communication"),
-            new LibraryInfo("PlcComm.Toyopuc", GetAssemblyVersionText("PlcComm.Toyopuc"), "See package", "TOYOPUC Computer Link communication"),
+            new LibraryInfo("PlcComm.Slmp", GetAssemblyVersionText("PlcComm.Slmp"), "MIT", "MELSEC SLMP communication"),
+            new LibraryInfo("PlcComm.KvHostLink", GetAssemblyVersionText("PlcComm.KvHostLink"), "MIT", "KEYENCE Host Link communication"),
+            new LibraryInfo("PlcComm.Toyopuc", GetAssemblyVersionText("PlcComm.Toyopuc"), "MIT", "TOYOPUC Computer Link communication"),
             new LibraryInfo(".NET Runtime", Environment.Version.ToString(), "MIT", "Application runtime"),
         };
 

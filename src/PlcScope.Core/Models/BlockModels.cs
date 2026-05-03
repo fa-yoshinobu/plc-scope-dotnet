@@ -12,7 +12,7 @@ public sealed record BlockQuery
     public int ItemCount { get; init; } = 16;
     public BlockDisplayMode DisplayMode { get; init; } = BlockDisplayMode.Word;
     public BitDisplayMode BitDisplayMode { get; init; } = BitDisplayMode.Packed16;
-    public DisplayRadix DisplayRadix { get; init; } = DisplayRadix.Decimal;
+    public DisplayRadix DisplayRadix { get; init; } = DisplayRadix.Dec;
 
     public int EffectiveItemCount => Math.Max(1, ItemCount);
 }

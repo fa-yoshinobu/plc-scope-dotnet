@@ -2,6 +2,7 @@
 
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -13,9 +14,13 @@ using PlcScope.App.Windows;
 
 public partial class MainWindow : Window
 {
+    private const string WatchItemDragFormat = "PlcScopeWatchItem";
+
     private ScrollViewer? _monitorScrollViewer;
     private ScrollViewer? _watchScrollViewer;
     private MonitorRowViewModel? _contextMenuMonitorRow;
+    private WatchItemViewModel? _watchDragItem;
+    private Point _watchDragStartPoint;
     private bool _isProgrammaticMonitorScroll;
 
     public MainWindow(MainWindowViewModel viewModel)
@@ -120,6 +125,47 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ImportWatchListCsvMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Watch list CSV (*.csv)|*.csv|All files (*.*)|*.*",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            await ViewModel.ImportWatchListCsvAsync(dialog.FileName).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "Could not import watch list CSV", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void ExportWatchListCsvMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Watch list CSV (*.csv)|*.csv|All files (*.*)|*.*",
+            FileName = "watch-list.csv",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            await ViewModel.ExportWatchListCsvAsync(dialog.FileName).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "Could not export watch list CSV", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private async void TraceLogMenuItem_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -171,6 +217,7 @@ public partial class MainWindow : Window
             return;
 
         _monitorScrollViewer.ScrollChanged += MonitorScrollViewer_ScrollChanged;
+        SyncMonitorHeaderHorizontalOffset();
         UpdateVisibleMonitorRange(isScrollActivity: false);
         ViewModel.RequestScrollToStartAddress();
     }
@@ -186,6 +233,9 @@ public partial class MainWindow : Window
     private void MonitorScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         var isVerticalScroll = Math.Abs(e.VerticalChange) > 0.001;
+        if (Math.Abs(e.HorizontalChange) > 0.001)
+            SyncMonitorHeaderHorizontalOffset();
+
         UpdateVisibleMonitorRange(isVerticalScroll && !_isProgrammaticMonitorScroll);
     }
 
@@ -216,6 +266,7 @@ public partial class MainWindow : Window
 
                 _isProgrammaticMonitorScroll = true;
                 _monitorScrollViewer.ScrollToVerticalOffset(boundedRowIndex);
+                SyncMonitorHeaderHorizontalOffset();
                 UpdateVisibleMonitorRange(isScrollActivity: false);
                 Dispatcher.BeginInvoke(() => _isProgrammaticMonitorScroll = false, DispatcherPriority.ContextIdle);
             },
@@ -231,17 +282,18 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void WatchDataGrid_Loaded(object sender, RoutedEventArgs e)
+    private void WatchListBox_Loaded(object sender, RoutedEventArgs e)
     {
-        _watchScrollViewer = FindDescendant<ScrollViewer>(WatchDataGrid);
+        _watchScrollViewer = FindDescendant<ScrollViewer>(WatchListBox);
         if (_watchScrollViewer is null)
             return;
 
         _watchScrollViewer.ScrollChanged += WatchScrollViewer_ScrollChanged;
+        SyncWatchHeaderHorizontalOffset();
         UpdateVisibleWatchRange();
     }
 
-    private void WatchDataGrid_Unloaded(object sender, RoutedEventArgs e)
+    private void WatchListBox_Unloaded(object sender, RoutedEventArgs e)
     {
         if (_watchScrollViewer is not null)
             _watchScrollViewer.ScrollChanged -= WatchScrollViewer_ScrollChanged;
@@ -252,10 +304,25 @@ public partial class MainWindow : Window
     private void WatchScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         var isVerticalScroll = Math.Abs(e.VerticalChange) > 0.001;
+        if (Math.Abs(e.HorizontalChange) > 0.001)
+            SyncWatchHeaderHorizontalOffset();
+
         if (isVerticalScroll)
             ViewModel.NotifyScrollActivity();
 
         UpdateVisibleWatchRange();
+    }
+
+    private void SyncMonitorHeaderHorizontalOffset()
+    {
+        if (_monitorScrollViewer is not null)
+            MonitorHeaderScrollViewer.ScrollToHorizontalOffset(_monitorScrollViewer.HorizontalOffset);
+    }
+
+    private void SyncWatchHeaderHorizontalOffset()
+    {
+        if (_watchScrollViewer is not null)
+            WatchHeaderScrollViewer.ScrollToHorizontalOffset(_watchScrollViewer.HorizontalOffset);
     }
 
     private void UpdateVisibleWatchRange()
@@ -272,6 +339,19 @@ public partial class MainWindow : Window
     {
         if (sender is ComboBox { IsDropDownOpen: false })
             e.Handled = true;
+    }
+
+    private void WatchOptionComboBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is not ComboBox { IsDropDownOpen: false } comboBox)
+            return;
+
+        e.Handled = true;
+        WatchListBox.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+        {
+            RoutedEvent = MouseWheelEvent,
+            Source = comboBox,
+        });
     }
 
     private void MonitorListBoxItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -296,10 +376,44 @@ public partial class MainWindow : Window
             item.IsValueEditing = true;
     }
 
+    private void WatchValueTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox { IsKeyboardFocusWithin: true, DataContext: WatchItemViewModel item })
+            item.IsValueEditing = true;
+    }
+
     private void WatchValueTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         if (sender is TextBox { DataContext: WatchItemViewModel item })
             item.IsValueEditing = false;
+    }
+
+    private void ValueTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var direction = e.Key switch
+        {
+            Key.Down => 1,
+            Key.Up => -1,
+            _ => 0,
+        };
+        if (direction == 0 || sender is not TextBox textBox)
+            return;
+
+        if (textBox.DataContext is WatchItemViewModel watchItem)
+            watchItem.IsValueEditing = true;
+
+        var automationId = AutomationProperties.GetAutomationId(textBox);
+        var targetListBox = automationId switch
+        {
+            "MonitorInlineValueTextBox" => MonitorListBox,
+            "WatchValueTextBox" => WatchListBox,
+            _ => null,
+        };
+        if (targetListBox is null)
+            return;
+
+        if (MoveValueFocus(targetListBox, textBox, automationId, direction))
+            e.Handled = true;
     }
 
     private async void WatchValueTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -316,6 +430,8 @@ public partial class MainWindow : Window
     {
         if (sender is not ComboBox { DataContext: WatchItemViewModel item } comboBox || e.AddedItems.Count == 0)
             return;
+        if (!comboBox.IsDropDownOpen && !comboBox.IsKeyboardFocusWithin)
+            return;
 
         switch (comboBox.SelectedItem)
         {
@@ -329,19 +445,64 @@ public partial class MainWindow : Window
                 return;
         }
 
-        WatchDataGrid.CommitEdit(DataGridEditingUnit.Cell, true);
         await ViewModel.RefreshWatchItemAsync(item).ConfigureAwait(true);
     }
 
-    private void WatchDataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    private void WatchListBoxItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not DataGridRow row)
+        if (sender is not ListBoxItem item)
             return;
 
-        row.IsSelected = true;
-        row.Focus();
-        if (row.DataContext is WatchItemViewModel item)
-            ViewModel.SelectedWatchItem = item;
+        item.IsSelected = true;
+        item.Focus();
+        if (item.DataContext is WatchItemViewModel watchItem)
+            ViewModel.SelectedWatchItem = watchItem;
+    }
+
+    private void WatchListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _watchDragStartPoint = e.GetPosition(WatchListBox);
+        _watchDragItem = null;
+
+        if (IsWatchDragSuppressed(e.OriginalSource as DependencyObject))
+            return;
+
+        var listBoxItem = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject);
+        _watchDragItem = listBoxItem?.DataContext as WatchItemViewModel;
+    }
+
+    private void WatchListBox_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed || _watchDragItem is null)
+            return;
+
+        var currentPoint = e.GetPosition(WatchListBox);
+        if (Math.Abs(currentPoint.X - _watchDragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(currentPoint.Y - _watchDragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        DragDrop.DoDragDrop(WatchListBox, new DataObject(WatchItemDragFormat, _watchDragItem), DragDropEffects.Move);
+        _watchDragItem = null;
+    }
+
+    private void WatchListBox_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(WatchItemDragFormat)
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void WatchListBox_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(WatchItemDragFormat) is not WatchItemViewModel item)
+            return;
+
+        var insertionIndex = GetWatchDropInsertionIndex(e);
+        ViewModel.MoveWatchItemToIndex(item, insertionIndex);
+        e.Handled = true;
     }
 
     private void RemoveWatchItemMenuItem_Click(object sender, RoutedEventArgs e)
@@ -350,7 +511,7 @@ public partial class MainWindow : Window
             ViewModel.RemoveWatchItemCommand.Execute(null);
     }
 
-    private void WatchDataGrid_KeyDown(object sender, KeyEventArgs e)
+    private void WatchListBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete)
             return;
@@ -359,6 +520,92 @@ public partial class MainWindow : Window
             ViewModel.RemoveWatchItemCommand.Execute(null);
 
         e.Handled = true;
+    }
+
+    private int GetWatchDropInsertionIndex(DragEventArgs e)
+    {
+        var listBoxItem = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject);
+        if (listBoxItem?.DataContext is not WatchItemViewModel targetItem)
+            return ViewModel.WatchItems.Count;
+
+        var targetIndex = WatchListBox.ItemContainerGenerator.IndexFromContainer(listBoxItem);
+        if (targetIndex < 0)
+            targetIndex = ViewModel.WatchItems.IndexOf(targetItem);
+        if (targetIndex < 0)
+            return ViewModel.WatchItems.Count;
+
+        var position = e.GetPosition(listBoxItem);
+        return position.Y > listBoxItem.ActualHeight / 2
+            ? targetIndex + 1
+            : targetIndex;
+    }
+
+    private static bool IsWatchDragSuppressed(DependencyObject? source) =>
+        FindAncestor<TextBox>(source) is not null
+        || FindAncestor<ComboBox>(source) is not null
+        || FindAncestor<Button>(source) is not null;
+
+    private bool MoveValueFocus(ListBox listBox, TextBox currentTextBox, string automationId, int direction)
+    {
+        var currentItem = FindAncestor<ListBoxItem>(currentTextBox);
+        var currentIndex = currentItem is not null
+            ? listBox.ItemContainerGenerator.IndexFromContainer(currentItem)
+            : -1;
+        if (currentIndex < 0)
+            currentIndex = listBox.Items.IndexOf(currentTextBox.DataContext);
+        if (currentIndex < 0)
+            return false;
+
+        for (var targetIndex = currentIndex + direction; targetIndex >= 0 && targetIndex < listBox.Items.Count; targetIndex += direction)
+        {
+            var item = listBox.Items[targetIndex];
+            listBox.SelectedItem = item;
+            listBox.ScrollIntoView(item);
+
+            if (listBox.ItemContainerGenerator.ContainerFromIndex(targetIndex) is ListBoxItem)
+            {
+                if (FocusValueTextBoxInItem(listBox, targetIndex, automationId))
+                    return true;
+
+                continue;
+            }
+
+            Dispatcher.BeginInvoke(
+                () => FocusValueTextBoxInItem(listBox, targetIndex, automationId),
+                DispatcherPriority.Loaded);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool FocusValueTextBoxInItem(ListBox listBox, int itemIndex, string automationId)
+    {
+        if (listBox.ItemContainerGenerator.ContainerFromIndex(itemIndex) is not ListBoxItem targetItem)
+            return false;
+
+        var textBox = FindDescendants<TextBox>(targetItem)
+            .FirstOrDefault(candidate => string.Equals(AutomationProperties.GetAutomationId(candidate), automationId, StringComparison.Ordinal));
+        if (textBox is null)
+            return false;
+
+        textBox.Focus();
+        textBox.SelectAll();
+        return true;
+    }
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+                yield return match;
+
+            foreach (var descendant in FindDescendants<T>(child))
+                yield return descendant;
+        }
     }
 
     private static T? FindDescendant<T>(DependencyObject root)
@@ -373,6 +620,20 @@ public partial class MainWindow : Window
             var descendant = FindDescendant<T>(child);
             if (descendant is not null)
                 return descendant;
+        }
+
+        return null;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? source)
+        where T : DependencyObject
+    {
+        while (source is not null)
+        {
+            if (source is T match)
+                return match;
+
+            source = VisualTreeHelper.GetParent(source);
         }
 
         return null;
