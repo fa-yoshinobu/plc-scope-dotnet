@@ -105,7 +105,7 @@ public sealed class BlockDataBuilderTests
             ["LTS0"],
             [],
             [false],
-            new Dictionary<string, string> { ["LTS0"] = "読取不可" },
+            new Dictionary<string, string> { ["LTS0"] = "Read unavailable" },
             DateTimeOffset.UtcNow,
             5,
             null);
@@ -113,7 +113,7 @@ public sealed class BlockDataBuilderTests
         var snapshot = BlockDataBuilder.Build(result);
 
         var row = Assert.IsType<SingleBitMonitorRow>(Assert.Single(snapshot.Rows));
-        Assert.Equal("読取不可", row.Comment);
+        Assert.Equal("Read unavailable", row.Comment);
     }
 
     [Fact]

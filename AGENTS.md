@@ -1,10 +1,10 @@
 # AGENTS.md
 
-## 作業判断ルール
+## Work Decision Rules
 
-- UI の選択肢、メニュー、ボタン、表示項目は、ユーザーの明示指示なしに削除しない。
-- デバイスが通常の読込/書込経路で扱えない場合でも、選択肢から外す判断はしない。まず専用経路、読取専用化、無効化、または明確なエラー表示で対応する。
-- 「読めない」「書けない」「PLC が拒否する」は UI 仕様変更の理由にはならない。UI 仕様を変える場合はユーザーに確認する。
-- デバイス選択の追加、削除、並び替えは、ユーザーの指示範囲だけを変更する。
-- 既存プロジェクトや設定 JSON に残っているデバイスは、選択肢から消えていても可能な限り安全に扱う。扱えない場合は、落とさず理由を表示する。
+- Do not remove UI options, menus, buttons, or visible fields unless the user explicitly asks for that change.
+- If a device cannot be handled by the normal read/write path, do not remove it from the choices by default. Prefer a dedicated path, read-only handling, disabled handling, or a clear error message first.
+- "Cannot read", "cannot write", or "the PLC rejects it" is not enough reason to change the UI specification. Ask the user before changing the UI specification.
+- Add, remove, or reorder device choices only within the scope explicitly requested by the user.
+- Device values already present in existing project files or settings JSON should be handled safely when possible, even if the device no longer appears in the current choices. If the value cannot be handled, show the reason instead of crashing.
 
