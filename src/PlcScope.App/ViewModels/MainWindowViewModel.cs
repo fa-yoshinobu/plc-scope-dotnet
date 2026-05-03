@@ -1,6 +1,8 @@
-﻿namespace PlcScope.App.ViewModels;
+namespace PlcScope.App.ViewModels;
 
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Windows.Threading;
@@ -102,9 +104,9 @@ public partial class MainWindowViewModel : ObservableObject
         MonitorDataType = ValueDataType.UInt16;
         DisplayMode = BlockDisplayMode.Word;
         BitDisplayMode = BitDisplayMode.Packed16;
-        DisplayRadix = DisplayRadix.Decimal;
+        DisplayRadix = DisplayRadix.Dec;
         SelectedWriteDataType = ValueDataType.UInt16;
-        WriteRadix = DisplayRadix.Decimal;
+        WriteRadix = DisplayRadix.Dec;
 
         ConnectCommand = new AsyncRelayCommand(ConnectAsync);
         DisconnectCommand = new AsyncRelayCommand(DisconnectAsync);
@@ -114,6 +116,7 @@ public partial class MainWindowViewModel : ObservableObject
         CpuRunCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Run));
         CpuStopCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Stop));
         RemoveWatchItemCommand = new RelayCommand(RemoveSelectedWatchItem);
+        WatchItems.CollectionChanged += WatchItems_CollectionChanged;
 
         EnsureRowsForCurrentLayout();
     }
@@ -359,12 +362,12 @@ public partial class MainWindowViewModel : ObservableObject
         MonitorDataType = ValueDataType.UInt16;
         DisplayMode = BlockDisplayMode.Word;
         BitDisplayMode = BitDisplayMode.Packed16;
-        DisplayRadix = DisplayRadix.Decimal;
+        DisplayRadix = DisplayRadix.Dec;
         AutoRefreshEnabled = true;
         WriteAddress = string.Empty;
         WriteValueText = string.Empty;
         SelectedWriteDataType = ValueDataType.UInt16;
-        WriteRadix = DisplayRadix.Decimal;
+        WriteRadix = DisplayRadix.Dec;
         WatchItems.Clear();
         Rows.Clear();
         _lastSnapshot = null;
@@ -767,6 +770,67 @@ public partial class MainWindowViewModel : ObservableObject
         SelectedWatchItem = item;
     }
 
+    private void WatchItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (WatchItemViewModel item in e.OldItems)
+            {
+                item.PropertyChanged -= WatchItem_PropertyChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (WatchItemViewModel item in e.NewItems)
+            {
+                item.PropertyChanged += WatchItem_PropertyChanged;
+                UpdateWatchAvailableDataTypes(item);
+            }
+        }
+    }
+
+    private void WatchItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is WatchItemViewModel item && e.PropertyName == nameof(WatchItemViewModel.Address))
+            UpdateWatchAvailableDataTypes(item);
+    }
+
+    private void UpdateAllWatchAvailableDataTypes()
+    {
+        foreach (var item in WatchItems)
+        {
+            UpdateWatchAvailableDataTypes(item);
+        }
+    }
+
+    private void UpdateWatchAvailableDataTypes(WatchItemViewModel item)
+    {
+        var availableDataTypes = GetAvailableWatchDataTypes(item).ToArray();
+        item.AvailableDataTypes.Clear();
+        foreach (var dataType in availableDataTypes)
+        {
+            item.AvailableDataTypes.Add(dataType);
+        }
+
+        if (!availableDataTypes.Contains(item.DataType))
+            item.DataType = availableDataTypes.Contains(ValueDataType.UInt16) ? ValueDataType.UInt16 : availableDataTypes[0];
+    }
+
+    private IEnumerable<ValueDataType> GetAvailableWatchDataTypes(WatchItemViewModel item)
+    {
+        var family = ResolveDeviceFamilyForAddress(item.Address);
+        if (family.Kind == DeviceKind.Word)
+        {
+            if (TryParseWatchWordBitAddress(item.Address, family, out _))
+                return [ValueDataType.Bit];
+
+            return ValueDataTypes.Where(static dataType => dataType != ValueDataType.Bit);
+        }
+
+        return ValueDataTypes;
+    }
+
     private async Task ReadWatchListAsync()
     {
         if (_session is null || ConnectionState != ConnectionState.Connected)
@@ -781,13 +845,13 @@ public partial class MainWindowViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(item.Address))
                 continue;
+            if (item.IsValueEditing)
+                continue;
 
             try
             {
                 var result = await ReadWatchItemAsync(item).ConfigureAwait(true);
-                if (!item.IsValueEditing)
-                    item.ValueText = result.ValueText;
-
+                item.ValueText = result.ValueText;
                 item.RawText = result.RawText;
                 item.HasError = false;
                 item.ErrorText = string.Empty;
@@ -796,9 +860,7 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 item.HasError = true;
                 item.ErrorText = exception.Message;
-                if (!item.IsValueEditing)
-                    item.ValueText = string.Empty;
-
+                item.ValueText = string.Empty;
                 item.RawText = string.Empty;
                 item.Bits.Clear();
                 await LogErrorAsync("Watch", exception).ConfigureAwait(true);
@@ -810,13 +872,13 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_session is null || ConnectionState != ConnectionState.Connected || string.IsNullOrWhiteSpace(item.Address))
             return;
+        if (item.IsValueEditing)
+            return;
 
         try
         {
             var result = await ReadWatchItemAsync(item).ConfigureAwait(true);
-            if (!item.IsValueEditing)
-                item.ValueText = result.ValueText;
-
+            item.ValueText = result.ValueText;
             item.RawText = result.RawText;
             item.HasError = false;
             item.ErrorText = string.Empty;
@@ -825,9 +887,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             item.HasError = true;
             item.ErrorText = exception.Message;
-            if (!item.IsValueEditing)
-                item.ValueText = string.Empty;
-
+            item.ValueText = string.Empty;
             item.RawText = string.Empty;
             item.Bits.Clear();
             await LogErrorAsync("Watch", exception).ConfigureAwait(true);
@@ -843,6 +903,27 @@ public partial class MainWindowViewModel : ObservableObject
         var dataType = NormalizeWatchDataType(family, item.DataType);
         if (item.DataType != dataType)
             item.DataType = dataType;
+
+        if (dataType == ValueDataType.Bit && TryParseWatchWordBitAddress(item.Address, family, out var wordBit))
+        {
+            var wordBitQuery = new BlockQuery
+            {
+                Protocol = SelectedProtocol.Kind,
+                DeviceFamilyCode = family.Code,
+                DeviceKind = DeviceKind.Word,
+                AddressDisplayRule = family.AddressDisplayRule,
+                StartAddress = wordBit.WordAddress,
+                ItemCount = 1,
+                DisplayRadix = item.DisplayRadix,
+                DisplayMode = BlockDisplayMode.Word,
+            };
+            var wordBitResult = await _session.ReadBlockAsync(wordBitQuery).ConfigureAwait(true);
+            var resolvedWordAddress = wordBitResult.ElementAddresses.FirstOrDefault() ?? wordBit.WordAddress;
+            var wordBitRaw = wordBitResult.WordValues.FirstOrDefault();
+            var wordBitValue = ((wordBitRaw >> wordBit.BitIndex) & 0x1) != 0;
+            SetWatchWordBit(item, resolvedWordAddress, wordBit.BitIndex, wordBitValue, CanToggleWatchBits(family));
+            return (wordBitValue ? "1" : "0", $"0x{wordBitRaw:X4}");
+        }
 
         var displayMode = dataType switch
         {
@@ -971,6 +1052,27 @@ public partial class MainWindowViewModel : ObservableObject
             address,
             canToggle,
             canToggle ? next => WriteWatchDirectBitAsync(address, next) : null));
+    }
+
+    private void SetWatchWordBit(WatchItemViewModel item, string wordAddress, int bitIndex, bool value, bool canToggle)
+    {
+        var bitAddress = $"{wordAddress}.{bitIndex}";
+        if (item.Bits.Count == 1
+            && item.Bits[0].BitIndex == bitIndex
+            && string.Equals(item.Bits[0].Address, bitAddress, StringComparison.Ordinal))
+        {
+            item.Bits[0].IsOn = value;
+            item.Bits[0].CanToggle = canToggle;
+            return;
+        }
+
+        item.Bits.Clear();
+        item.Bits.Add(new BitCellViewModel(
+            bitIndex,
+            value,
+            bitAddress,
+            canToggle,
+            canToggle ? next => WriteWatchBitAsync(wordAddress, bitIndex, next) : null));
     }
 
     private void SetWatchBits(WatchItemViewModel item, string wordAddress, uint value, int bitCount, bool canToggleBits)
@@ -1107,7 +1209,10 @@ public partial class MainWindowViewModel : ObservableObject
                 item.DataType = dataType;
 
             var value = NumericFormatter.ParseByType(valueText, dataType, item.DisplayRadix);
-            await _session.WriteAsync(new WriteRequest(item.Address, dataType, value, item.DisplayRadix)).ConfigureAwait(true);
+            if (dataType == ValueDataType.Bit && TryParseWatchWordBitAddress(item.Address, family, out var wordBit))
+                await _session.WriteBitInWordAsync(wordBit.WordAddress, wordBit.BitIndex, (bool)value).ConfigureAwait(true);
+            else
+                await _session.WriteAsync(new WriteRequest(item.Address, dataType, value, item.DisplayRadix)).ConfigureAwait(true);
             item.ValueText = valueText;
             item.HasError = false;
             item.ErrorText = string.Empty;
@@ -1128,12 +1233,12 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private static string FormatInt16(short value, DisplayRadix radix) =>
-        radix == DisplayRadix.Decimal
+        radix == DisplayRadix.Dec
             ? value.ToString(CultureInfo.InvariantCulture)
             : NumericFormatter.FormatWord(unchecked((ushort)value), radix);
 
     private static string FormatInt32(int value, DisplayRadix radix) =>
-        radix == DisplayRadix.Decimal
+        radix == DisplayRadix.Dec
             ? value.ToString(CultureInfo.InvariantCulture)
             : NumericFormatter.FormatDWord(unchecked((uint)value), radix);
 
@@ -1183,6 +1288,35 @@ public partial class MainWindowViewModel : ObservableObject
             return dataType == ValueDataType.Bit ? ValueDataType.Bit : dataType;
 
         return NormalizeDWordOnlyDataType(family, dataType);
+    }
+
+    private static bool TryParseWatchWordBitAddress(
+        string address,
+        DeviceFamilyDefinition family,
+        out WatchWordBitAddress wordBitAddress)
+    {
+        wordBitAddress = default;
+        if (family.Kind != DeviceKind.Word)
+            return false;
+
+        var trimmed = address.Trim();
+        var dotIndex = trimmed.LastIndexOf('.');
+        if (dotIndex <= 0 || dotIndex == trimmed.Length - 1)
+            return false;
+
+        var wordAddress = trimmed[..dotIndex];
+        var bitText = trimmed[(dotIndex + 1)..];
+        if (!int.TryParse(bitText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitIndex)
+            || bitIndex is < 0 or > 15)
+        {
+            return false;
+        }
+
+        if (!DeviceAddressRangeProvider.TryParseAddress(wordAddress, family, out var parsedAddress))
+            return false;
+
+        wordBitAddress = new WatchWordBitAddress(parsedAddress.FormatOffset(0), bitIndex);
+        return true;
     }
 
     private ValueDataType NormalizeDWordOnlyDataType(DeviceFamilyDefinition family, ValueDataType dataType)
@@ -1862,7 +1996,7 @@ public partial class MainWindowViewModel : ObservableObject
         var rangeKey = TryResolveDisplayRangeBounds(out var rangeBounds, out _)
             ? rangeBounds.LayoutKey
             : "range-error";
-        return $"{SelectedProtocol.Kind}|{SelectedDeviceFamily.Code}|{SelectedDeviceFamily.Kind}|{SelectedDeviceFamily.UsesHexAddressing}|{StartAddress}|{DisplayMode}|{rangeKey}";
+        return $"{SelectedProtocol.Kind}|{SelectedDeviceFamily.Code}|{SelectedDeviceFamily.Kind}|{SelectedDeviceFamily.UsesHexAddressing}|{StartAddress}|{DisplayMode}|{MonitorDataType}|{DisplayRadix}|{rangeKey}";
     }
 
     private MonitorRowViewModel CreateRowViewModel(MonitorRow row) =>
@@ -2506,6 +2640,7 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(CanUseWritePanel));
         OnPropertyChanged(nameof(CanIssueCpuControl));
         OnPropertyChanged(nameof(CpuControlHint));
+        UpdateAllWatchAvailableDataTypes();
 
         _lastSnapshot = null;
         RefreshLayoutNow();
@@ -2516,6 +2651,7 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnConnectionSettingsChanged(ConnectionSettings value)
     {
         OnPropertyChanged(nameof(SelectedPlcModelText));
+        UpdateAllWatchAvailableDataTypes();
     }
 
     partial void OnSelectedDeviceFamilyChanged(DeviceFamilyDefinition value)
@@ -2526,12 +2662,14 @@ public partial class MainWindowViewModel : ObservableObject
             _lastSnapshot = null;
             _rowLayoutKey = string.Empty;
             EnsureRowsForCurrentLayout();
+            UpdateAllWatchAvailableDataTypes();
             return;
         }
 
         StartAddress = DeviceAddressRangeProvider.TryRebaseAddress(StartAddress, SelectedProtocol, value, out var rebasedAddress)
             ? rebasedAddress
             : DeviceAddressRangeProvider.GetDefaultAddress(value);
+        UpdateAllWatchAvailableDataTypes();
         _lastSnapshot = null;
         RefreshLayoutNow();
     }
@@ -2601,8 +2739,22 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnDisplayRadixChanged(DisplayRadix value)
     {
+        ReformatMonitorRows();
+
         if (ConnectionState == ConnectionState.Connected)
             _ = ReadOnceAsync();
+    }
+
+    private void ReformatMonitorRows()
+    {
+        if (_lastSnapshot is not null)
+        {
+            RebuildRows(_lastSnapshot);
+            return;
+        }
+
+        _rowLayoutKey = string.Empty;
+        EnsureRowsForCurrentLayout();
     }
 
     partial void OnSelectedMainTabIndexChanged(int value)
@@ -2828,6 +2980,8 @@ public partial class MainWindowViewModel : ObservableObject
         int RowCount,
         SequentialDeviceAddress StartAddress,
         int AvailablePoints);
+
+    private readonly record struct WatchWordBitAddress(string WordAddress, int BitIndex);
 
     private void SetLayoutError(string message)
     {

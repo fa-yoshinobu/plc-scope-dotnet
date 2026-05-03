@@ -2,6 +2,7 @@
 
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -375,10 +376,44 @@ public partial class MainWindow : Window
             item.IsValueEditing = true;
     }
 
+    private void WatchValueTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is TextBox { IsKeyboardFocusWithin: true, DataContext: WatchItemViewModel item })
+            item.IsValueEditing = true;
+    }
+
     private void WatchValueTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         if (sender is TextBox { DataContext: WatchItemViewModel item })
             item.IsValueEditing = false;
+    }
+
+    private void ValueTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var direction = e.Key switch
+        {
+            Key.Down => 1,
+            Key.Up => -1,
+            _ => 0,
+        };
+        if (direction == 0 || sender is not TextBox textBox)
+            return;
+
+        if (textBox.DataContext is WatchItemViewModel watchItem)
+            watchItem.IsValueEditing = true;
+
+        var automationId = AutomationProperties.GetAutomationId(textBox);
+        var targetListBox = automationId switch
+        {
+            "MonitorInlineValueTextBox" => MonitorListBox,
+            "WatchValueTextBox" => WatchListBox,
+            _ => null,
+        };
+        if (targetListBox is null)
+            return;
+
+        if (MoveValueFocus(targetListBox, textBox, automationId, direction))
+            e.Handled = true;
     }
 
     private async void WatchValueTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -509,6 +544,69 @@ public partial class MainWindow : Window
         FindAncestor<TextBox>(source) is not null
         || FindAncestor<ComboBox>(source) is not null
         || FindAncestor<Button>(source) is not null;
+
+    private bool MoveValueFocus(ListBox listBox, TextBox currentTextBox, string automationId, int direction)
+    {
+        var currentItem = FindAncestor<ListBoxItem>(currentTextBox);
+        var currentIndex = currentItem is not null
+            ? listBox.ItemContainerGenerator.IndexFromContainer(currentItem)
+            : -1;
+        if (currentIndex < 0)
+            currentIndex = listBox.Items.IndexOf(currentTextBox.DataContext);
+        if (currentIndex < 0)
+            return false;
+
+        for (var targetIndex = currentIndex + direction; targetIndex >= 0 && targetIndex < listBox.Items.Count; targetIndex += direction)
+        {
+            var item = listBox.Items[targetIndex];
+            listBox.SelectedItem = item;
+            listBox.ScrollIntoView(item);
+
+            if (listBox.ItemContainerGenerator.ContainerFromIndex(targetIndex) is ListBoxItem)
+            {
+                if (FocusValueTextBoxInItem(listBox, targetIndex, automationId))
+                    return true;
+
+                continue;
+            }
+
+            Dispatcher.BeginInvoke(
+                () => FocusValueTextBoxInItem(listBox, targetIndex, automationId),
+                DispatcherPriority.Loaded);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool FocusValueTextBoxInItem(ListBox listBox, int itemIndex, string automationId)
+    {
+        if (listBox.ItemContainerGenerator.ContainerFromIndex(itemIndex) is not ListBoxItem targetItem)
+            return false;
+
+        var textBox = FindDescendants<TextBox>(targetItem)
+            .FirstOrDefault(candidate => string.Equals(AutomationProperties.GetAutomationId(candidate), automationId, StringComparison.Ordinal));
+        if (textBox is null)
+            return false;
+
+        textBox.Focus();
+        textBox.SelectAll();
+        return true;
+    }
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+                yield return match;
+
+            foreach (var descendant in FindDescendants<T>(child))
+                yield return descendant;
+        }
+    }
 
     private static T? FindDescendant<T>(DependencyObject root)
         where T : DependencyObject

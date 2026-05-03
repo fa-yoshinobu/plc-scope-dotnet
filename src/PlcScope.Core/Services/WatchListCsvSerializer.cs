@@ -44,7 +44,7 @@ public static class WatchListCsvSerializer
             {
                 Address = Get(row, 0).Trim(),
                 DataType = ParseEnum(Get(row, 1), ValueDataType.UInt16),
-                DisplayRadix = ParseEnum(Get(row, 2), DisplayRadix.Decimal),
+                DisplayRadix = ParseEnum(Get(row, 2), DisplayRadix.Dec),
                 Comment = string.IsNullOrWhiteSpace(Get(row, 3)) ? null : Get(row, 3),
             });
         }

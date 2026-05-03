@@ -6,7 +6,7 @@
         xmlns:selectors="clr-namespace:PlcScope.App.Selectors"
         xmlns:vm="clr-namespace:PlcScope.App.ViewModels"
         mc:Ignorable="d"
-        Title="PLC I/O Monitor"
+        Title="PLC Scope"
         Width="1500"
         Height="920"
         MinWidth="1200"
@@ -83,6 +83,7 @@
       <Setter Property="HorizontalContentAlignment" Value="Right" />
       <Setter Property="ToolTip" Value="Enter to write, Esc to cancel." />
       <EventSetter Event="PreviewMouseDown" Handler="InlineValueTextBox_PreviewMouseDown" />
+      <EventSetter Event="PreviewKeyDown" Handler="ValueTextBox_PreviewKeyDown" />
       <EventSetter Event="GotKeyboardFocus" Handler="InlineValueTextBox_GotKeyboardFocus" />
       <EventSetter Event="LostKeyboardFocus" Handler="InlineValueTextBox_LostKeyboardFocus" />
     </Style>
@@ -354,17 +355,16 @@
     </DataTemplate>
 
     <DataTemplate x:Key="ExpandedBitTemplate" DataType="{x:Type vm:ExpandedBitRowViewModel}">
-      <Grid MinHeight="32" Margin="22,0,0,0">
+      <Grid MinHeight="32">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="140" />
-          <ColumnDefinition Width="80" />
-          <ColumnDefinition Width="120" />
-          <ColumnDefinition Width="90" />
-          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="140" SharedSizeGroup="MonitorAddressColumn" />
+          <ColumnDefinition Width="120" SharedSizeGroup="MonitorValueColumn" />
+          <ColumnDefinition Width="110" SharedSizeGroup="MonitorHexColumn" />
+          <ColumnDefinition Width="Auto" MinWidth="260" SharedSizeGroup="MonitorBitsColumn" />
+          <ColumnDefinition Width="220" SharedSizeGroup="MonitorCommentColumn" />
         </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" />
-        <TextBlock Grid.Column="1" Text="{Binding BitIndex, StringFormat=b{0}}" VerticalAlignment="Center" Margin="8,0" />
-        <Button Grid.Column="2" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource BitStateButtonStyle}" />
+        <TextBlock Grid.Column="0" AutomationProperties.AutomationId="MonitorRowAddressTextBlock" AutomationProperties.Name="{Binding Address}" Text="{Binding Address}" Style="{StaticResource AddressTextStyle}" Margin="22,0,0,0" />
+        <Button Grid.Column="1" Content="{Binding StateText}" Command="{Binding ToggleCommand}" IsEnabled="{Binding CanToggle}" Style="{StaticResource BitStateButtonStyle}" />
         <TextBlock Grid.Column="3" Text="{Binding ValueText}" Style="{StaticResource ValueTextStyle}" />
       </Grid>
     </DataTemplate>
@@ -385,10 +385,8 @@
         <MenuItem Header="New project" AutomationProperties.AutomationId="NewProjectMenuItem" Click="NewProjectMenuItem_Click" />
         <MenuItem Header="Open" AutomationProperties.AutomationId="OpenProjectMenuItem" Click="OpenProjectMenuItem_Click" />
         <MenuItem Header="Import comment CSV" AutomationProperties.AutomationId="ImportCommentCsvMenuItem" Click="ImportCommentCsvMenuItem_Click" />
-        <Separator />
         <MenuItem Header="Import watch list CSV" AutomationProperties.AutomationId="ImportWatchListCsvMenuItem" Click="ImportWatchListCsvMenuItem_Click" />
         <MenuItem Header="Export watch list CSV" AutomationProperties.AutomationId="ExportWatchListCsvMenuItem" Click="ExportWatchListCsvMenuItem_Click" />
-        <Separator />
         <MenuItem Header="Save" AutomationProperties.AutomationId="SaveProjectMenuItem" Click="SaveProjectMenuItem_Click" />
         <MenuItem Header="Save as" AutomationProperties.AutomationId="SaveProjectAsMenuItem" Click="SaveProjectAsMenuItem_Click" />
       </MenuItem>
@@ -397,7 +395,6 @@
       </MenuItem>
       <MenuItem Header="CPU" AutomationProperties.AutomationId="CpuMenu">
         <MenuItem Header="Device ranges" AutomationProperties.AutomationId="DeviceRangesMenuItem" Click="DeviceRangeMenuItem_Click" />
-        <Separator />
         <MenuItem Header="CPU RUN"
                   AutomationProperties.AutomationId="CpuRunMenuItem"
                   Command="{Binding CpuRunCommand}"
@@ -585,7 +582,7 @@
                        VirtualizingPanel.VirtualizationMode="Recycling"
                        ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}">
                 <ListBox.ItemContainerStyle>
-                  <Style TargetType="{x:Type ListBoxItem}">
+                  <Style TargetType="{x:Type ListBoxItem}" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                     <Setter Property="HorizontalContentAlignment" Value="Left" />
                     <EventSetter Event="PreviewMouseRightButtonDown" Handler="MonitorListBoxItem_PreviewMouseRightButtonDown" />
                   </Style>
@@ -658,7 +655,7 @@
                        VirtualizingPanel.ScrollUnit="Item"
                        VirtualizingPanel.VirtualizationMode="Recycling">
                 <ListBox.ItemContainerStyle>
-                  <Style TargetType="{x:Type ListBoxItem}">
+                  <Style TargetType="{x:Type ListBoxItem}" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                     <Setter Property="MinHeight" Value="34" />
                     <Setter Property="HorizontalContentAlignment" Value="Left" />
                     <EventSetter Event="PreviewMouseRightButtonDown" Handler="WatchListBoxItem_PreviewMouseRightButtonDown" />
@@ -688,7 +685,7 @@
                                ToolTip="{Binding ErrorText}" />
                       <ComboBox Grid.Column="1"
                                 AutomationProperties.AutomationId="WatchTypeComboBox"
-                                ItemsSource="{Binding DataContext.ValueDataTypes, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                ItemsSource="{Binding AvailableDataTypes}"
                                 SelectedItem="{Binding DataType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                 PreviewMouseWheel="WatchOptionComboBox_PreviewMouseWheel"
                                 SelectionChanged="WatchOptionComboBox_SelectionChanged" />
@@ -706,8 +703,10 @@
                                FontFamily="Consolas"
                                HorizontalContentAlignment="Right"
                                Text="{Binding ValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                               PreviewKeyDown="ValueTextBox_PreviewKeyDown"
                                GotKeyboardFocus="WatchValueTextBox_GotKeyboardFocus"
                                LostKeyboardFocus="WatchValueTextBox_LostKeyboardFocus"
+                               TextChanged="WatchValueTextBox_TextChanged"
                                KeyDown="WatchValueTextBox_KeyDown" />
                       <TextBlock Grid.Column="4" Text="{Binding RawText}" Style="{StaticResource HexTextStyle}" />
                       <ItemsControl Grid.Column="5" Margin="8,0" ItemsSource="{Binding Bits}" ItemTemplate="{StaticResource BitCellTemplate}">

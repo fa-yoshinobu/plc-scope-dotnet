@@ -1,5 +1,6 @@
 namespace PlcScope.App.UiTests;
 
+using System.Reflection;
 using PlcScope.App.ViewModels;
 using PlcScope.Core.Abstractions;
 using PlcScope.Core.Models;
@@ -45,8 +46,8 @@ public sealed class MainWindowViewModelWatchTests
                 importPath,
                 """
                 Address,Type,Format,Comment
-                D10,UInt16,Hexadecimal,Word comment
-                M0,Bit,Decimal,Bit comment
+                D10,UInt16,Hex,Word comment
+                M0,Bit,Dec,Bit comment
                 """);
 
             await viewModel.ImportWatchListCsvAsync(importPath);
@@ -54,15 +55,15 @@ public sealed class MainWindowViewModelWatchTests
 
             Assert.Equal(["D10", "M0"], viewModel.WatchItems.Select(static item => item.Address).ToArray());
             Assert.Equal(ValueDataType.UInt16, viewModel.WatchItems[0].DataType);
-            Assert.Equal(DisplayRadix.Hexadecimal, viewModel.WatchItems[0].DisplayRadix);
+            Assert.Equal(DisplayRadix.Hex, viewModel.WatchItems[0].DisplayRadix);
             Assert.Equal("Word comment", viewModel.WatchItems[0].Comment);
             Assert.Same(viewModel.WatchItems[0], viewModel.SelectedWatchItem);
 
             var exported = await File.ReadAllTextAsync(exportPath);
             Assert.Contains("Address,Type,Format,Comment", exported, StringComparison.Ordinal);
             Assert.DoesNotContain("IsEnabled", exported, StringComparison.Ordinal);
-            Assert.Contains("D10,UInt16,Hexadecimal,Word comment", exported, StringComparison.Ordinal);
-            Assert.Contains("M0,Bit,Decimal,Bit comment", exported, StringComparison.Ordinal);
+            Assert.Contains("D10,UInt16,Hex,Word comment", exported, StringComparison.Ordinal);
+            Assert.Contains("M0,Bit,Dec,Bit comment", exported, StringComparison.Ordinal);
         }
         finally
         {
@@ -74,6 +75,56 @@ public sealed class MainWindowViewModelWatchTests
     }
 
     [Fact]
+    public void WatchTypeOptions_DisallowBitForWordAddressUnlessItIsWordBitAddress()
+    {
+        var viewModel = new MainWindowViewModel(
+            new CapturingSessionFactory(new CapturingSession()),
+            new NullProjectStore(),
+            new InMemorySettingsStore(),
+            new NullLogStore());
+
+        var wordItem = new WatchItemViewModel(new WatchItem { Address = "D0", DataType = ValueDataType.Bit });
+        var wordBitItem = new WatchItemViewModel(new WatchItem { Address = "D0.0", DataType = ValueDataType.Bit });
+        var bitDeviceItem = new WatchItemViewModel(new WatchItem { Address = "M0", DataType = ValueDataType.UInt16 });
+
+        viewModel.WatchItems.Add(wordItem);
+        viewModel.WatchItems.Add(wordBitItem);
+        viewModel.WatchItems.Add(bitDeviceItem);
+
+        Assert.DoesNotContain(ValueDataType.Bit, wordItem.AvailableDataTypes);
+        Assert.Equal(ValueDataType.UInt16, wordItem.DataType);
+        Assert.Equal([ValueDataType.Bit], wordBitItem.AvailableDataTypes);
+        Assert.Contains(ValueDataType.Bit, bitDeviceItem.AvailableDataTypes);
+        Assert.Contains(ValueDataType.UInt16, bitDeviceItem.AvailableDataTypes);
+    }
+
+    [Fact]
+    public void MonitorFormatChange_ReformatsReadSnapshotRowsWithSameRawValue()
+    {
+        var viewModel = new MainWindowViewModel(
+            new CapturingSessionFactory(new CapturingSession()),
+            new NullProjectStore(),
+            new InMemorySettingsStore(),
+            new NullLogStore());
+        var snapshot = new BlockSnapshot(
+            new BlockQuery(),
+            [new WordMonitorRow("D0", 1, [])],
+            DateTimeOffset.UtcNow,
+            1,
+            null);
+        SetLastSnapshot(viewModel, snapshot);
+        RebuildRows(viewModel, snapshot);
+
+        var decimalRow = Assert.IsType<WordRowViewModel>(viewModel.Rows[0]);
+        Assert.Equal("1", decimalRow.EditableValueText);
+
+        viewModel.DisplayRadix = DisplayRadix.Hex;
+
+        var hexRow = Assert.IsType<WordRowViewModel>(viewModel.Rows[0]);
+        Assert.Equal("0x0001", hexRow.EditableValueText);
+    }
+
+    [Fact]
     public async Task RefreshWatchItemAsync_BitDeviceWord_ReadsMonitorSizedBitRange()
     {
         var session = new CapturingSession();
@@ -82,7 +133,7 @@ public sealed class MainWindowViewModelWatchTests
         {
             Address = "M0",
             DataType = ValueDataType.UInt16,
-            DisplayRadix = DisplayRadix.Hexadecimal,
+            DisplayRadix = DisplayRadix.Hex,
         });
 
         await viewModel.RefreshWatchItemAsync(item);
@@ -121,6 +172,70 @@ public sealed class MainWindowViewModelWatchTests
         Assert.Equal("M0", item.Bits[0].Address);
     }
 
+    [Fact]
+    public async Task RefreshWatchItemAsync_WordBitAddress_ReadsParentWordAndShowsSingleBit()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "D0.0",
+            DataType = ValueDataType.Bit,
+        });
+
+        await viewModel.RefreshWatchItemAsync(item);
+
+        Assert.NotNull(session.LastQuery);
+        Assert.Equal(DeviceKind.Word, session.LastQuery.DeviceKind);
+        Assert.Equal(BlockDisplayMode.Word, session.LastQuery.DisplayMode);
+        Assert.Equal("D0", session.LastQuery.StartAddress);
+        Assert.Equal(1, session.LastQuery.ItemCount);
+        Assert.Equal("1", item.ValueText);
+        Assert.Equal("0x0001", item.RawText);
+        Assert.Single(item.Bits);
+        Assert.Equal("D0.0", item.Bits[0].Address);
+        Assert.True(item.Bits[0].IsOn);
+    }
+
+    [Fact]
+    public async Task RefreshWatchItemAsync_DoesNotOverwriteWordBitValueWhileEditing()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "D0.0",
+            DataType = ValueDataType.Bit,
+        })
+        {
+            ValueText = "ON",
+            RawText = "editing",
+            IsValueEditing = true,
+        };
+
+        await viewModel.RefreshWatchItemAsync(item);
+
+        Assert.Null(session.LastQuery);
+        Assert.Equal("ON", item.ValueText);
+        Assert.Equal("editing", item.RawText);
+    }
+
+    [Fact]
+    public async Task WriteWatchItemAsync_WordBitAddress_UsesWordBitWrite()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "D0.3",
+            DataType = ValueDataType.Bit,
+        });
+
+        await viewModel.WriteWatchItemAsync(item, "ON");
+
+        Assert.Equal(("D0", 3, true), session.LastWordBitWrite);
+    }
+
     private static MainWindowViewModel CreateConnectedViewModel(CapturingSession session)
     {
         var viewModel = new MainWindowViewModel(
@@ -132,6 +247,20 @@ public sealed class MainWindowViewModelWatchTests
         viewModel.ConnectCommand.ExecuteAsync(null).GetAwaiter().GetResult();
         Assert.Equal(ConnectionState.Connected, viewModel.ConnectionState);
         return viewModel;
+    }
+
+    private static void SetLastSnapshot(MainWindowViewModel viewModel, BlockSnapshot snapshot)
+    {
+        var field = typeof(MainWindowViewModel).GetField("_lastSnapshot", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        field.SetValue(viewModel, snapshot);
+    }
+
+    private static void RebuildRows(MainWindowViewModel viewModel, BlockSnapshot snapshot)
+    {
+        var method = typeof(MainWindowViewModel).GetMethod("RebuildRows", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method.Invoke(viewModel, [snapshot]);
     }
 
     private sealed class CapturingSessionFactory(CapturingSession session) : IPlcSessionFactory
@@ -146,6 +275,7 @@ public sealed class MainWindowViewModelWatchTests
         public ProtocolDefinition Definition { get; } = ProtocolCatalog.Get(ProtocolKind.Slmp);
         public bool IsConnected { get; private set; }
         public BlockQuery? LastQuery { get; private set; }
+        public (string WordAddress, int BitIndex, bool Value)? LastWordBitWrite { get; private set; }
 
         public event EventHandler<TraceEntry>? TraceReceived
         {
@@ -184,15 +314,18 @@ public sealed class MainWindowViewModelWatchTests
             }
 
             var wordAddresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => $"D{index}").ToArray();
-            var words = Enumerable.Range(0, query.EffectiveItemCount).Select(static _ => (ushort)0).ToArray();
+            var words = Enumerable.Range(0, query.EffectiveItemCount).Select(static _ => (ushort)1).ToArray();
             return Task.FromResult(new BlockReadResult(query, wordAddresses, words, [], new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null));
         }
 
         public Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new WriteResult(request.Address, "OK", DateTimeOffset.UtcNow));
 
-        public Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new WriteResult($"{wordAddress}.{bitIndex}", "OK", DateTimeOffset.UtcNow));
+        public Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default)
+        {
+            LastWordBitWrite = (wordAddress, bitIndex, value);
+            return Task.FromResult(new WriteResult($"{wordAddress}.{bitIndex}", "OK", DateTimeOffset.UtcNow));
+        }
 
         public Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new CpuState(CpuRunState.Unknown, string.Empty, false));

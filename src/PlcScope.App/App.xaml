@@ -319,6 +319,7 @@
     <Style TargetType="{x:Type MenuItem}">
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="{DynamicResource AppHeaderBrush}" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
       <Setter Property="Padding" Value="10,5" />
       <Setter Property="Template">
         <Setter.Value>
@@ -326,7 +327,7 @@
             <Border x:Name="MenuItemBorder"
                     Background="{TemplateBinding Background}"
                     BorderBrush="Transparent"
-                    BorderThickness="1"
+                    BorderThickness="0"
                     SnapsToDevicePixels="True">
               <Grid>
                 <ContentPresenter ContentSource="Header"
@@ -360,12 +361,12 @@
               </Trigger>
               <Trigger Property="IsHighlighted" Value="True">
                 <Setter TargetName="MenuItemBorder" Property="Background" Value="{DynamicResource AppSelectionBrush}" />
-                <Setter TargetName="MenuItemBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+                <Setter TargetName="MenuItemBorder" Property="BorderBrush" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
               </Trigger>
               <Trigger Property="IsSubmenuOpen" Value="True">
                 <Setter TargetName="MenuItemBorder" Property="Background" Value="{DynamicResource AppSelectionBrush}" />
-                <Setter TargetName="MenuItemBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+                <Setter TargetName="MenuItemBorder" Property="BorderBrush" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
@@ -380,13 +381,25 @@
     <Style TargetType="{x:Type ContextMenu}">
       <Setter Property="Background" Value="{DynamicResource AppPanelBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderSubtleBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="SnapsToDevicePixels" Value="True" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ContextMenu}">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    SnapsToDevicePixels="True">
+              <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <Style TargetType="{x:Type Separator}">
-      <Setter Property="Background" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppBorderSubtleBrush}" />
       <Setter Property="Margin" Value="0,3" />
       <Setter Property="Height" Value="1" />
       <Setter Property="Template">
@@ -456,6 +469,7 @@
     <Style TargetType="{x:Type ListBoxItem}">
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="Transparent" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Padding" Value="4,2" />
       <Setter Property="Template">

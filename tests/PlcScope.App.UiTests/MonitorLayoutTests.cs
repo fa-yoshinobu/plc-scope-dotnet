@@ -5,6 +5,95 @@ using System.Xml.Linq;
 public sealed class MonitorLayoutTests
 {
     [Fact]
+    public void MainWindow_TitleIsProductName()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+        var window = document
+            .Descendants(presentation + "Window")
+            .Single();
+
+        Assert.Equal("PLC Scope", (string?)window.Attribute("Title"));
+    }
+
+    [Fact]
+    public void Menus_DoNotUseSeparators()
+    {
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        var xamlPaths = new[]
+        {
+            ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml"),
+            ResolveRepoPath("src", "PlcScope.App", "Windows", "ErrorHistoryWindow.xaml"),
+            ResolveRepoPath("src", "PlcScope.App", "Windows", "TraceLogWindow.xaml"),
+        };
+
+        var menuSeparators = xamlPaths
+            .SelectMany(path =>
+            {
+                var document = XDocument.Load(path);
+                return document
+                    .Descendants()
+                    .Where(element => element.Name == presentation + "Menu" || element.Name == presentation + "ContextMenu")
+                    .Descendants(presentation + "Separator")
+                    .Select(separator => path);
+            });
+
+        Assert.Empty(menuSeparators);
+    }
+
+    [Fact]
+    public void MonitorAndWatchListItems_UseSharedListBoxItemStyle()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+        var listBoxItemStyles = document
+            .Descendants(presentation + "ListBox.ItemContainerStyle")
+            .Elements(presentation + "Style")
+            .ToList();
+
+        Assert.All(
+            listBoxItemStyles,
+            style => Assert.Equal("{StaticResource {x:Type ListBoxItem}}", (string?)style.Attribute("BasedOn")));
+    }
+
+    [Fact]
+    public void AboutLibrariesList_PreservesGridViewColumnsAndDisablesSelection()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "Windows", "AboutWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var librariesList = document
+            .Descendants(presentation + "ListView")
+            .Single(element => string.Equals((string?)element.Attribute(xaml + "Name"), "LibrariesListView", StringComparison.Ordinal));
+
+        Assert.NotNull(librariesList.Element(presentation + "ListView.View")?.Element(presentation + "GridView"));
+        Assert.Contains(
+            librariesList
+                .Element(presentation + "ListView.ItemContainerStyle")?
+                .Descendants(presentation + "Setter") ?? [],
+            setter => string.Equals((string?)setter.Attribute("Property"), "IsHitTestVisible", StringComparison.Ordinal)
+                && string.Equals((string?)setter.Attribute("Value"), "False", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AboutLibrariesList_DoesNotUsePackagePlaceholderLicenses()
+    {
+        var codePath = ResolveRepoPath("src", "PlcScope.App", "Windows", "AboutWindow.xaml.cs");
+        var code = File.ReadAllText(codePath);
+
+        Assert.DoesNotContain("\"See package\"", code, StringComparison.Ordinal);
+        Assert.Contains("new LibraryInfo(\"PlcComm.Slmp\", GetAssemblyVersionText(\"PlcComm.Slmp\"), \"MIT\"", code, StringComparison.Ordinal);
+        Assert.Contains("new LibraryInfo(\"PlcComm.KvHostLink\", GetAssemblyVersionText(\"PlcComm.KvHostLink\"), \"MIT\"", code, StringComparison.Ordinal);
+        Assert.Contains("new LibraryInfo(\"PlcComm.Toyopuc\", GetAssemblyVersionText(\"PlcComm.Toyopuc\"), \"MIT\"", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WatchList_UsesListBoxWithTemplateRows()
     {
         var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
@@ -44,6 +133,8 @@ public sealed class MonitorLayoutTests
                 && string.Equals(attribute.Value, automationId, StringComparison.Ordinal)));
 
         Assert.NotNull(comboBox);
+        if (string.Equals(automationId, "WatchTypeComboBox", StringComparison.Ordinal))
+            Assert.Equal("{Binding AvailableDataTypes}", (string?)comboBox.Attribute("ItemsSource"));
     }
 
     [Fact]
@@ -78,6 +169,34 @@ public sealed class MonitorLayoutTests
         Assert.Equal("{DynamicResource AppWriteInputBrush}", (string?)textBox.Attribute("Background"));
         Assert.Equal("{DynamicResource AppAccentBrush}", (string?)textBox.Attribute("BorderBrush"));
         Assert.Equal("{Binding ValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}", (string?)textBox.Attribute("Text"));
+        Assert.Equal("WatchValueTextBox_TextChanged", (string?)textBox.Attribute("TextChanged"));
+    }
+
+    [Fact]
+    public void ValueTextBoxes_HandleArrowNavigationBeforeTextEditing()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var inlineValueStyle = document
+            .Descendants(presentation + "Style")
+            .Single(element => string.Equals((string?)element.Attribute(xaml + "Key"), "InlineValueTextBoxStyle", StringComparison.Ordinal));
+
+        Assert.Contains(
+            inlineValueStyle.Elements(presentation + "EventSetter"),
+            setter => string.Equals((string?)setter.Attribute("Event"), "PreviewKeyDown", StringComparison.Ordinal)
+                && string.Equals((string?)setter.Attribute("Handler"), "ValueTextBox_PreviewKeyDown", StringComparison.Ordinal));
+
+        var rowTemplate = GetWatchRowTemplate(document, presentation);
+        var watchValueBox = rowTemplate
+            .Descendants(presentation + "TextBox")
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "WatchValueTextBox", StringComparison.Ordinal)));
+
+        Assert.Equal("ValueTextBox_PreviewKeyDown", (string?)watchValueBox.Attribute("PreviewKeyDown"));
     }
 
     [Fact]
@@ -207,7 +326,7 @@ public sealed class MonitorLayoutTests
         XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
         XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
 
-        foreach (var templateKey in new[] { "WordRowTemplate", "PackedBitRowTemplate", "SingleBitRowTemplate", "DWordRowTemplate", "FloatRowTemplate", "ExpandedHeaderTemplate" })
+        foreach (var templateKey in new[] { "WordRowTemplate", "PackedBitRowTemplate", "SingleBitRowTemplate", "DWordRowTemplate", "FloatRowTemplate", "ExpandedHeaderTemplate", "ExpandedBitTemplate" })
         {
             var template = document
                 .Descendants(presentation + "DataTemplate")
@@ -272,6 +391,7 @@ public sealed class MonitorLayoutTests
     [Theory]
     [InlineData("PackedBitRowTemplate")]
     [InlineData("SingleBitRowTemplate")]
+    [InlineData("ExpandedBitTemplate")]
     public void BitRowTemplates_AlignCommentWithMonitorHeader(string templateKey)
     {
         var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
@@ -287,14 +407,75 @@ public sealed class MonitorLayoutTests
             .Element(presentation + "Grid.ColumnDefinitions")!
             .Elements(presentation + "ColumnDefinition")
             .Count();
-        var commentColumn = grid
-            .Elements(presentation + "TextBlock")
-            .Single(element => string.Equals((string?)element.Attribute("Text"), "{Binding Comment}", StringComparison.Ordinal))
-            .Attribute("Grid.Column")!
-            .Value;
 
         Assert.Equal(5, columnCount);
-        Assert.Equal("4", commentColumn);
+        Assert.Equal(
+            ["MonitorAddressColumn", "MonitorValueColumn", "MonitorHexColumn", "MonitorBitsColumn", "MonitorCommentColumn"],
+            GetColumnSharedSizeGroups(grid, presentation));
+
+        if (!string.Equals(templateKey, "ExpandedBitTemplate", StringComparison.Ordinal))
+        {
+            var commentColumn = grid
+                .Elements(presentation + "TextBlock")
+                .Single(element => string.Equals((string?)element.Attribute("Text"), "{Binding Comment}", StringComparison.Ordinal))
+                .Attribute("Grid.Column")!
+                .Value;
+
+            Assert.Equal("4", commentColumn);
+        }
+    }
+
+    [Fact]
+    public void ExpandedBitRow_DoesNotShowSeparateBitIndexColumn()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var template = document
+            .Descendants(presentation + "DataTemplate")
+            .Single(element => string.Equals((string?)element.Attribute(xaml + "Key"), "ExpandedBitTemplate", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(template.Descendants(presentation + "TextBlock"), element =>
+            string.Equals((string?)element.Attribute("Text"), "{Binding BitIndex, StringFormat=b{0}}", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ExpandedBitRow_DoesNotOffsetTheWholeRow()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var grid = GetTemplateGrid(document, presentation, xaml, "ExpandedBitTemplate");
+
+        Assert.Null(grid.Attribute("Margin"));
+    }
+
+    [Fact]
+    public void ExpandedBitRow_IndentsOnlyAddressText()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var grid = GetTemplateGrid(document, presentation, xaml, "ExpandedBitTemplate");
+        var addressText = grid
+            .Elements(presentation + "TextBlock")
+            .Single(element => string.Equals((string?)element.Attribute("Text"), "{Binding Address}", StringComparison.Ordinal));
+        var stateButton = grid
+            .Elements(presentation + "Button")
+            .Single(element => string.Equals((string?)element.Attribute("Content"), "{Binding StateText}", StringComparison.Ordinal));
+        var valueText = grid
+            .Elements(presentation + "TextBlock")
+            .Single(element => string.Equals((string?)element.Attribute("Text"), "{Binding ValueText}", StringComparison.Ordinal));
+
+        Assert.Equal("22,0,0,0", (string?)addressText.Attribute("Margin"));
+        Assert.Equal("1", (string?)stateButton.Attribute("Grid.Column"));
+        Assert.Equal("3", (string?)valueText.Attribute("Grid.Column"));
     }
 
     private static string ResolveRepoPath(params string[] relativePath)

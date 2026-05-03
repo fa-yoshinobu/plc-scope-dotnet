@@ -29,7 +29,9 @@ public partial class WatchItemViewModel : ObservableObject
     private ValueDataType dataType = ValueDataType.UInt16;
 
     [ObservableProperty]
-    private DisplayRadix displayRadix = DisplayRadix.Decimal;
+    private DisplayRadix displayRadix = DisplayRadix.Dec;
+
+    public ObservableCollection<ValueDataType> AvailableDataTypes { get; } = [];
 
     [ObservableProperty]
     private string valueText = string.Empty;

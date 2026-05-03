@@ -1,4 +1,4 @@
-﻿namespace PlcScope.Infrastructure.Protocols;
+namespace PlcScope.Infrastructure.Protocols;
 
 using PlcComm.Toyopuc;
 using PlcScope.Core.Models;
