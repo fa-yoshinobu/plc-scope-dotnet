@@ -4,14 +4,20 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <AssemblyName>PlcScope.App</AssemblyName>
+    <AssemblyName>PlcScope</AssemblyName>
     <RootNamespace>PlcScope.App</RootNamespace>
-    <Version>0.1.5</Version>
-    <AssemblyVersion>0.1.5.0</AssemblyVersion>
-    <FileVersion>0.1.5.0</FileVersion>
-    <AssemblyInformationalVersion>0.1.5</AssemblyInformationalVersion>
-    <InformationalVersion>0.1.5</InformationalVersion>
+    <Product>PLC Scope</Product>
+    <Company>FA Labo</Company>
+    <Authors>FA Labo(fa_yoshinobu)</Authors>
+    <Copyright>FA Labo(fa_yoshinobu)</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Version>0.1.6</Version>
+    <AssemblyVersion>0.1.6.0</AssemblyVersion>
+    <FileVersion>0.1.6.0</FileVersion>
+    <AssemblyInformationalVersion>0.1.6</AssemblyInformationalVersion>
+    <InformationalVersion>0.1.6</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
     <ApplicationIcon Condition="Exists('..\..\icon.ico')">..\..\icon.ico</ApplicationIcon>
   </PropertyGroup>
 

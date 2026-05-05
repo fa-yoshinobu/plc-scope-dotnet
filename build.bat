@@ -34,7 +34,7 @@ if errorlevel 1 goto :failed
 echo.
 echo Publish completed.
 echo Output:
-echo   .\src\PlcScope.App\bin\%CONFIGURATION%\net9.0-windows\%RUNTIME%\publish\PlcScope.App.exe
+echo   .\src\PlcScope.App\bin\%CONFIGURATION%\net9.0-windows\%RUNTIME%\publish\PlcScope.exe
 echo.
 echo Full log:
 echo   %LOG_FILE%

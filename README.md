@@ -1,6 +1,5 @@
 # PLC Scope
 
-![Version](https://img.shields.io/badge/version-0.1.3-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D4)
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -179,7 +178,7 @@ build.bat Release
 Typical output:
 
 ```text
-src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.App.exe
+src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.exe
 ```
 
 ## Documentation
@@ -187,10 +186,6 @@ src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.App.exe
 - [Specification](docs/specification.md)
 - [Development notes](docs/development.md)
 - [TODO](TODO.md)
-
-## Version
-
-Current version: `0.1.3`
 
 ## License
 

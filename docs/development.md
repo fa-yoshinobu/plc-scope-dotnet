@@ -78,7 +78,7 @@ build.bat Release
 Typical output:
 
 ```text
-src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.App.exe
+src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.exe
 ```
 
 Manual publish:
