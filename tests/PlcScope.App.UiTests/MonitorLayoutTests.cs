@@ -88,6 +88,9 @@ public sealed class MonitorLayoutTests
         var code = File.ReadAllText(codePath);
 
         Assert.DoesNotContain("\"See package\"", code, StringComparison.Ordinal);
+        Assert.Contains("new LibraryInfo(\"PLC Scope\", appVersion, \"MIT\", \"Application and internal modules\")", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("new LibraryInfo(\"PlcScope.Core\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("new LibraryInfo(\"PlcScope.Infrastructure\"", code, StringComparison.Ordinal);
         Assert.Contains("new LibraryInfo(\"PlcComm.Slmp\", GetAssemblyVersionText(\"PlcComm.Slmp\"), \"MIT\"", code, StringComparison.Ordinal);
         Assert.Contains("new LibraryInfo(\"PlcComm.KvHostLink\", GetAssemblyVersionText(\"PlcComm.KvHostLink\"), \"MIT\"", code, StringComparison.Ordinal);
         Assert.Contains("new LibraryInfo(\"PlcComm.Toyopuc\", GetAssemblyVersionText(\"PlcComm.Toyopuc\"), \"MIT\"", code, StringComparison.Ordinal);

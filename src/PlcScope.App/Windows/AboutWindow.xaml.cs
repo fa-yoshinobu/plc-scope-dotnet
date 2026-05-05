@@ -8,8 +8,6 @@ using System.Windows;
 using System.Windows.Navigation;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
-using PlcScope.Core.Services;
-using PlcScope.Infrastructure.Protocols;
 
 internal sealed partial class AboutWindow : Window
 {
@@ -22,9 +20,7 @@ internal sealed partial class AboutWindow : Window
 
         LibrariesListView.ItemsSource = new[]
         {
-            new LibraryInfo("PLC Scope", appVersion, "MIT", "Application itself"),
-            new LibraryInfo("PlcScope.Core", GetAssemblyVersionText(typeof(ProtocolCatalog).Assembly), "MIT", "Core models and services"),
-            new LibraryInfo("PlcScope.Infrastructure", GetAssemblyVersionText(typeof(PlcSessionFactory).Assembly), "MIT", "PLC communication adapters"),
+            new LibraryInfo("PLC Scope", appVersion, "MIT", "Application and internal modules"),
             new LibraryInfo("CommunityToolkit.Mvvm", GetAssemblyVersionText(typeof(ObservableObject).Assembly), "MIT", "MVVM helpers"),
             new LibraryInfo("Microsoft.Extensions.DependencyInjection", GetAssemblyVersionText(typeof(ServiceCollection).Assembly), "MIT", "Dependency injection"),
             new LibraryInfo("PlcComm.Slmp", GetAssemblyVersionText("PlcComm.Slmp"), "MIT", "MELSEC SLMP communication"),
