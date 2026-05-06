@@ -9,12 +9,15 @@ if "%CONFIGURATION%"=="" set "CONFIGURATION=Release"
 
 set "RUNTIME=win-x64"
 set "LOG_FILE=%~dp0build.log"
+set "PUBLISH_DIR=%~dp0src\PlcScope.App\bin\%CONFIGURATION%\net9.0-windows\%RUNTIME%\publish"
 
 echo Publishing PLC Scope single-file EXE (%CONFIGURATION%, %RUNTIME%)...
 echo.
 echo Log:
 echo   %LOG_FILE%
 echo.
+
+if exist "%PUBLISH_DIR%" rmdir /s /q "%PUBLISH_DIR%"
 
 dotnet restore ".\src\PlcScope.App\PlcScope.App.csproj" -r "%RUNTIME%" > "%LOG_FILE%" 2>&1
 if errorlevel 1 goto :failed
@@ -28,13 +31,14 @@ dotnet publish ".\src\PlcScope.App\PlcScope.App.csproj" ^
   -p:IncludeNativeLibrariesForSelfExtract=true ^
   -p:EnableCompressionInSingleFile=true ^
   -p:DebugType=None ^
-  -p:DebugSymbols=false >> "%LOG_FILE%" 2>&1
+  -p:DebugSymbols=false ^
+  -p:PublishDocumentationFile=false >> "%LOG_FILE%" 2>&1
 if errorlevel 1 goto :failed
 
 echo.
 echo Publish completed.
 echo Output:
-echo   .\src\PlcScope.App\bin\%CONFIGURATION%\net9.0-windows\%RUNTIME%\publish\PlcScope.exe
+echo   %PUBLISH_DIR%\PlcScope.exe
 echo.
 echo Full log:
 echo   %LOG_FILE%

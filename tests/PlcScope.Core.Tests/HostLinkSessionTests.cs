@@ -229,7 +229,7 @@ public sealed class HostLinkSessionTests
 
         var catalog = await session.ReadDeviceRangeCatalogAsync();
 
-        Assert.Equal("KV-7000(XYM)", catalog.Family);
+        Assert.Equal("KV-8000(XYM)", catalog.Family);
         var d = Assert.Single(catalog.Entries, entry => entry.Device == "D");
         Assert.Equal((uint)65_534, d.UpperBound);
         Assert.Equal("D00000-D65534", d.AddressRange);

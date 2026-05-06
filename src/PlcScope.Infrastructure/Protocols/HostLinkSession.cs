@@ -169,21 +169,16 @@ internal sealed class HostLinkSession : PlcSessionBase
             cancellationToken).ConfigureAwait(false);
     }
 
-    public override async Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default)
+    public override Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
         if (_deviceRangeCatalog is not null)
-            return _deviceRangeCatalog;
+            return Task.FromResult(_deviceRangeCatalog);
 
-        var catalog = await ExecuteSerializedAsync(async () =>
-        {
-            var model = await _client!.QueryModelAsync(cancellationToken).ConfigureAwait(false);
-            var catalogModel = ResolveDeviceRangeCatalogModel(model.Model);
-            return KvHostLinkDeviceRanges.DeviceRangeCatalogForModel(catalogModel, model.Code);
-        }, cancellationToken).ConfigureAwait(false);
+        var catalog = KvHostLinkDeviceRanges.DeviceRangeCatalogForModel(ResolveDeviceRangeCatalogModel());
 
         _deviceRangeCatalog = MapDeviceRangeCatalog(catalog);
-        return _deviceRangeCatalog;
+        return Task.FromResult(_deviceRangeCatalog);
     }
 
     public override async Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default)
@@ -532,12 +527,9 @@ internal sealed class HostLinkSession : PlcSessionBase
             throw new ArgumentOutOfRangeException(nameof(number), number, $"{deviceType} low two digits must be 00..15.");
     }
 
-    private string ResolveDeviceRangeCatalogModel(string runtimeModel)
+    private string ResolveDeviceRangeCatalogModel()
     {
-        var model = string.Equals(runtimeModel, "Unknown", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(Settings.HostLinkPlcModelName)
-                ? Settings.HostLinkPlcModelName
-                : runtimeModel;
+        var model = Settings.HostLinkPlcModelName;
 
         if (Settings.KeyenceDeviceMode != KeyenceDeviceMode.Xym
             || model.EndsWith("(XYM)", StringComparison.OrdinalIgnoreCase))
@@ -576,43 +568,22 @@ internal sealed class HostLinkSession : PlcSessionBase
             if (string.Equals(segment.Device, entry.Device, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var bounds = NormalizeMappedRangeBounds(segment.Device, segment.LowerBound, segment.UpperBound);
-            var pointCount = segment.Device is "X" or "Y" && bounds.UpperBound is { } upperBound
-                ? checked(upperBound - bounds.LowerBound + 1)
+            var pointCount = segment.Device is "X" or "Y" && segment.UpperBound is { } upperBound
+                ? checked(upperBound - segment.LowerBound + 1)
                 : segment.PointCount;
             yield return new DeviceRangeEntry(
                 segment.Device,
                 segment.Category.ToString(),
                 segment.IsBitDevice,
                 entry.Supported,
-                bounds.LowerBound,
-                bounds.UpperBound,
+                segment.LowerBound,
+                segment.UpperBound,
                 pointCount,
                 segment.AddressRange,
                 segment.Notation.ToString(),
                 entry.Source,
                 entry.Notes ?? string.Empty);
         }
-    }
-
-    private static (uint LowerBound, uint? UpperBound) NormalizeMappedRangeBounds(
-        string device,
-        uint lowerBound,
-        uint? upperBound)
-    {
-        if (device is not ("X" or "Y"))
-            return (lowerBound, upperBound);
-
-        return (ConvertXymCatalogBound(lowerBound), upperBound is null ? null : ConvertXymCatalogBound(upperBound.Value));
-    }
-
-    private static uint ConvertXymCatalogBound(uint encodedBound)
-    {
-        var text = encodedBound.ToString("X", CultureInfo.InvariantCulture);
-        var bankText = text.Length == 1 ? "0" : text[..^1];
-        var bank = uint.Parse(bankText, NumberStyles.None, CultureInfo.InvariantCulture);
-        var bit = uint.Parse(text[^1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-        return checked(bank * 16 + bit);
     }
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)

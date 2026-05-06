@@ -1,6 +1,7 @@
 ﻿namespace PlcScope.App.ViewModels;
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using PlcComm.KvHostLink;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
 
@@ -11,27 +12,9 @@ public sealed record SlmpPlcFamilyOption(string Value, string Label);
 public partial class ConnectionDialogViewModel : ObservableObject
 {
     private static readonly string[] DefaultHostLinkModels =
-    [
-        "KV-8000A",
-        "KV-8000",
-        "KV-7500",
-        "KV-7300",
-        "KV-5500",
-        "KV-5000",
-        "KV-3000",
-        "KV-1000",
-        "KV-700 (With expansion memory)",
-        "KV-700 (No expansion memory)",
-        "KV-X550",
-        "KV-X530",
-        "KV-X520",
-        "KV-X500",
-        "KV-X310",
-        "KV-N60nn",
-        "KV-N40nn",
-        "KV-N24nn",
-        "KV-NC32T",
-    ];
+        KvHostLinkDeviceRanges.AvailableDeviceRangeModels()
+            .Where(static model => !model.EndsWith("(XYM)", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
 
     private static readonly string[] DefaultToyopucDeviceProfiles =
     [
@@ -65,9 +48,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpModuleIo = settings.SlmpModuleIo;
         SlmpMultidrop = settings.SlmpMultidrop;
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
-        HostLinkPlcModelName = string.IsNullOrWhiteSpace(settings.HostLinkPlcModelName)
-            ? "KV-7500"
-            : settings.HostLinkPlcModelName;
+        HostLinkPlcModelName = settings.HostLinkPlcModelName;
         SelectedKeyenceDeviceMode = KeyenceDeviceModes.First(option => option.Mode == settings.KeyenceDeviceMode);
         ToyopucDeviceProfile = settings.ToyopucDeviceProfile ?? string.Empty;
         ToyopucRelayHops = settings.ToyopucRelayHops ?? string.Empty;
@@ -146,7 +127,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private ushort slmpMonitoringTimer = 0x0010;
 
     [ObservableProperty]
-    private string hostLinkPlcModelName = "KV-7500";
+    private string hostLinkPlcModelName = "KV-8000";
 
     [ObservableProperty]
     private KeyenceDeviceModeOption selectedKeyenceDeviceMode = new(KeyenceDeviceMode.Normal, "Normal");
@@ -184,7 +165,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpModuleIo = SlmpModuleIo,
         SlmpMultidrop = SlmpMultidrop,
         SlmpMonitoringTimer = SlmpMonitoringTimer,
-        HostLinkPlcModelName = string.IsNullOrWhiteSpace(HostLinkPlcModelName) ? "KV-7500" : HostLinkPlcModelName,
+        HostLinkPlcModelName = HostLinkPlcModelName,
         KeyenceDeviceMode = SelectedKeyenceDeviceMode.Mode,
         ToyopucDeviceProfile = string.IsNullOrWhiteSpace(ToyopucDeviceProfile) ? null : ToyopucDeviceProfile,
         ToyopucRelayHops = string.IsNullOrWhiteSpace(ToyopucRelayHops) ? null : ToyopucRelayHops,

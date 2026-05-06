@@ -576,8 +576,8 @@ public partial class MainWindowViewModel : ObservableObject
             ResetCommunicationRate();
             _communicationRateTimer.Start();
             StatusText = $"Connected: {SelectedProtocol.DisplayName}";
-            await ReadOnceAsync().ConfigureAwait(true);
             RestartTimer();
+            _ = ReadOnceAsync();
         }
         catch (Exception exception)
         {
