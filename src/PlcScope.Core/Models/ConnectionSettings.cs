@@ -16,7 +16,7 @@ public sealed record ConnectionSettings
     public byte SlmpMultidrop { get; init; } = 0x00;
     public ushort SlmpMonitoringTimer { get; init; } = 0x0010;
 
-    public string HostLinkPlcModelName { get; init; } = "KV-7500";
+    public string HostLinkPlcModelName { get; init; } = "KV-8000";
     public KeyenceDeviceMode KeyenceDeviceMode { get; init; } = KeyenceDeviceMode.Normal;
 
     public string? ToyopucDeviceProfile { get; init; } = "TOYOPUC-Plus:Plus Extended mode";
@@ -41,7 +41,7 @@ public sealed record ConnectionSettings
             {
                 Protocol = ProtocolKind.HostLink,
                 Port = 8501,
-                HostLinkPlcModelName = "KV-7500",
+                HostLinkPlcModelName = "KV-8000",
                 KeyenceDeviceMode = KeyenceDeviceMode.Normal,
             },
             ProtocolKind.Toyopuc => new ConnectionSettings
