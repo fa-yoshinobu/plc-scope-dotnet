@@ -1,7 +1,5 @@
 # PLC Scope
 
-![Platform](https://img.shields.io/badge/platform-Windows-0078D4)
-![.NET](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 [![Release](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml)
