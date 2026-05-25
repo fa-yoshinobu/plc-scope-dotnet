@@ -32,6 +32,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="PlcComm.KvHostLink">
+      <HintPath>..\..\lib\plc-comm\net9.0\PlcComm.KvHostLink.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="..\..\icon.ico" Link="icon.ico" Condition="Exists('..\..\icon.ico')" />
   </ItemGroup>
 

@@ -239,6 +239,26 @@ public sealed class MonitorLayoutTests
     }
 
     [Fact]
+    public void ViewMenu_ContainsAlwaysOnTopSelection()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+
+        var menuItem = document
+            .Descendants()
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "AlwaysOnTopMenuItem", StringComparison.Ordinal)));
+
+        Assert.Equal("Always on top", menuItem.Attributes().Single(attribute => attribute.Name.LocalName == "AutomationProperties.Name").Value);
+        Assert.Equal("True", (string?)menuItem.Attribute("IsCheckable"));
+        Assert.Equal("AlwaysOnTopMenuItem_Click", (string?)menuItem.Attribute("Click"));
+        Assert.NotNull(menuItem.Descendants().SingleOrDefault(element =>
+            element.Name.LocalName == "TextBlock"
+            && string.Equals((string?)element.Attribute("Text"), "Always on top", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void MonitorAndWatchLists_EnableHorizontalScrolling()
     {
         var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");

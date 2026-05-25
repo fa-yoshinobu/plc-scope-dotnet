@@ -1,3 +1,5 @@
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace PlcScope.App.UiTests;
 
 [CollectionDefinition(Name, DisableParallelization = true)]
