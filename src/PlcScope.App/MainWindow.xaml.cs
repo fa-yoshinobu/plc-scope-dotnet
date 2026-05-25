@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         ViewModel.RequestMonitorScrollToRowIndex = ScrollMonitorToRowIndex;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += MainWindow_Loaded;
+        ContentRendered += MainWindow_ContentRendered;
     }
 
     public MainWindowViewModel ViewModel { get; }
@@ -43,6 +44,12 @@ public partial class MainWindow : Window
         Loaded -= MainWindow_Loaded;
         await ViewModel.InitializeAsync().ConfigureAwait(true);
         App.ApplyTheme(ViewModel.SelectedThemeOption.Key);
+    }
+
+    private void MainWindow_ContentRendered(object? sender, EventArgs e)
+    {
+        ContentRendered -= MainWindow_ContentRendered;
+        BringToForeground();
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -208,6 +215,32 @@ public partial class MainWindow : Window
     private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
     {
         new AboutWindow { Owner = this }.ShowDialog();
+    }
+
+    private void AlwaysOnTopMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem)
+            return;
+
+        Topmost = menuItem.IsChecked;
+        if (Topmost)
+            BringToForeground();
+    }
+
+    private void BringToForeground()
+    {
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
+
+        Activate();
+        Focus();
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                Activate();
+                Focus();
+            },
+            DispatcherPriority.ApplicationIdle);
     }
 
     private void MonitorListBox_Loaded(object sender, RoutedEventArgs e)
