@@ -58,6 +58,10 @@ SLMP supports device range acquisition based on the selected PLC family and sett
 
 Long timer/counter families that are 32-bit by definition are displayed as DWord-style values.
 
+When an SLMP remote password is configured, the application sends Remote Password Unlock after opening the connection and sends Remote Password Lock before disconnecting. Monitor reads, writes, device range reads, CPU state reads, and CPU commands share that unlocked session.
+
+SLMP CPU control exposes `CPU RUN`, `CPU STOP`, and `CPU PAUSE`. `CPU PAUSE` is shown only when SLMP is the active protocol. `CPU RUN` sends Remote RUN with `clearMode = 0`.
+
 ### Host Link
 
 Host Link supports monitor reads, writes, and CPU mode operations where the library and PLC model allow them.
@@ -81,7 +85,7 @@ Relay hops are applied when configured.
 
 ## CPU State
 
-The status bar shows the latest known CPU state when the active protocol can read it. Unsupported protocols show an unknown state and disable CPU control commands.
+The status bar shows the latest known CPU state, including RUN, STOP, PAUSE, or PROGRAM where supported, when the active protocol can read it. Unsupported protocols show an unknown state and disable CPU control commands.
 
 ## Logs
 

@@ -428,6 +428,12 @@
                   Command="{Binding CpuStopCommand}"
                   IsEnabled="{Binding CanIssueCpuControl}"
                   ToolTip="{Binding CpuControlHint}" />
+        <MenuItem Header="CPU PAUSE"
+                  AutomationProperties.AutomationId="CpuPauseMenuItem"
+                  Command="{Binding CpuPauseCommand}"
+                  IsEnabled="{Binding CanIssueCpuPauseControl}"
+                  Visibility="{Binding CanShowCpuPauseControl, Converter={StaticResource BoolToVisibilityConverter}}"
+                  ToolTip="{Binding CpuPauseControlHint}" />
       </MenuItem>
       <MenuItem Header="Tools" AutomationProperties.AutomationId="ToolsMenu">
         <MenuItem Header="Trace log" AutomationProperties.AutomationId="TraceLogMenuItem" Click="TraceLogMenuItem_Click" />

@@ -78,12 +78,14 @@ public enum CpuRunState
     Run,
     Stop,
     Program,
+    Pause,
 }
 
 public enum CpuCommand
 {
     Run,
     Stop,
+    Pause,
 }
 
 public enum TraceDirection

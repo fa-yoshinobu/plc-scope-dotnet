@@ -36,7 +36,7 @@ internal abstract class PlcSessionBase : IPlcSession
     public virtual Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default) =>
         throw new NotSupportedException($"{Definition.DisplayName} does not support the device range catalog.");
 
-    public abstract Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default);
+    public abstract Task SendCpuCommandAsync(CpuCommand command, CancellationToken cancellationToken = default);
     public abstract ValueTask DisposeAsync();
 
     protected static void ThrowIfNotConnected(bool isConnected)

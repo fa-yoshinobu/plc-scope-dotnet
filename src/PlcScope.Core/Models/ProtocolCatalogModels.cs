@@ -6,7 +6,7 @@ public sealed record ProtocolCapabilities(
     bool SupportsCpuControl,
     bool SupportsCpuStatus,
     bool SupportsTrace,
-    bool SupportsPasswordProtectedCpuCommands,
+    bool SupportsRemotePassword,
     bool MapsStopToProgram = false);
 
 public sealed record DeviceFamilyDefinition(

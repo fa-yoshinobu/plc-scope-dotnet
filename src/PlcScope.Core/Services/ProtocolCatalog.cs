@@ -31,7 +31,7 @@ public static class ProtocolCatalog
                 SupportsCpuControl: true,
                 SupportsCpuStatus: true,
                 SupportsTrace: true,
-                SupportsPasswordProtectedCpuCommands: true),
+                SupportsRemotePassword: true),
             ConnectionSettings.CreateDefault(ProtocolKind.Slmp),
             [
                 Bit("X", true), Bit("Y", true), SlmpDecimalBit("M"), Bit("B", true), Bit("SB", true), SlmpDecimalBit("F"), SlmpDecimalBit("V"),
@@ -55,7 +55,7 @@ public static class ProtocolCatalog
                 SupportsCpuControl: true,
                 SupportsCpuStatus: true,
                 SupportsTrace: true,
-                SupportsPasswordProtectedCpuCommands: false,
+                SupportsRemotePassword: false,
                 MapsStopToProgram: true),
             ConnectionSettings.CreateDefault(ProtocolKind.HostLink),
             [
@@ -75,7 +75,7 @@ public static class ProtocolCatalog
                 SupportsCpuControl: true,
                 SupportsCpuStatus: true,
                 SupportsTrace: true,
-                SupportsPasswordProtectedCpuCommands: false),
+                SupportsRemotePassword: false),
             ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc),
             CreateToyopucDeviceFamilies(),
             DefaultWordFamilyCode: "P1-D",

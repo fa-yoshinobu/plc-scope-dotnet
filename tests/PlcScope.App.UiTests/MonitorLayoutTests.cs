@@ -239,6 +239,49 @@ public sealed class MonitorLayoutTests
     }
 
     [Fact]
+    public void CpuMenu_ContainsSlmpOnlyPauseCommand()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+
+        var menuItem = document
+            .Descendants()
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "CpuPauseMenuItem", StringComparison.Ordinal)));
+
+        Assert.Equal("CPU PAUSE", (string?)menuItem.Attribute("Header"));
+        Assert.Equal("{Binding CpuPauseCommand}", (string?)menuItem.Attribute("Command"));
+        Assert.Equal("{Binding CanIssueCpuPauseControl}", (string?)menuItem.Attribute("IsEnabled"));
+        Assert.Equal("{Binding CanShowCpuPauseControl, Converter={StaticResource BoolToVisibilityConverter}}", (string?)menuItem.Attribute("Visibility"));
+    }
+
+    [Fact]
+    public void ConnectionDialog_ContainsSlmpRemotePasswordBox()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "ConnectionDialog.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+        var passwordBox = document
+            .Descendants()
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "ConnectionSlmpRemotePasswordBox", StringComparison.Ordinal)));
+        var slmpRows = document
+            .Descendants(presentation + "GroupBox")
+            .Single(element => string.Equals((string?)element.Attribute("Header"), "SLMP", StringComparison.Ordinal))
+            .Element(presentation + "Grid")!
+            .Element(presentation + "Grid.RowDefinitions")!
+            .Elements(presentation + "RowDefinition")
+            .Count();
+
+        Assert.Equal("PasswordBox", passwordBox.Name.LocalName);
+        Assert.Equal("5", (string?)passwordBox.Attribute("Grid.Row"));
+        Assert.True(slmpRows > 5);
+    }
+
+    [Fact]
     public void ViewMenu_ContainsAlwaysOnTopSelection()
     {
         var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");

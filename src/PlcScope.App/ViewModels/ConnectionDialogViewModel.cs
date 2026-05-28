@@ -48,6 +48,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpModuleIo = settings.SlmpModuleIo;
         SlmpMultidrop = settings.SlmpMultidrop;
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
+        SlmpRemotePassword = settings.SlmpRemotePassword ?? string.Empty;
         HostLinkPlcModelName = settings.HostLinkPlcModelName;
         SelectedKeyenceDeviceMode = KeyenceDeviceModes.First(option => option.Mode == settings.KeyenceDeviceMode);
         ToyopucDeviceProfile = settings.ToyopucDeviceProfile ?? string.Empty;
@@ -127,6 +128,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private ushort slmpMonitoringTimer = 0x0010;
 
     [ObservableProperty]
+    private string slmpRemotePassword = string.Empty;
+
+    [ObservableProperty]
     private string hostLinkPlcModelName = "KV-8000";
 
     [ObservableProperty]
@@ -165,6 +169,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpModuleIo = SlmpModuleIo,
         SlmpMultidrop = SlmpMultidrop,
         SlmpMonitoringTimer = SlmpMonitoringTimer,
+        SlmpRemotePassword = string.IsNullOrWhiteSpace(SlmpRemotePassword) ? null : SlmpRemotePassword,
         HostLinkPlcModelName = HostLinkPlcModelName,
         KeyenceDeviceMode = SelectedKeyenceDeviceMode.Mode,
         ToyopucDeviceProfile = string.IsNullOrWhiteSpace(ToyopucDeviceProfile) ? null : ToyopucDeviceProfile,

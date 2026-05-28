@@ -19,5 +19,5 @@ public interface IPlcSession : IAsyncDisposable
     Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default);
     Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default);
     Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default);
-    Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default);
+    Task SendCpuCommandAsync(CpuCommand command, CancellationToken cancellationToken = default);
 }

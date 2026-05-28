@@ -29,7 +29,6 @@ public partial class MainWindow : Window
         ViewModel = viewModel;
         DataContext = viewModel;
 
-        ViewModel.RequestPasswordAsync = RequestPasswordAsync;
         ViewModel.RequestCpuCommandConfirmationAsync = RequestCpuCommandConfirmationAsync;
         ViewModel.RequestMonitorScrollToRowIndex = ScrollMonitorToRowIndex;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -729,9 +728,15 @@ public partial class MainWindow : Window
 
     private Task<bool> RequestCpuCommandConfirmationAsync(CpuCommand command)
     {
-        var commandText = command == CpuCommand.Run ? "RUN" : "STOP";
+        var commandText = command switch
+        {
+            CpuCommand.Run => "RUN",
+            CpuCommand.Stop => "STOP",
+            CpuCommand.Pause => "PAUSE",
+            _ => command.ToString().ToUpperInvariant(),
+        };
         var message =
-            $"Run CPU {commandText}?\n\n" +
+            $"Issue CPU {commandText}?\n\n" +
             $"Target: {ViewModel.SelectedProtocol.DisplayName}\n" +
             $"Current state: {ViewModel.CpuStateText}";
         var result = MessageBox.Show(
@@ -743,15 +748,6 @@ public partial class MainWindow : Window
         return Task.FromResult(result == MessageBoxResult.OK);
     }
 
-    private Task<string?> RequestPasswordAsync(string title)
-    {
-        var dialog = new PasswordDialog(title)
-        {
-            Owner = this,
-        };
-
-        return Task.FromResult(dialog.ShowDialog() == true ? dialog.PasswordText : null);
-    }
 }
 
 

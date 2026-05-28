@@ -123,6 +123,8 @@ Projects are saved as JSON and include:
 
 Application settings are stored under `%LOCALAPPDATA%\PlcScope\settings.json`.
 
+SLMP remote password is part of the connection settings. If it is entered, treat saved project files as sensitive.
+
 ## TOYOPUC Notes
 
 TOYOPUC support uses the Computer Link library through the application protocol adapter.
@@ -136,6 +138,11 @@ TOYOPUC support uses the Computer Link library through the application protocol 
 ## CPU Control
 
 Use the `CPU` menu to issue `CPU RUN` or `CPU STOP`.
+
+For SLMP connections, `CPU RUN` sends Remote RUN with `clearMode = 0`, so device memory is not cleared when switching the CPU to RUN.
+SLMP connections also show `CPU PAUSE`; other protocols only expose `CPU RUN` and `CPU STOP`.
+
+When an SLMP remote password is set in `Connection settings`, the application unlocks the SLMP session after connecting and locks it before disconnecting. The same unlocked session is used for monitor reads, writes, and CPU commands.
 
 Unsupported protocols disable CPU control. The status bar shows the latest CPU state when the protocol can read it.
 
