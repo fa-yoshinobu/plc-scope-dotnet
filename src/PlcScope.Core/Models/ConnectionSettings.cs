@@ -15,6 +15,7 @@ public sealed record ConnectionSettings
     public ushort SlmpModuleIo { get; init; } = 0x03FF;
     public byte SlmpMultidrop { get; init; } = 0x00;
     public ushort SlmpMonitoringTimer { get; init; } = 0x0010;
+    public string? SlmpRemotePassword { get; init; }
 
     public string HostLinkPlcModelName { get; init; } = "KV-8000";
     public KeyenceDeviceMode KeyenceDeviceMode { get; init; } = KeyenceDeviceMode.Normal;

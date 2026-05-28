@@ -115,6 +115,7 @@ public partial class MainWindowViewModel : ObservableObject
         WritePanelCommand = new AsyncRelayCommand(WritePanelAsync);
         CpuRunCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Run));
         CpuStopCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Stop));
+        CpuPauseCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Pause));
         RemoveWatchItemCommand = new RelayCommand(RemoveSelectedWatchItem);
         WatchItems.CollectionChanged += WatchItems_CollectionChanged;
 
@@ -140,9 +141,9 @@ public partial class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand WritePanelCommand { get; }
     public IAsyncRelayCommand CpuRunCommand { get; }
     public IAsyncRelayCommand CpuStopCommand { get; }
+    public IAsyncRelayCommand CpuPauseCommand { get; }
     public IRelayCommand RemoveWatchItemCommand { get; }
 
-    public Func<string, Task<string?>>? RequestPasswordAsync { get; set; }
     public Func<CpuCommand, Task<bool>>? RequestCpuCommandConfirmationAsync { get; set; }
     public Action<int>? RequestMonitorScrollToRowIndex { get; set; }
 
@@ -245,6 +246,8 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsConnected => ConnectionState == ConnectionState.Connected;
     public bool CanUseWritePanel => IsConnected && SelectedProtocol.Capabilities.SupportsWrite;
     public bool CanIssueCpuControl => IsConnected && SelectedProtocol.Capabilities.SupportsCpuControl;
+    public bool CanShowCpuPauseControl => SelectedProtocol.Kind == ProtocolKind.Slmp;
+    public bool CanIssueCpuPauseControl => CanIssueCpuControl && SelectedProtocol.Kind == ProtocolKind.Slmp;
     public string ConnectionToggleText => ConnectionState switch
     {
         ConnectionState.Connected => "Disconnect",
@@ -266,6 +269,9 @@ public partial class MainWindowViewModel : ObservableObject
                 : "CPU RUN/STOP is not supported by this protocol.";
         }
     }
+    public string CpuPauseControlHint => SelectedProtocol.Kind == ProtocolKind.Slmp
+        ? "Send SLMP CPU PAUSE command."
+        : "CPU PAUSE is only available for Mitsubishi MELSEC (SLMP).";
 
     public async Task InitializeAsync()
     {
@@ -1344,29 +1350,25 @@ public partial class MainWindowViewModel : ObservableObject
         if (_session is null)
             return;
 
-        if (!SelectedProtocol.Capabilities.SupportsCpuControl)
+        if (!CanIssueCpuCommand(command))
         {
-            ErrorText = "CPU control is not supported by this protocol.";
+            ErrorText = command == CpuCommand.Pause
+                ? "CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP)."
+                : "CPU control is not supported by this protocol.";
             return;
         }
 
         if (RequestCpuCommandConfirmationAsync is not null
             && !await RequestCpuCommandConfirmationAsync(command).ConfigureAwait(true))
         {
-            var commandText = command == CpuCommand.Run ? "RUN" : "STOP";
+            var commandText = TranslateCpuCommand(command);
             ErrorText = $"CPU {commandText} was canceled.";
             return;
         }
 
-        string? password = null;
-        if (SelectedProtocol.Capabilities.SupportsPasswordProtectedCpuCommands && RequestPasswordAsync is not null)
-        {
-            password = await RequestPasswordAsync("Remote password").ConfigureAwait(true);
-        }
-
         try
         {
-            await _session.SendCpuCommandAsync(command, password).ConfigureAwait(true);
+            await _session.SendCpuCommandAsync(command).ConfigureAwait(true);
             await ReadOnceAsync().ConfigureAwait(true);
         }
         catch (Exception exception)
@@ -1374,6 +1376,13 @@ public partial class MainWindowViewModel : ObservableObject
             await LogErrorAsync($"CPU {command}", exception).ConfigureAwait(true);
         }
     }
+
+    private bool CanIssueCpuCommand(CpuCommand command) =>
+        command switch
+        {
+            CpuCommand.Pause => CanIssueCpuPauseControl,
+            _ => CanIssueCpuControl,
+        };
 
     private async Task WriteInternalAsync(WriteRequest request)
     {
@@ -2639,7 +2648,10 @@ public partial class MainWindowViewModel : ObservableObject
         StartAddress = InferDefaultStartAddress();
         OnPropertyChanged(nameof(CanUseWritePanel));
         OnPropertyChanged(nameof(CanIssueCpuControl));
+        OnPropertyChanged(nameof(CanShowCpuPauseControl));
+        OnPropertyChanged(nameof(CanIssueCpuPauseControl));
         OnPropertyChanged(nameof(CpuControlHint));
+        OnPropertyChanged(nameof(CpuPauseControlHint));
         UpdateAllWatchAvailableDataTypes();
 
         _lastSnapshot = null;
@@ -2818,6 +2830,7 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(CanUseWritePanel));
         OnPropertyChanged(nameof(CanIssueCpuControl));
+        OnPropertyChanged(nameof(CanIssueCpuPauseControl));
         OnPropertyChanged(nameof(ConnectionToggleText));
         OnPropertyChanged(nameof(ConnectionToggleToolTip));
     }
@@ -2952,6 +2965,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             CpuRunState.Run => "RUN",
             CpuRunState.Stop => "STOP",
+            CpuRunState.Pause => "PAUSE",
             CpuRunState.Program => "PROGRAM",
             _ => "Unknown",
         };
@@ -2964,6 +2978,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             CpuCommand.Run => "RUN",
             CpuCommand.Stop => "STOP",
+            CpuCommand.Pause => "PAUSE",
             _ => command.ToString().ToUpperInvariant(),
         };
 

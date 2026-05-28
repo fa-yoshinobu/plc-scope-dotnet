@@ -181,9 +181,12 @@ internal sealed class HostLinkSession : PlcSessionBase
         return Task.FromResult(_deviceRangeCatalog);
     }
 
-    public override async Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default)
+    public override async Task SendCpuCommandAsync(CpuCommand command, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
+        if (command == CpuCommand.Pause)
+            throw new NotSupportedException("CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP).");
+
         var mode = command == CpuCommand.Run ? KvPlcMode.Run : KvPlcMode.Program;
         await ExecuteSerializedAsync(async () =>
         {

@@ -80,6 +80,7 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC family" VerticalAlignment="Center" Margin="0,0,8,8" />
@@ -99,8 +100,14 @@
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Module I/O" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpModuleIoTextBox" Margin="0,0,0,8" Text="{Binding SlmpModuleIo}" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Text="{Binding SlmpMonitoringTimer}" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Margin="0,0,0,8" Text="{Binding SlmpMonitoringTimer}" />
+
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Remote password" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <PasswordBox x:Name="SlmpRemotePasswordBox"
+                         Grid.Row="5"
+                         Grid.Column="1"
+                         AutomationProperties.AutomationId="ConnectionSlmpRemotePasswordBox" />
           </Grid>
         </GroupBox>
 

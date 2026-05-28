@@ -111,6 +111,7 @@ Recommended checks before publishing:
 - verify watch list visible-row refresh
 - verify inline writes
 - verify bit toggles
-- verify CPU RUN/STOP for supported protocols
+- verify CPU RUN/STOP for supported protocols and CPU PAUSE for SLMP
+- verify SLMP remote password unlock on connect and lock on disconnect when configured
 - verify dark theme readability
 - verify error history and optional communication log behavior

@@ -30,6 +30,29 @@ public sealed class MainWindowViewModelWatchTests
     }
 
     [Fact]
+    public async Task CpuPauseCommand_IsIssuedOnlyForSlmpProtocol()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+
+        Assert.True(viewModel.CanShowCpuPauseControl);
+        Assert.True(viewModel.CanIssueCpuPauseControl);
+
+        await viewModel.CpuPauseCommand.ExecuteAsync(null);
+        Assert.Equal(CpuCommand.Pause, session.LastCpuCommand);
+
+        session.ClearLastCpuCommand();
+        viewModel.SelectedProtocol = ProtocolCatalog.Get(ProtocolKind.HostLink);
+
+        Assert.False(viewModel.CanShowCpuPauseControl);
+        Assert.False(viewModel.CanIssueCpuPauseControl);
+
+        await viewModel.CpuPauseCommand.ExecuteAsync(null);
+        Assert.Null(session.LastCpuCommand);
+        Assert.Equal("CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP).", viewModel.ErrorText);
+    }
+
+    [Fact]
     public async Task ImportAndExportWatchListCsv_RoundTripsVisibleWatchFields()
     {
         var importPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-watch-import.csv");
@@ -276,6 +299,7 @@ public sealed class MainWindowViewModelWatchTests
         public bool IsConnected { get; private set; }
         public BlockQuery? LastQuery { get; private set; }
         public (string WordAddress, int BitIndex, bool Value)? LastWordBitWrite { get; private set; }
+        public CpuCommand? LastCpuCommand { get; private set; }
 
         public event EventHandler<TraceEntry>? TraceReceived
         {
@@ -333,8 +357,13 @@ public sealed class MainWindowViewModelWatchTests
         public Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+        public Task SendCpuCommandAsync(CpuCommand command, CancellationToken cancellationToken = default)
+        {
+            LastCpuCommand = command;
+            return Task.CompletedTask;
+        }
+
+        public void ClearLastCpuCommand() => LastCpuCommand = null;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

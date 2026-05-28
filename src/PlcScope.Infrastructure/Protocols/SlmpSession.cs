@@ -11,6 +11,7 @@ internal sealed class SlmpSession : PlcSessionBase
     private SlmpPlcFamily _plcFamily = SlmpPlcFamily.IqR;
     private SlmpDeviceRangeCatalog? _deviceRangeCatalog;
     private readonly HashSet<string> _reportedReadWarnings = [];
+    private bool _remotePasswordUnlocked;
 
     public SlmpSession(ConnectionSettings settings)
         : base(settings, ProtocolCatalog.Get(ProtocolKind.Slmp))
@@ -44,10 +45,20 @@ internal sealed class SlmpSession : PlcSessionBase
             frame.Direction == SlmpTraceDirection.Send ? TraceDirection.Send : TraceDirection.Receive,
                 "SLMP frame",
                 Convert.ToHexString(frame.Data)));
-        await _client.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await RefreshDeviceRangeCatalogAsync(profile.RangeFamily, cancellationToken).ConfigureAwait(false);
 
-        IsConnected = true;
+        try
+        {
+            await _client.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await UnlockRemotePasswordIfConfiguredAsync(cancellationToken).ConfigureAwait(false);
+            await RefreshDeviceRangeCatalogAsync(profile.RangeFamily, cancellationToken).ConfigureAwait(false);
+
+            IsConnected = true;
+        }
+        catch
+        {
+            await CleanupFailedConnectAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     public override async Task DisconnectAsync(CancellationToken cancellationToken = default)
@@ -57,10 +68,12 @@ internal sealed class SlmpSession : PlcSessionBase
             if (_client is null)
                 return;
 
+            await TryLockRemotePasswordAsync(CancellationToken.None).ConfigureAwait(false);
             await _client.DisposeAsync().ConfigureAwait(false);
             _client = null;
             _deviceRangeCatalog = null;
             _reportedReadWarnings.Clear();
+            _remotePasswordUnlocked = false;
             ClearCpuStateCache();
             IsConnected = false;
         }, cancellationToken).ConfigureAwait(false);
@@ -221,38 +234,27 @@ internal sealed class SlmpSession : PlcSessionBase
         return MapDeviceRangeCatalog(_deviceRangeCatalog);
     }
 
-    public override async Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default)
+    public override async Task SendCpuCommandAsync(CpuCommand command, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
         await ExecuteSerializedAsync(async () =>
         {
-            if (!string.IsNullOrWhiteSpace(password))
+            switch (command)
             {
-                await _client!.ExecuteAsync(inner => inner.RemotePasswordUnlockAsync(password, cancellationToken), cancellationToken).ConfigureAwait(false);
-            }
-
-            try
-            {
-                if (command == CpuCommand.Run)
-                    await _client!.ExecuteAsync(inner => inner.RemoteRunAsync(false, 2, cancellationToken), cancellationToken).ConfigureAwait(false);
-                else
+                case CpuCommand.Run:
+                    await _client!.ExecuteAsync(inner => inner.RemoteRunAsync(false, 0, cancellationToken), cancellationToken).ConfigureAwait(false);
+                    break;
+                case CpuCommand.Stop:
                     await _client!.ExecuteAsync(inner => inner.RemoteStopAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+                    break;
+                case CpuCommand.Pause:
+                    await _client!.ExecuteAsync(inner => inner.RemotePauseAsync(false, cancellationToken), cancellationToken).ConfigureAwait(false);
+                    break;
+                default:
+                    throw new NotSupportedException($"Unsupported SLMP CPU command: {command}");
+            }
 
-                ClearCpuStateCache();
-            }
-            finally
-            {
-                if (!string.IsNullOrWhiteSpace(password))
-                {
-                    try
-                    {
-                        await _client!.ExecuteAsync(inner => inner.RemotePasswordLockAsync(password, cancellationToken), cancellationToken).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                    }
-                }
-            }
+            ClearCpuStateCache();
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -260,6 +262,60 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         await DisconnectAsync().ConfigureAwait(false);
         DisposeSynchronization();
+    }
+
+    private bool HasRemotePassword => !string.IsNullOrWhiteSpace(Settings.SlmpRemotePassword);
+
+    private async Task UnlockRemotePasswordIfConfiguredAsync(CancellationToken cancellationToken)
+    {
+        if (!HasRemotePassword)
+            return;
+
+        await _client!.ExecuteAsync(
+            inner => inner.RemotePasswordUnlockAsync(Settings.SlmpRemotePassword!, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+        _remotePasswordUnlocked = true;
+    }
+
+    private async Task TryLockRemotePasswordAsync(CancellationToken cancellationToken)
+    {
+        if (!_remotePasswordUnlocked || !HasRemotePassword || _client is null)
+            return;
+
+        try
+        {
+            await _client.ExecuteAsync(
+                inner => inner.RemotePasswordLockAsync(Settings.SlmpRemotePassword!, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            EmitError(new ErrorEntry(
+                DateTimeOffset.UtcNow,
+                "SLMP remote password lock",
+                exception.Message,
+                FormatSlmpErrorDetails(exception)));
+        }
+        finally
+        {
+            _remotePasswordUnlocked = false;
+        }
+    }
+
+    private async Task CleanupFailedConnectAsync()
+    {
+        if (_client is not null)
+        {
+            await TryLockRemotePasswordAsync(CancellationToken.None).ConfigureAwait(false);
+            await _client.DisposeAsync().ConfigureAwait(false);
+        }
+
+        _client = null;
+        _deviceRangeCatalog = null;
+        _reportedReadWarnings.Clear();
+        _remotePasswordUnlocked = false;
+        ClearCpuStateCache();
+        IsConnected = false;
     }
 
     private IReadOnlyList<string> BuildAddresses(string startAddress, int count, string deviceFamilyCode)
@@ -439,10 +495,11 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             0x00 => CpuRunState.Run,
             0x02 => CpuRunState.Stop,
+            0x03 => CpuRunState.Pause,
             _ => CpuRunState.Unknown,
         };
 
-        return new CpuState(state, $"0x{statusWord:X4}", SupportsControl: true, RequiresPassword: Definition.Capabilities.SupportsPasswordProtectedCpuCommands);
+        return new CpuState(state, $"0x{statusWord:X4}", SupportsControl: true, RequiresPassword: HasRemotePassword);
     }
 
     private Task WriteLongCurrentValueAsync(SlmpDeviceAddress address, WriteRequest request, CancellationToken cancellationToken)

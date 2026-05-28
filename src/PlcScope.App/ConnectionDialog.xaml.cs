@@ -11,10 +11,18 @@ public partial class ConnectionDialog : Window
         InitializeComponent();
         ViewModel = new ConnectionDialogViewModel(settings);
         DataContext = ViewModel;
+        SlmpRemotePasswordBox.Password = ViewModel.SlmpRemotePassword;
     }
 
     public ConnectionDialogViewModel ViewModel { get; }
-    public ConnectionSettings ResultSettings => ViewModel.BuildSettings();
+    public ConnectionSettings ResultSettings
+    {
+        get
+        {
+            ViewModel.SlmpRemotePassword = SlmpRemotePasswordBox.Password;
+            return ViewModel.BuildSettings();
+        }
+    }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {

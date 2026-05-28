@@ -167,9 +167,12 @@ internal sealed class ToyopucSession : PlcSessionBase
         return Task.FromResult(new DeviceRangeCatalog(profile, profile, entries));
     }
 
-    public override async Task SendCpuCommandAsync(CpuCommand command, string? password = null, CancellationToken cancellationToken = default)
+    public override async Task SendCpuCommandAsync(CpuCommand command, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
+        if (command == CpuCommand.Pause)
+            throw new NotSupportedException("CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP).");
+
         await ExecuteSerializedAsync(async () =>
         {
             if (Settings.ToyopucRelayHops is { Length: > 0 })
