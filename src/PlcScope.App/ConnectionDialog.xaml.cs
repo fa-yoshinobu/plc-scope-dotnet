@@ -28,4 +28,9 @@ public partial class ConnectionDialog : Window
     {
         DialogResult = true;
     }
+
+    private void ResetSlmpRoutingDefaultsButton_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.ResetSlmpRoutingToDefaults();
+    }
 }
