@@ -158,6 +158,10 @@ internal sealed class SlmpSession : PlcSessionBase
                     cpuState);
             }, cancellationToken).ConfigureAwait(false);
         }
+        catch (SlmpError exception) when (exception.IsRemotePasswordError)
+        {
+            throw new InvalidOperationException(FormatRemotePasswordFailure(exception), exception);
+        }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             throw new InvalidOperationException(FormatReadFailureMessage(effectiveQuery), exception);
@@ -171,31 +175,38 @@ internal sealed class SlmpSession : PlcSessionBase
         var parsedAddress = SlmpAddress.Parse(address, _plcFamily);
         ValidateDeviceRange(parsedAddress, GetWritePointCount(parsedAddress, request), "Write");
 
-        await ExecuteSerializedAsync(async () =>
+        try
         {
-            if (IsLongCurrentValueDevice(parsedAddress.Code))
+            await ExecuteSerializedAsync(async () =>
             {
-                await WriteLongCurrentValueAsync(parsedAddress, request, cancellationToken).ConfigureAwait(false);
-            }
-            else if (IsDWordAddressedDevice(parsedAddress.Code))
-            {
-                await WriteDWordAddressedValueAsync(parsedAddress, request, cancellationToken).ConfigureAwait(false);
-            }
-            else if (request.DataType == ValueDataType.Bit && IsLongTimerBitDevice(parsedAddress.Code))
-            {
-                // Long-family state writes must go through the library typed route so
-                // 0x1402 random bit write is selected instead of 0x1401.
-                await _client!.WriteTypedAsync(parsedAddress, "BIT", ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
-            }
-            else if (request.DataType == ValueDataType.Bit)
-            {
-                await _client!.WriteBitsBlockAsync(parsedAddress, [ToBoolean(request.Value)], cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await _client!.WriteTypedAsync(parsedAddress, NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
-            }
-        }, cancellationToken).ConfigureAwait(false);
+                if (IsLongCurrentValueDevice(parsedAddress.Code))
+                {
+                    await WriteLongCurrentValueAsync(parsedAddress, request, cancellationToken).ConfigureAwait(false);
+                }
+                else if (IsDWordAddressedDevice(parsedAddress.Code))
+                {
+                    await WriteDWordAddressedValueAsync(parsedAddress, request, cancellationToken).ConfigureAwait(false);
+                }
+                else if (request.DataType == ValueDataType.Bit && IsLongTimerBitDevice(parsedAddress.Code))
+                {
+                    // Long-family state writes must go through the library typed route so
+                    // 0x1402 random bit write is selected instead of 0x1401.
+                    await _client!.WriteTypedAsync(parsedAddress, "BIT", ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
+                }
+                else if (request.DataType == ValueDataType.Bit)
+                {
+                    await _client!.WriteBitsBlockAsync(parsedAddress, [ToBoolean(request.Value)], cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _client!.WriteTypedAsync(parsedAddress, NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SlmpError exception) when (exception.IsRemotePasswordError)
+        {
+            throw new InvalidOperationException(FormatRemotePasswordFailure(exception), exception);
+        }
 
         return new WriteResult(address, "Write completed.", DateTimeOffset.UtcNow);
     }
@@ -205,18 +216,33 @@ internal sealed class SlmpSession : PlcSessionBase
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(wordAddress);
         ValidateDeviceRange(SlmpAddress.Parse(address, _plcFamily), 1, "Bit write");
-        await ExecuteSerializedAsync(
-            () => _client!.WriteBitInWordAsync(address, bitIndex, value, cancellationToken),
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ExecuteSerializedAsync(
+                () => _client!.WriteBitInWordAsync(address, bitIndex, value, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (SlmpError exception) when (exception.IsRemotePasswordError)
+        {
+            throw new InvalidOperationException(FormatRemotePasswordFailure(exception), exception);
+        }
+
         return new WriteResult(address, $"Bit {bitIndex} updated.", DateTimeOffset.UtcNow);
     }
 
     public override async Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
-        return await ExecuteSerializedAsync(
-            async () => RememberCpuState(await ReadCpuStateInternalAsync(cancellationToken).ConfigureAwait(false)),
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await ExecuteSerializedAsync(
+                async () => RememberCpuState(await ReadCpuStateInternalAsync(cancellationToken).ConfigureAwait(false)),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (SlmpError exception) when (exception.IsRemotePasswordError)
+        {
+            throw new InvalidOperationException(FormatRemotePasswordFailure(exception), exception);
+        }
     }
 
     public override async Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default)
@@ -237,25 +263,32 @@ internal sealed class SlmpSession : PlcSessionBase
     public override async Task SendCpuCommandAsync(CpuCommand command, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
-        await ExecuteSerializedAsync(async () =>
+        try
         {
-            switch (command)
+            await ExecuteSerializedAsync(async () =>
             {
-                case CpuCommand.Run:
-                    await _client!.ExecuteAsync(inner => inner.RemoteRunAsync(false, 0, cancellationToken), cancellationToken).ConfigureAwait(false);
-                    break;
-                case CpuCommand.Stop:
-                    await _client!.ExecuteAsync(inner => inner.RemoteStopAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
-                    break;
-                case CpuCommand.Pause:
-                    await _client!.ExecuteAsync(inner => inner.RemotePauseAsync(false, cancellationToken), cancellationToken).ConfigureAwait(false);
-                    break;
-                default:
-                    throw new NotSupportedException($"Unsupported SLMP CPU command: {command}");
-            }
+                switch (command)
+                {
+                    case CpuCommand.Run:
+                        await _client!.ExecuteAsync(inner => inner.RemoteRunAsync(false, 0, cancellationToken), cancellationToken).ConfigureAwait(false);
+                        break;
+                    case CpuCommand.Stop:
+                        await _client!.ExecuteAsync(inner => inner.RemoteStopAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+                        break;
+                    case CpuCommand.Pause:
+                        await _client!.ExecuteAsync(inner => inner.RemotePauseAsync(false, cancellationToken), cancellationToken).ConfigureAwait(false);
+                        break;
+                    default:
+                        throw new NotSupportedException($"Unsupported SLMP CPU command: {command}");
+                }
 
-            ClearCpuStateCache();
-        }, cancellationToken).ConfigureAwait(false);
+                ClearCpuStateCache();
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SlmpError exception) when (exception.IsRemotePasswordError)
+        {
+            throw new InvalidOperationException(FormatRemotePasswordFailure(exception), exception);
+        }
     }
 
     public override async ValueTask DisposeAsync()
@@ -271,9 +304,17 @@ internal sealed class SlmpSession : PlcSessionBase
         if (!HasRemotePassword)
             return;
 
-        await _client!.ExecuteAsync(
-            inner => inner.RemotePasswordUnlockAsync(Settings.SlmpRemotePassword!, cancellationToken),
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _client!.ExecuteAsync(
+                inner => inner.RemotePasswordUnlockAsync(Settings.SlmpRemotePassword!, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (SlmpError exception) when (exception.Command == SlmpCommand.RemotePasswordUnlock)
+        {
+            throw new InvalidOperationException(FormatRemotePasswordFailure(exception), exception);
+        }
+
         _remotePasswordUnlocked = true;
     }
 
@@ -530,6 +571,11 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             _deviceRangeCatalog = await _client!.ReadDeviceRangeCatalogAsync(rangeFamily, cancellationToken).ConfigureAwait(false);
         }
+        catch (SlmpError exception) when (exception.IsRemotePasswordError)
+        {
+            _deviceRangeCatalog = null;
+            throw new InvalidOperationException(FormatRemotePasswordFailure(exception), exception);
+        }
         catch (Exception exception)
         {
             _deviceRangeCatalog = null;
@@ -647,11 +693,16 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         if (exception is SlmpError slmpError)
         {
-            return $"{slmpError}{Environment.NewLine}EndCode=0x{slmpError.EndCode:X4}, Command=0x{slmpError.Command:X4}, Subcommand=0x{slmpError.Subcommand:X4}";
+            var command = Convert.ToUInt16(slmpError.Command, CultureInfo.InvariantCulture);
+            return $"{slmpError}{Environment.NewLine}EndCode=0x{slmpError.EndCode:X4}, Command=0x{command:X4}, Subcommand=0x{slmpError.Subcommand:X4}";
         }
 
         return exception.ToString();
     }
+
+    private static string FormatRemotePasswordFailure(SlmpError exception) =>
+        exception.EndCodeMessage
+        ?? string.Create(CultureInfo.InvariantCulture, $"Remote password operation failed. end_code=0x{exception.EndCode:X4}");
 
     private static string FormatReadFailureMessage(BlockQuery query) =>
         string.Create(
