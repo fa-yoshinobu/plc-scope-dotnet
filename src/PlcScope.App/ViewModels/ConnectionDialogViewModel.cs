@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using PlcComm.KvHostLink;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
+using System.Globalization;
 
 public sealed record KeyenceDeviceModeOption(KeyenceDeviceMode Mode, string Label);
 public sealed record TransportModeOption(TransportMode Mode, string Label);
@@ -43,10 +44,14 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpPlcFamilyName = settings.SlmpPlcFamilyName;
         SelectedSlmpFamily = SlmpFamilies.FirstOrDefault(option => string.Equals(option.Value, settings.SlmpPlcFamilyName, StringComparison.OrdinalIgnoreCase))
             ?? SlmpFamilies[0];
-        SlmpNetwork = settings.SlmpNetwork;
-        SlmpStation = settings.SlmpStation;
-        SlmpModuleIo = settings.SlmpModuleIo;
-        SlmpMultidrop = settings.SlmpMultidrop;
+        slmpNetwork = settings.SlmpNetwork;
+        slmpStation = settings.SlmpStation;
+        slmpModuleIo = settings.SlmpModuleIo;
+        slmpMultidrop = settings.SlmpMultidrop;
+        SlmpNetworkText = slmpNetwork.ToString(CultureInfo.InvariantCulture);
+        SlmpStationText = slmpStation.ToString(CultureInfo.InvariantCulture);
+        SlmpModuleIoText = FormatPrefixedHex(slmpModuleIo, 4);
+        SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
         SlmpRemotePassword = settings.SlmpRemotePassword ?? string.Empty;
         HostLinkPlcModelName = settings.HostLinkPlcModelName;
@@ -112,17 +117,25 @@ public partial class ConnectionDialogViewModel : ObservableObject
     [ObservableProperty]
     private SlmpPlcFamilyOption selectedSlmpFamily = new("IqR", "iQ-R");
 
-    [ObservableProperty]
     private byte slmpNetwork;
 
-    [ObservableProperty]
     private byte slmpStation = 0xFF;
 
-    [ObservableProperty]
     private ushort slmpModuleIo = 0x03FF;
 
-    [ObservableProperty]
     private byte slmpMultidrop;
+
+    [ObservableProperty]
+    private string slmpNetworkText = "0";
+
+    [ObservableProperty]
+    private string slmpStationText = "255";
+
+    [ObservableProperty]
+    private string slmpModuleIoText = "0x03FF";
+
+    [ObservableProperty]
+    private string slmpMultidropText = "0x00";
 
     [ObservableProperty]
     private ushort slmpMonitoringTimer = 0x0010;
@@ -164,10 +177,10 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Transport = SelectedTransportMode.Mode,
         AutoRefreshIntervalMs = AutoRefreshIntervalMs,
         SlmpPlcFamilyName = SelectedSlmpFamily.Value,
-        SlmpNetwork = SlmpNetwork,
-        SlmpStation = SlmpStation,
-        SlmpModuleIo = SlmpModuleIo,
-        SlmpMultidrop = SlmpMultidrop,
+        SlmpNetwork = slmpNetwork,
+        SlmpStation = slmpStation,
+        SlmpModuleIo = slmpModuleIo,
+        SlmpMultidrop = slmpMultidrop,
         SlmpMonitoringTimer = SlmpMonitoringTimer,
         SlmpRemotePassword = string.IsNullOrWhiteSpace(SlmpRemotePassword) ? null : SlmpRemotePassword,
         HostLinkPlcModelName = HostLinkPlcModelName,
@@ -178,6 +191,20 @@ public partial class ConnectionDialogViewModel : ObservableObject
         ToyopucRetries = ToyopucRetries,
         ToyopucRetryDelayMs = ToyopucRetryDelayMs,
     };
+
+    public void ResetSlmpRoutingToDefaults()
+    {
+        var defaults = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
+        slmpNetwork = defaults.SlmpNetwork;
+        slmpStation = defaults.SlmpStation;
+        slmpModuleIo = defaults.SlmpModuleIo;
+        slmpMultidrop = defaults.SlmpMultidrop;
+
+        SlmpNetworkText = slmpNetwork.ToString(CultureInfo.InvariantCulture);
+        SlmpStationText = slmpStation.ToString(CultureInfo.InvariantCulture);
+        SlmpModuleIoText = FormatPrefixedHex(slmpModuleIo, 4);
+        SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
+    }
 
     partial void OnSelectedProtocolChanged(ProtocolDefinition value)
     {
@@ -200,4 +227,49 @@ public partial class ConnectionDialogViewModel : ObservableObject
     {
         SlmpPlcFamilyName = value.Value;
     }
+
+    partial void OnSlmpNetworkTextChanged(string value)
+    {
+        if (TryParseDecimalByte(value, out var parsed))
+            slmpNetwork = parsed;
+    }
+
+    partial void OnSlmpStationTextChanged(string value)
+    {
+        if (TryParseDecimalByte(value, out var parsed))
+            slmpStation = parsed;
+    }
+
+    partial void OnSlmpModuleIoTextChanged(string value)
+    {
+        if (TryParsePrefixedHex(value, 0xFFFF, out var parsed))
+            slmpModuleIo = checked((ushort)parsed);
+    }
+
+    partial void OnSlmpMultidropTextChanged(string value)
+    {
+        if (TryParsePrefixedHex(value, 0xFF, out var parsed))
+            slmpMultidrop = checked((byte)parsed);
+    }
+
+    private static bool TryParseDecimalByte(string text, out byte value) =>
+        byte.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+
+    private static bool TryParsePrefixedHex(string text, int max, out int value)
+    {
+        var token = text.Trim();
+        if (token.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            token = token[2..];
+
+        if (token.Length == 0 || !int.TryParse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value))
+        {
+            value = 0;
+            return false;
+        }
+
+        return value <= max;
+    }
+
+    private static string FormatPrefixedHex(int value, int width) =>
+        $"0x{value.ToString($"X{width}", CultureInfo.InvariantCulture)}";
 }

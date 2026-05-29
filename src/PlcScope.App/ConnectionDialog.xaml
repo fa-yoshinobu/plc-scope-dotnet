@@ -81,6 +81,8 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC family" VerticalAlignment="Center" Margin="0,0,8,8" />
@@ -92,20 +94,32 @@
                       SelectedItem="{Binding SelectedSlmpFamily}" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Network" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpNetworkTextBox" Margin="0,0,0,8" Text="{Binding SlmpNetwork}" />
+            <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpNetworkTextBox" Margin="0,0,0,8" Text="{Binding SlmpNetworkText, UpdateSourceTrigger=PropertyChanged}" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Station" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpStationTextBox" Margin="0,0,0,8" Text="{Binding SlmpStation}" />
+            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpStationTextBox" Margin="0,0,0,8" Text="{Binding SlmpStationText, UpdateSourceTrigger=PropertyChanged}" />
 
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Module I/O" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpModuleIoTextBox" Margin="0,0,0,8" Text="{Binding SlmpModuleIo}" />
+            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpModuleIoTextBox" Margin="0,0,0,8" Text="{Binding SlmpModuleIoText, UpdateSourceTrigger=PropertyChanged}" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Margin="0,0,0,8" Text="{Binding SlmpMonitoringTimer}" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Multidrop" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMultidropTextBox" Margin="0,0,0,8" Text="{Binding SlmpMultidropText, UpdateSourceTrigger=PropertyChanged}" />
 
-            <TextBlock Grid.Row="5" Grid.Column="0" Text="Remote password" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <Button Grid.Row="5"
+                    Grid.Column="1"
+                    Content="Reset routing defaults"
+                    AutomationProperties.AutomationId="ConnectionSlmpResetRoutingDefaultsButton"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,8"
+                    Padding="10,4"
+                    Click="ResetSlmpRoutingDefaultsButton_Click" />
+
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="6" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Margin="0,0,0,8" Text="{Binding SlmpMonitoringTimer}" />
+
+            <TextBlock Grid.Row="7" Grid.Column="0" Text="Remote password" VerticalAlignment="Center" Margin="0,0,8,0" />
             <PasswordBox x:Name="SlmpRemotePasswordBox"
-                         Grid.Row="5"
+                         Grid.Row="7"
                          Grid.Column="1"
                          AutomationProperties.AutomationId="ConnectionSlmpRemotePasswordBox" />
           </Grid>
