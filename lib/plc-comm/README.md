@@ -1,7 +1,8 @@
 # PLC communication release DLLs
 
 These DLLs are referenced directly instead of using NuGet package references.
-They were extracted from published release nupkg packages.
+They should be refreshed from Release builds of the sibling local repositories
+when PLC Scope is tested against the latest local communication libraries.
 
 | Assembly | Version source |
 | --- | --- |
