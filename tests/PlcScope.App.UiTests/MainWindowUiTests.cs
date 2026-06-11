@@ -331,10 +331,21 @@ public sealed class MainWindowUiTests
     private static string GetStateValue(Window window, string key)
     {
         var prefix = $"{key}=";
-        var stateItems = window.HelpText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var item = stateItems.FirstOrDefault(value => value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-        if (item is null)
-            throw new InvalidOperationException($"UI automation state does not contain '{key}': {window.HelpText}");
+        var retry = Retry.WhileNull(
+            () =>
+            {
+                var stateText = window.HelpText;
+                if (string.IsNullOrWhiteSpace(stateText))
+                    return null;
+
+                var stateItems = stateText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                return stateItems.FirstOrDefault(value => value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            throwOnTimeout: true,
+            timeoutMessage: $"UI automation state does not contain '{key}': {window.HelpText}");
+
+        var item = retry.Result!;
 
         return item[prefix.Length..];
     }

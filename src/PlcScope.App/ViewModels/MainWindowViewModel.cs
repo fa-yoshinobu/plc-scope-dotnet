@@ -826,15 +826,7 @@ public partial class MainWindowViewModel : ObservableObject
     private IEnumerable<ValueDataType> GetAvailableWatchDataTypes(WatchItemViewModel item)
     {
         var family = ResolveDeviceFamilyForAddress(item.Address);
-        if (family.Kind == DeviceKind.Word)
-        {
-            if (TryParseWatchWordBitAddress(item.Address, family, out _))
-                return [ValueDataType.Bit];
-
-            return ValueDataTypes.Where(static dataType => dataType != ValueDataType.Bit);
-        }
-
-        return ValueDataTypes;
+        return WatchDataTypePolicy.GetAvailableDataTypes(item.Address, family, ValueDataTypes);
     }
 
     private async Task ReadWatchListAsync()
@@ -1020,12 +1012,7 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private int GetWatchReadPointCount(DeviceFamilyDefinition family, BlockDisplayMode displayMode)
-    {
-        if (family.Kind != DeviceKind.Bit)
-            return 1;
-
-        return MonitorRangePlanner.GetBitDevicePointsPerRow(SelectedProtocol.Kind, family, displayMode);
-    }
+        => WatchDataTypePolicy.GetReadPointCount(SelectedProtocol.Kind, family, displayMode);
 
     private static uint PackBits(IReadOnlyList<bool> bits, int bitCount)
     {
@@ -1289,54 +1276,19 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private ValueDataType NormalizeWatchDataType(DeviceFamilyDefinition family, ValueDataType dataType)
-    {
-        if (family.Kind == DeviceKind.Bit)
-            return dataType == ValueDataType.Bit ? ValueDataType.Bit : dataType;
-
-        return NormalizeDWordOnlyDataType(family, dataType);
-    }
+        => WatchDataTypePolicy.NormalizeDataType(SelectedProtocol.Kind, family, dataType);
 
     private static bool TryParseWatchWordBitAddress(
         string address,
         DeviceFamilyDefinition family,
-        out WatchWordBitAddress wordBitAddress)
-    {
-        wordBitAddress = default;
-        if (family.Kind != DeviceKind.Word)
-            return false;
-
-        var trimmed = address.Trim();
-        var dotIndex = trimmed.LastIndexOf('.');
-        if (dotIndex <= 0 || dotIndex == trimmed.Length - 1)
-            return false;
-
-        var wordAddress = trimmed[..dotIndex];
-        var bitText = trimmed[(dotIndex + 1)..];
-        if (!int.TryParse(bitText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitIndex)
-            || bitIndex is < 0 or > 15)
-        {
-            return false;
-        }
-
-        if (!DeviceAddressRangeProvider.TryParseAddress(wordAddress, family, out var parsedAddress))
-            return false;
-
-        wordBitAddress = new WatchWordBitAddress(parsedAddress.FormatOffset(0), bitIndex);
-        return true;
-    }
+        out WatchWordBitAddress wordBitAddress) =>
+        WatchDataTypePolicy.TryParseWordBitAddress(address, family, out wordBitAddress);
 
     private ValueDataType NormalizeDWordOnlyDataType(DeviceFamilyDefinition family, ValueDataType dataType)
-    {
-        if (!MonitorRangePlanner.IsDWordOnlyFamily(SelectedProtocol.Kind, family))
-            return dataType;
-
-        return dataType == ValueDataType.Int32
-            ? ValueDataType.Int32
-            : ValueDataType.UInt32;
-    }
+        => WatchDataTypePolicy.NormalizeDWordOnlyDataType(SelectedProtocol.Kind, family, dataType);
 
     private bool CanToggleWatchBits(DeviceFamilyDefinition family) =>
-        CanUseWritePanel && !MonitorRangePlanner.IsDWordOnlyFamily(SelectedProtocol.Kind, family);
+        WatchDataTypePolicy.CanToggleBits(CanUseWritePanel, SelectedProtocol.Kind, family);
 
     private static uint CombineWords(IReadOnlyList<ushort> words)
     {
@@ -2995,8 +2947,6 @@ public partial class MainWindowViewModel : ObservableObject
         int RowCount,
         SequentialDeviceAddress StartAddress,
         int AvailablePoints);
-
-    private readonly record struct WatchWordBitAddress(string WordAddress, int BitIndex);
 
     private void SetLayoutError(string message)
     {
