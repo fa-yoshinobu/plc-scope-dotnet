@@ -52,8 +52,12 @@ dotnet build .\src\PlcScope.App\PlcScope.App.csproj -c Release
 Run all tests:
 
 ```powershell
-dotnet test .\PlcScopeDotNet.sln
+dotnet test .\PlcScopeDotNet.sln -m:1
 ```
+
+The solution test run includes FlaUI UI automation tests. Keep `-m:1` when
+running the full solution so test projects execute serially and the UIA desktop
+session stays stable.
 
 Run the core test project:
 

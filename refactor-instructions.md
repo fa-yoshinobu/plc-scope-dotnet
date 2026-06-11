@@ -53,11 +53,12 @@ SLMP(MELSEC)/ Host Link(KEYENCE KV)/ Computer Link(TOYOPUC)。
 - `tests/PlcScope.Core.Tests`(約 13 ファイル): 純粋サービスとセッションの単体テスト
 - `tests/PlcScope.App.UiTests`: UIA ベースの UI スモーク(起動、監視/ウォッチ面、
   スクロール、インライン編集の pause/resume)。**Windows デスクトップセッション必須**
-- 実行: `dotnet test PlcScopeDotNet.sln`
+- 実行: `dotnet test PlcScopeDotNet.sln -m:1`
 
 ### 検証コマンド
 
-`dotnet build PlcScopeDotNet.sln` / `dotnet test` / `build.bat`(単一 EXE publish)。
+`dotnet build PlcScopeDotNet.sln` / `dotnet test PlcScopeDotNet.sln -m:1` /
+`build.bat`(単一 EXE publish)。
 
 ---
 
@@ -115,7 +116,7 @@ SLMP(MELSEC)/ Host Link(KEYENCE KV)/ Computer Link(TOYOPUC)。
 ```powershell
 git status                          # クリーンであることを確認
 dotnet build PlcScopeDotNet.sln
-dotnet test PlcScopeDotNet.sln      # テスト件数を記録。UiTests はデスクトップセッション必須
+dotnet test PlcScopeDotNet.sln -m:1 # テスト件数を記録。UiTests はデスクトップセッション必須
 ```
 
 UiTests が環境的に実行不能な場合は
@@ -181,7 +182,7 @@ UiTests 未実施を報告書に明記する。
 
 1. 候補 1 つを Core へ move-only 抽出 → VM は委譲呼び出しに置換
 2. 抽出先のユニットテストを追加(現挙動の特性テスト。期待値は現在の実装出力)
-3. `dotnet build` + `dotnet test` → 通ったら次の候補へ
+3. `dotnet build` + `dotnet test PlcScopeDotNet.sln -m:1` → 通ったら次の候補へ
 4. 1 つでも UiTests が落ちたら即巻き戻し
 
 ### Phase 3: 検証と報告
@@ -197,7 +198,7 @@ UiTests 未実施を報告書に明記する。
 
 ```powershell
 dotnet build PlcScopeDotNet.sln
-dotnet test PlcScopeDotNet.sln
+dotnet test PlcScopeDotNet.sln -m:1
 ```
 
 最終フェーズでは追加で:

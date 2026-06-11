@@ -171,8 +171,12 @@ dotnet build .\PlcScopeDotNet.sln
 Test:
 
 ```powershell
-dotnet test .\PlcScopeDotNet.sln
+dotnet test .\PlcScopeDotNet.sln -m:1
 ```
+
+The solution includes FlaUI-based UI automation tests. Use `-m:1` for the
+full solution test run so the UI test project runs in a stable serialized
+desktop session.
 
 Publish a Windows x64 single-file build:
 
