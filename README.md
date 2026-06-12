@@ -49,6 +49,20 @@ It is intended for live I/O checks: select a protocol, connect to a PLC, monitor
 4. On the `Monitor` tab, choose `Device`, `Start address`, `Type`, and `Format`.
 5. Use the `Watch list` tab for devices you want to keep visible.
 
+## Address Syntax
+
+PLC Scope follows the shared high-level address convention used by the
+underlying PLC helper libraries:
+
+- `:` is for data types and special views, such as `D100:D`, `DM100:F`,
+  `P1-D0100:F`, or protocol-specific comment/string views
+- `.` is only for bit-in-word access, such as `D50.3`, `DM100.A`, or
+  `P1-D0100.D`
+- a dotted hex digit is a bit index: `D50.D`, `DM100.D`, and `P1-D0100.D`
+  mean bit `0xD` / bit 13, not a 32-bit data type request
+- choose the row `Type` or use the colon form when you want a 32-bit or float
+  value
+
 ## Monitor
 
 The Monitor tab shows a device range starting at `Start address`.
