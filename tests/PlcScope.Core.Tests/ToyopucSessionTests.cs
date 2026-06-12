@@ -60,6 +60,63 @@ public sealed class ToyopucSessionTests
     }
 
     [Fact]
+    public async Task ReadBlockAsync_UsesRelayWhenToyopucRelayHopsConfigured()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        byte[]? readFrame = null;
+        var serverTask = Task.Run(async () =>
+        {
+            using var serverClient = await listener.AcceptTcpClientAsync();
+            await using var stream = serverClient.GetStream();
+            readFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x60, new byte[] { 0x11, 0x02, 0x00, 0x06, 0x03, 0x00, 0x94, 0x34, 0x12, 0x10 }));
+
+            _ = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x60, new byte[] { 0x11, 0x02, 0x00, 0x06, 0x0B, 0x00, 0x32, 0x11, 0x00, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x00 }));
+        });
+
+        await using var session = await CreateConnectedToyopucSessionAsync(port, relayHops: "P1-L1:N2");
+        var result = await session.ReadBlockAsync(new BlockQuery
+        {
+            Protocol = ProtocolKind.Toyopuc,
+            DeviceFamilyCode = "P1-D",
+            DeviceKind = DeviceKind.Word,
+            StartAddress = "P1-D0000",
+            ItemCount = 1,
+        });
+        await serverTask;
+
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x0E, 0x00, 0x60, 0x11, 0x02, 0x00, 0x05, 0x06, 0x00, 0x94, 0x01, 0x00, 0x10, 0x01, 0x00, 0x00 }, readFrame);
+        Assert.Equal((ushort)0x1234, Assert.Single(result.WordValues));
+    }
+
+    [Fact]
+    public async Task WriteAsync_UsesRelayWhenToyopucRelayHopsConfigured()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        byte[]? writeFrame = null;
+        var serverTask = Task.Run(async () =>
+        {
+            using var serverClient = await listener.AcceptTcpClientAsync();
+            await using var stream = serverClient.GetStream();
+            writeFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x60, new byte[] { 0x11, 0x02, 0x00, 0x06, 0x01, 0x00, 0x95, 0x01 }));
+        });
+
+        await using var session = await CreateConnectedToyopucSessionAsync(port, relayHops: "P1-L1:N2");
+        await session.WriteAsync(new WriteRequest("P1-D0000", ValueDataType.UInt16, 0x1234));
+        await serverTask;
+
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x0E, 0x00, 0x60, 0x11, 0x02, 0x00, 0x05, 0x06, 0x00, 0x95, 0x01, 0x00, 0x10, 0x34, 0x12, 0x00 }, writeFrame);
+    }
+
+    [Fact]
     public async Task ReadDeviceRangeCatalogAsync_UsesSelectedToyopucProfile()
     {
         await using var session = await CreateToyopucSessionAsync("TOYOPUC-Plus:Plus Extended mode");
@@ -112,13 +169,14 @@ public sealed class ToyopucSessionTests
         return new PlcSessionFactory().CreateAsync(settings);
     }
 
-    private static async Task<Core.Abstractions.IPlcSession> CreateConnectedToyopucSessionAsync(int port)
+    private static async Task<Core.Abstractions.IPlcSession> CreateConnectedToyopucSessionAsync(int port, string? relayHops = null)
     {
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc) with
         {
             Host = "127.0.0.1",
             Port = port,
             TimeoutSeconds = LocalTestTimeoutSeconds,
+            ToyopucRelayHops = relayHops,
         };
 
         var session = await new PlcSessionFactory().CreateAsync(settings);

@@ -6,7 +6,7 @@ using PlcScope.Core.Services;
 
 internal sealed class ToyopucSession : PlcSessionBase
 {
-    private ToyopucDeviceClient? _client;
+    private QueuedToyopucDeviceClient? _client;
 
     public ToyopucSession(ConnectionSettings settings)
         : base(settings, ProtocolCatalog.Get(ProtocolKind.Toyopuc))
@@ -18,7 +18,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         if (_client is not null)
             return;
 
-        _client = new ToyopucDeviceClient(
+        var innerClient = new ToyopucDeviceClient(
             Settings.Host,
             Settings.Port,
             Settings.ToyopucLocalPort,
@@ -34,6 +34,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             CaptureTraceFrames = true,
         };
 
+        _client = new QueuedToyopucDeviceClient(innerClient, Settings.ToyopucRelayHops);
         _client.TraceHook = frame => EmitTrace(new TraceEntry(
             DateTimeOffset.UtcNow,
             ProtocolKind.Toyopuc,
@@ -64,7 +65,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         var expanded = ExpandAddress(rawAddress, family);
         return _client is null
             ? expanded.ToUpperInvariant()
-            : ToyopucAddress.Format(_client.ResolveDevice(expanded));
+            : ToyopucAddress.Format(_client.InnerClient.ResolveDevice(expanded));
     }
 
     public override async Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
@@ -126,7 +127,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         {
             if (request.DataType == ValueDataType.Bit)
             {
-                await _client!.WriteAsync(address, ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
+                await WriteDeviceAsync(address, ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -175,28 +176,42 @@ internal sealed class ToyopucSession : PlcSessionBase
 
         await ExecuteSerializedAsync(async () =>
         {
-            if (Settings.ToyopucRelayHops is { Length: > 0 })
+            if (_client!.UsesRelay)
             {
                 if (command == CpuCommand.Run)
                 {
-                    await _client!.RelayReleaseScanStopAsync(Settings.ToyopucRelayHops, cancellationToken).ConfigureAwait(false);
-                    await _client.RelayResumeScanAsync(Settings.ToyopucRelayHops, cancellationToken).ConfigureAwait(false);
+                    await _client.ExecuteAsync(
+                        async inner =>
+                        {
+                            await inner.RelayReleaseScanStopAsync(_client.RelayHops!, cancellationToken).ConfigureAwait(false);
+                            await inner.RelayResumeScanAsync(_client.RelayHops!, cancellationToken).ConfigureAwait(false);
+                        },
+                        cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await _client!.RelayStopScanAsync(Settings.ToyopucRelayHops, cancellationToken).ConfigureAwait(false);
+                    await _client.ExecuteAsync(
+                        inner => inner.RelayStopScanAsync(_client.RelayHops!, cancellationToken),
+                        cancellationToken).ConfigureAwait(false);
                 }
             }
             else
             {
                 if (command == CpuCommand.Run)
                 {
-                    await _client!.ReleaseScanStopAsync(cancellationToken).ConfigureAwait(false);
-                    await _client.ResumeScanAsync(cancellationToken).ConfigureAwait(false);
+                    await _client!.ExecuteAsync(
+                        async inner =>
+                        {
+                            await inner.ReleaseScanStopAsync(cancellationToken).ConfigureAwait(false);
+                            await inner.ResumeScanAsync(cancellationToken).ConfigureAwait(false);
+                        },
+                        cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await _client!.StopScanAsync(cancellationToken).ConfigureAwait(false);
+                    await _client!.ExecuteAsync(
+                        inner => inner.StopScanAsync(cancellationToken),
+                        cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -212,7 +227,7 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private IReadOnlyList<string> BuildAddresses(string startAddress, int count)
     {
-        var start = _client!.ResolveDevice(startAddress);
+        var start = _client!.InnerClient.ResolveDevice(startAddress);
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
@@ -224,9 +239,9 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)
     {
-        var status = Settings.ToyopucRelayHops is { Length: > 0 }
-            ? await _client!.RelayReadCpuStatusAsync(Settings.ToyopucRelayHops, cancellationToken).ConfigureAwait(false)
-            : await _client!.ReadCpuStatusAsync(cancellationToken).ConfigureAwait(false);
+        var status = _client!.UsesRelay
+            ? await _client.ExecuteAsync(inner => inner.RelayReadCpuStatusAsync(_client.RelayHops!, cancellationToken), cancellationToken).ConfigureAwait(false)
+            : await _client.ExecuteAsync(inner => inner.ReadCpuStatusAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
 
         var state = status.Run ? CpuRunState.Run : status.UnderStop || status.UnderPseudoStop ? CpuRunState.Stop : CpuRunState.Unknown;
         return new CpuState(state, status.RawHex(), SupportsControl: false);
@@ -243,10 +258,10 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private async Task<bool[]> ReadBitDevicesAsync(string normalizedStart, int bitCount, CancellationToken cancellationToken)
     {
-        var start = _client!.ResolveDevice(normalizedStart);
+        var start = _client!.InnerClient.ResolveDevice(normalizedStart);
         if (start.Unit != "bit")
         {
-            var result = await _client.ReadAsync(normalizedStart, bitCount, cancellationToken).ConfigureAwait(false);
+            var result = await ReadDeviceAsync(normalizedStart, bitCount, cancellationToken).ConfigureAwait(false);
             return ToBooleanArray(result);
         }
 
@@ -264,6 +279,16 @@ internal sealed class ToyopucSession : PlcSessionBase
 
         return bits;
     }
+
+    private Task<object> ReadDeviceAsync(string address, int count, CancellationToken cancellationToken) =>
+        _client!.UsesRelay
+            ? _client.ExecuteAsync(inner => inner.RelayReadAsync(_client.RelayHops!, address, count, cancellationToken), cancellationToken)
+            : _client.ExecuteAsync(inner => inner.ReadAsync(address, count, cancellationToken), cancellationToken);
+
+    private Task WriteDeviceAsync(string address, object value, CancellationToken cancellationToken) =>
+        _client!.UsesRelay
+            ? _client.ExecuteAsync(inner => inner.RelayWriteAsync(_client.RelayHops!, address, value, cancellationToken), cancellationToken)
+            : _client.ExecuteAsync(inner => inner.WriteAsync(address, value, cancellationToken), cancellationToken);
 
     private static bool[] ToBooleanArray(object result) =>
         result is object[] values
