@@ -13,7 +13,7 @@ Validated relay path:
 - host: `192.168.250.100`
 - port: `1025`
 - protocol: `tcp`
-- profile: `Nano 10GX:Compatible mode`
+- profile: `toyopuc:nano-10gx:compatible`
 - hops: `P1-L1:N2`
 
 ## Implementation Check

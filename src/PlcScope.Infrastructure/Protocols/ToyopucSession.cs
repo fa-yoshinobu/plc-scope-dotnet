@@ -28,7 +28,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             Settings.ToyopucRetryDelay,
             8192,
             addressingOptions: null,
-            deviceProfile: Settings.ToyopucDeviceProfile)
+            plcProfile: ToyopucProfileNames.NormalizeRequired(Settings.ToyopucPlcProfileName))
         {
             Timeout = Settings.Timeout,
             CaptureTraceFrames = true,
@@ -65,7 +65,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         var expanded = ExpandAddress(rawAddress, family);
         return _client is null
             ? expanded.ToUpperInvariant()
-            : ToyopucAddress.Format(_client.InnerClient.ResolveDevice(expanded));
+            : ToyopucAddress.Format(_client.InnerClient.ResolveDevice(expanded), _client.InnerClient.PlcProfile);
     }
 
     public override async Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
@@ -160,7 +160,7 @@ internal sealed class ToyopucSession : PlcSessionBase
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var profile = ToyopucDeviceProfiles.NormalizeName(Settings.ToyopucDeviceProfile);
+        var profile = ToyopucPlcProfiles.NormalizeName(ToyopucProfileNames.NormalizeRequired(Settings.ToyopucPlcProfileName));
         var entries = Definition.DeviceFamilies
             .Select(family => MapDeviceRangeEntry(family, profile))
             .ToArray();
@@ -231,7 +231,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
-            addresses[index] = FormatSequentialToyopucAddress(start, index);
+            addresses[index] = FormatSequentialToyopucAddress(start, index, _client.InnerClient.PlcProfile);
         }
 
         return addresses;
@@ -247,13 +247,13 @@ internal sealed class ToyopucSession : PlcSessionBase
         return new CpuState(state, status.RawHex(), SupportsControl: false);
     }
 
-    private static string FormatSequentialToyopucAddress(ResolvedDevice start, int offset)
+    private static string FormatSequentialToyopucAddress(ResolvedDevice start, int offset, string profile)
     {
         var index = checked(start.Index + offset);
         if (index < 0)
             throw new ArgumentOutOfRangeException(nameof(offset), "Offset would move address index below zero.");
 
-        return ToyopucAddress.Format(start, index);
+        return ToyopucAddress.Format(start, index, profile);
     }
 
     private async Task<bool[]> ReadBitDevicesAsync(string normalizedStart, int bitCount, CancellationToken cancellationToken)
@@ -267,7 +267,7 @@ internal sealed class ToyopucSession : PlcSessionBase
 
         var bitOffset = start.Index % 16;
         var packedWordCount = checked((bitOffset + bitCount + 15) / 16);
-        var packedStartAddress = FormatPackedWordAddress(start, start.Index / 16);
+        var packedStartAddress = FormatPackedWordAddress(start, start.Index / 16, _client.InnerClient.PlcProfile);
         var words = await _client.ReadWordsAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
 
         var bits = new bool[bitCount];
@@ -295,7 +295,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             ? values.Select(ToBoolean).ToArray()
             : [ToBoolean(result)];
 
-    private static string FormatPackedWordAddress(ResolvedDevice bitAddress, int packedIndex)
+    private static string FormatPackedWordAddress(ResolvedDevice bitAddress, int packedIndex, string profile)
     {
         var packed = bitAddress with
         {
@@ -304,7 +304,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             Index = packedIndex,
             Packed = true,
         };
-        return ToyopucAddress.Format(packed);
+        return ToyopucAddress.Format(packed, profile);
     }
 
     private static DeviceRangeEntry MapDeviceRangeEntry(DeviceFamilyDefinition family, string profile)

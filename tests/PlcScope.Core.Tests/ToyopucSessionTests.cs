@@ -119,12 +119,12 @@ public sealed class ToyopucSessionTests
     [Fact]
     public async Task ReadDeviceRangeCatalogAsync_UsesSelectedToyopucProfile()
     {
-        await using var session = await CreateToyopucSessionAsync("TOYOPUC-Plus:Plus Extended mode");
+        await using var session = await CreateToyopucSessionAsync("toyopuc:plus:extended");
 
         var catalog = await session.ReadDeviceRangeCatalogAsync();
 
-        Assert.Equal("TOYOPUC-Plus:Plus Extended mode", catalog.Model);
-        Assert.Equal("TOYOPUC-Plus:Plus Extended mode", catalog.Family);
+        Assert.Equal("toyopuc:plus:extended", catalog.Model);
+        Assert.Equal("toyopuc:plus:extended", catalog.Family);
 
         var p1D = Assert.Single(catalog.Entries, entry => entry.Device == "P1-D");
         Assert.True(p1D.Supported);
@@ -146,7 +146,7 @@ public sealed class ToyopucSessionTests
     [Fact]
     public async Task ReadDeviceRangeCatalogAsync_PreservesSplitToyopucRanges()
     {
-        await using var session = await CreateToyopucSessionAsync("PC10G:PC10 mode");
+        await using var session = await CreateToyopucSessionAsync("toyopuc:pc10g:pc10");
 
         var catalog = await session.ReadDeviceRangeCatalogAsync();
 
@@ -163,7 +163,7 @@ public sealed class ToyopucSessionTests
     {
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc) with
         {
-            ToyopucDeviceProfile = profile,
+            ToyopucPlcProfileName = profile,
         };
 
         return new PlcSessionFactory().CreateAsync(settings);
@@ -176,6 +176,7 @@ public sealed class ToyopucSessionTests
             Host = "127.0.0.1",
             Port = port,
             TimeoutSeconds = LocalTestTimeoutSeconds,
+            ToyopucPlcProfileName = "toyopuc:plus:extended",
             ToyopucRelayHops = relayHops,
         };
 

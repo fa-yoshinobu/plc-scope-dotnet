@@ -1,5 +1,6 @@
 namespace PlcScope.Core.Models;
 
+using PlcScope.Core.Services;
 using System.Text.Json.Serialization;
 
 public sealed record ConnectionSettings
@@ -27,7 +28,7 @@ public sealed record ConnectionSettings
             ? PlcScope.Core.Models.KeyenceDeviceMode.Xym
             : PlcScope.Core.Models.KeyenceDeviceMode.Normal;
 
-    public string? ToyopucDeviceProfile { get; init; } = "TOYOPUC-Plus:Plus Extended mode";
+    public string ToyopucPlcProfileName { get; init; } = string.Empty;
     public string? ToyopucRelayHops { get; init; }
     public int ToyopucLocalPort { get; init; }
     public int ToyopucRetries { get; init; }
@@ -55,7 +56,6 @@ public sealed record ConnectionSettings
             {
                 Protocol = ProtocolKind.Toyopuc,
                 Port = 1025,
-                ToyopucDeviceProfile = "TOYOPUC-Plus:Plus Extended mode",
             },
             _ => new ConnectionSettings(),
         };

@@ -2873,45 +2873,18 @@ public partial class MainWindowViewModel : ObservableObject
         {
             ProtocolKind.Slmp => FormatSlmpPlcProfile(settings.SlmpPlcProfileName),
             ProtocolKind.HostLink => FormatHostLinkPlcProfile(settings.HostLinkPlcProfileName),
-            ProtocolKind.Toyopuc => FormatToyopucDeviceProfile(settings.ToyopucDeviceProfile),
+            ProtocolKind.Toyopuc => FormatToyopucPlcProfile(settings.ToyopucPlcProfileName),
             _ => settings.Protocol.ToString(),
         };
 
     private static string FormatSlmpPlcProfile(string profileName) =>
-        profileName switch
-        {
-            "melsec:iq-r" => "iQ-R",
-            "melsec:iq-f" => "iQ-F",
-            "melsec:iq-l" => "iQ-L",
-            "melsec:mx-r" => "MX-R",
-            "melsec:mx-f" => "MX-F",
-            "melsec:qnudv" => "QnUDV",
-            "melsec:qnu" => "QnU",
-            "melsec:qcpu" => "QCPU",
-            "melsec:lcpu" => "LCPU",
-            _ => string.IsNullOrWhiteSpace(profileName) ? "MELSEC" : profileName,
-        };
+        PlcProfileDisplayFormatter.FormatSlmpPlcProfile(profileName);
 
     private static string FormatHostLinkPlcProfile(string profileName) =>
-        profileName switch
-        {
-            "keyence:kv-nano" => "KV-Nano",
-            "keyence:kv-nano-xym" => "KV-Nano / XYM",
-            "keyence:kv-3000-5000" => "KV-3000/5000",
-            "keyence:kv-3000-5000-xym" => "KV-3000/5000 / XYM",
-            "keyence:kv-7000" => "KV-7000",
-            "keyence:kv-7000-xym" => "KV-7000 / XYM",
-            "keyence:kv-8000" => "KV-8000",
-            "keyence:kv-8000-xym" => "KV-8000 / XYM",
-            "keyence:kv-x500" => "KV-X500",
-            "keyence:kv-x500-xym" => "KV-X500 / XYM",
-            _ => string.IsNullOrWhiteSpace(profileName) ? "KEYENCE KV" : profileName,
-        };
+        PlcProfileDisplayFormatter.FormatHostLinkPlcProfile(profileName);
 
-    private static string FormatToyopucDeviceProfile(string? profile) =>
-        string.IsNullOrWhiteSpace(profile)
-            ? "TOYOPUC"
-            : profile.Replace(':', ' ');
+    private static string FormatToyopucPlcProfile(string? profile) =>
+        PlcProfileDisplayFormatter.FormatToyopucPlcProfile(profile);
 
     private static string GetProjectDisplayName(string? path)
     {
