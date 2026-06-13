@@ -6,15 +6,13 @@ using PlcScope.Core.Models;
 using PlcScope.Core.Services;
 using System.Globalization;
 
-public sealed record KeyenceDeviceModeOption(KeyenceDeviceMode Mode, string Label);
 public sealed record TransportModeOption(TransportMode Mode, string Label);
 public sealed record SlmpPlcProfileOption(string Value, string Label);
 
 public partial class ConnectionDialogViewModel : ObservableObject
 {
-    private static readonly string[] DefaultHostLinkModels =
-        KvHostLinkDeviceRanges.AvailableDeviceRangeModels()
-            .Where(static model => !model.EndsWith("(XYM)", StringComparison.OrdinalIgnoreCase))
+    private static readonly string[] DefaultHostLinkProfiles =
+        KvHostLinkDeviceRanges.AvailablePlcProfiles()
             .ToArray();
 
     private static readonly string[] DefaultToyopucDeviceProfiles =
@@ -54,8 +52,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
         SlmpRemotePassword = settings.SlmpRemotePassword ?? string.Empty;
-        HostLinkPlcModelName = settings.HostLinkPlcModelName;
-        SelectedKeyenceDeviceMode = KeyenceDeviceModes.First(option => option.Mode == settings.KeyenceDeviceMode);
+        HostLinkPlcProfileName = settings.HostLinkPlcProfileName;
         ToyopucDeviceProfile = settings.ToyopucDeviceProfile ?? string.Empty;
         ToyopucRelayHops = settings.ToyopucRelayHops ?? string.Empty;
         ToyopucLocalPort = settings.ToyopucLocalPort;
@@ -76,12 +73,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         new("melsec:qcpu", "QCPU"),
         new("melsec:lcpu", "LCPU"),
     ];
-    public IReadOnlyList<string> HostLinkModels { get; } = DefaultHostLinkModels;
-    public IReadOnlyList<KeyenceDeviceModeOption> KeyenceDeviceModes { get; } =
-    [
-        new(KeyenceDeviceMode.Normal, "Normal"),
-        new(KeyenceDeviceMode.Xym, "XYM"),
-    ];
+    public IReadOnlyList<string> HostLinkProfiles { get; } = DefaultHostLinkProfiles;
 
     public IReadOnlyList<string> ToyopucDeviceProfiles { get; } = DefaultToyopucDeviceProfiles;
     public IReadOnlyList<TransportModeOption> TransportModes { get; } =
@@ -144,10 +136,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private string slmpRemotePassword = string.Empty;
 
     [ObservableProperty]
-    private string hostLinkPlcModelName = "KV-8000";
-
-    [ObservableProperty]
-    private KeyenceDeviceModeOption selectedKeyenceDeviceMode = new(KeyenceDeviceMode.Normal, "Normal");
+    private string hostLinkPlcProfileName = "keyence:kv-8000";
 
     [ObservableProperty]
     private string toyopucDeviceProfile = "TOYOPUC-Plus:Plus Extended mode";
@@ -183,8 +172,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpMultidrop = slmpMultidrop,
         SlmpMonitoringTimer = SlmpMonitoringTimer,
         SlmpRemotePassword = string.IsNullOrWhiteSpace(SlmpRemotePassword) ? null : SlmpRemotePassword,
-        HostLinkPlcModelName = HostLinkPlcModelName,
-        KeyenceDeviceMode = SelectedKeyenceDeviceMode.Mode,
+        HostLinkPlcProfileName = HostLinkPlcProfileName,
         ToyopucDeviceProfile = string.IsNullOrWhiteSpace(ToyopucDeviceProfile) ? null : ToyopucDeviceProfile,
         ToyopucRelayHops = string.IsNullOrWhiteSpace(ToyopucRelayHops) ? null : ToyopucRelayHops,
         ToyopucLocalPort = ToyopucLocalPort,

@@ -92,7 +92,7 @@ public sealed class HostLinkSessionTests
             "?M" => "1",
             _ => "E1",
         });
-        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port, KeyenceDeviceMode.Xym);
+        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port, "keyence:kv-8000-xym");
 
         var result = await session.ReadBlockAsync(new BlockQuery
         {
@@ -124,7 +124,7 @@ public sealed class HostLinkSessionTests
             "?M" => "1",
             _ => "E1",
         });
-        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port, KeyenceDeviceMode.Xym);
+        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port, "keyence:kv-8000-xym");
 
         var result = await session.ReadBlockAsync(new BlockQuery
         {
@@ -225,11 +225,11 @@ public sealed class HostLinkSessionTests
             "?K" => "55",
             _ => "E1",
         });
-        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port, KeyenceDeviceMode.Xym);
+        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port, "keyence:kv-8000-xym");
 
         var catalog = await session.ReadDeviceRangeCatalogAsync();
 
-        Assert.Equal("KV-8000(XYM)", catalog.Family);
+        Assert.Equal("keyence:kv-8000-xym", catalog.Family);
         var d = Assert.Single(catalog.Entries, entry => entry.Device == "D");
         Assert.Equal((uint)65_534, d.UpperBound);
         Assert.Equal("D00000-D65534", d.AddressRange);
@@ -245,7 +245,7 @@ public sealed class HostLinkSessionTests
 
     private static async Task<IPlcSession> CreateConnectedHostLinkSessionAsync(
         int port,
-        KeyenceDeviceMode keyenceDeviceMode = KeyenceDeviceMode.Normal)
+        string hostLinkPlcProfileName = "keyence:kv-8000")
     {
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with
         {
@@ -253,7 +253,7 @@ public sealed class HostLinkSessionTests
             Port = port,
             Transport = TransportMode.Tcp,
             TimeoutSeconds = 1,
-            KeyenceDeviceMode = keyenceDeviceMode,
+            HostLinkPlcProfileName = hostLinkPlcProfileName,
         };
         var session = await new PlcSessionFactory().CreateAsync(settings);
         await session.ConnectAsync();

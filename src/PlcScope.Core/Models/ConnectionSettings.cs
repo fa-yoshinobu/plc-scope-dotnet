@@ -1,5 +1,7 @@
 namespace PlcScope.Core.Models;
 
+using System.Text.Json.Serialization;
+
 public sealed record ConnectionSettings
 {
     public ProtocolKind Protocol { get; init; } = ProtocolKind.Slmp;
@@ -17,8 +19,13 @@ public sealed record ConnectionSettings
     public ushort SlmpMonitoringTimer { get; init; } = 0x0010;
     public string? SlmpRemotePassword { get; init; }
 
-    public string HostLinkPlcModelName { get; init; } = "KV-8000";
-    public KeyenceDeviceMode KeyenceDeviceMode { get; init; } = KeyenceDeviceMode.Normal;
+    public string HostLinkPlcProfileName { get; init; } = "keyence:kv-8000";
+
+    [JsonIgnore]
+    public KeyenceDeviceMode KeyenceDeviceMode =>
+        HostLinkPlcProfileName.EndsWith("-xym", StringComparison.OrdinalIgnoreCase)
+            ? PlcScope.Core.Models.KeyenceDeviceMode.Xym
+            : PlcScope.Core.Models.KeyenceDeviceMode.Normal;
 
     public string? ToyopucDeviceProfile { get; init; } = "TOYOPUC-Plus:Plus Extended mode";
     public string? ToyopucRelayHops { get; init; }
@@ -42,8 +49,7 @@ public sealed record ConnectionSettings
             {
                 Protocol = ProtocolKind.HostLink,
                 Port = 8501,
-                HostLinkPlcModelName = "KV-8000",
-                KeyenceDeviceMode = KeyenceDeviceMode.Normal,
+                HostLinkPlcProfileName = "keyence:kv-8000",
             },
             ProtocolKind.Toyopuc => new ConnectionSettings
             {

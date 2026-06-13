@@ -133,18 +133,11 @@
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Model" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC profile" VerticalAlignment="Center" Margin="0,0,8,0" />
             <ComboBox Grid.Row="0" Grid.Column="1"
-                      Margin="0,0,0,8"
-                      ItemsSource="{Binding HostLinkModels}"
-                      SelectedItem="{Binding HostLinkPlcModelName}" />
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Device mode" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <ComboBox Grid.Row="1" Grid.Column="1"
-                      ItemsSource="{Binding KeyenceDeviceModes}"
-                      DisplayMemberPath="Label"
-                      SelectedItem="{Binding SelectedKeyenceDeviceMode}" />
+                      ItemsSource="{Binding HostLinkProfiles}"
+                      SelectedItem="{Binding HostLinkPlcProfileName}" />
           </Grid>
         </GroupBox>
 

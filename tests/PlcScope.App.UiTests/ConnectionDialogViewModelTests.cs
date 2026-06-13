@@ -127,4 +127,20 @@ public sealed class ConnectionDialogViewModelTests
 
         Assert.Null(settings.SlmpRemotePassword);
     }
+
+    [Fact]
+    public void BuildSettings_UsesCanonicalHostLinkPlcProfile()
+    {
+        var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.HostLink));
+
+        Assert.Contains("keyence:kv-x500", viewModel.HostLinkProfiles);
+        Assert.Contains("keyence:kv-x500-xym", viewModel.HostLinkProfiles);
+        Assert.DoesNotContain("KV-X500", viewModel.HostLinkProfiles);
+
+        viewModel.HostLinkPlcProfileName = "keyence:kv-x500-xym";
+        var settings = viewModel.BuildSettings();
+
+        Assert.Equal("keyence:kv-x500-xym", settings.HostLinkPlcProfileName);
+        Assert.Equal(KeyenceDeviceMode.Xym, settings.KeyenceDeviceMode);
+    }
 }

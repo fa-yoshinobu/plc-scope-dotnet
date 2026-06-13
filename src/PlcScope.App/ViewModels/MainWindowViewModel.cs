@@ -2872,7 +2872,7 @@ public partial class MainWindowViewModel : ObservableObject
         settings.Protocol switch
         {
             ProtocolKind.Slmp => FormatSlmpPlcProfile(settings.SlmpPlcProfileName),
-            ProtocolKind.HostLink => FormatHostLinkPlcModel(settings.HostLinkPlcModelName, settings.KeyenceDeviceMode),
+            ProtocolKind.HostLink => FormatHostLinkPlcProfile(settings.HostLinkPlcProfileName),
             ProtocolKind.Toyopuc => FormatToyopucDeviceProfile(settings.ToyopucDeviceProfile),
             _ => settings.Protocol.ToString(),
         };
@@ -2892,11 +2892,21 @@ public partial class MainWindowViewModel : ObservableObject
             _ => string.IsNullOrWhiteSpace(profileName) ? "MELSEC" : profileName,
         };
 
-    private static string FormatHostLinkPlcModel(string modelName, KeyenceDeviceMode deviceMode)
-    {
-        var model = string.IsNullOrWhiteSpace(modelName) ? "KEYENCE KV" : modelName;
-        return deviceMode == KeyenceDeviceMode.Xym ? $"{model} / XYM" : model;
-    }
+    private static string FormatHostLinkPlcProfile(string profileName) =>
+        profileName switch
+        {
+            "keyence:kv-nano" => "KV-Nano",
+            "keyence:kv-nano-xym" => "KV-Nano / XYM",
+            "keyence:kv-3000-5000" => "KV-3000/5000",
+            "keyence:kv-3000-5000-xym" => "KV-3000/5000 / XYM",
+            "keyence:kv-7000" => "KV-7000",
+            "keyence:kv-7000-xym" => "KV-7000 / XYM",
+            "keyence:kv-8000" => "KV-8000",
+            "keyence:kv-8000-xym" => "KV-8000 / XYM",
+            "keyence:kv-x500" => "KV-X500",
+            "keyence:kv-x500-xym" => "KV-X500 / XYM",
+            _ => string.IsNullOrWhiteSpace(profileName) ? "KEYENCE KV" : profileName,
+        };
 
     private static string FormatToyopucDeviceProfile(string? profile) =>
         string.IsNullOrWhiteSpace(profile)

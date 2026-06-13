@@ -175,7 +175,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         if (_deviceRangeCatalog is not null)
             return Task.FromResult(_deviceRangeCatalog);
 
-        var catalog = KvHostLinkDeviceRanges.DeviceRangeCatalogForModel(ResolveDeviceRangeCatalogModel());
+        var catalog = KvHostLinkDeviceRanges.DeviceRangeCatalogForPlcProfile(Settings.HostLinkPlcProfileName);
 
         _deviceRangeCatalog = MapDeviceRangeCatalog(catalog);
         return Task.FromResult(_deviceRangeCatalog);
@@ -530,23 +530,10 @@ internal sealed class HostLinkSession : PlcSessionBase
             throw new ArgumentOutOfRangeException(nameof(number), number, $"{deviceType} low two digits must be 00..15.");
     }
 
-    private string ResolveDeviceRangeCatalogModel()
-    {
-        var model = Settings.HostLinkPlcModelName;
-
-        if (Settings.KeyenceDeviceMode != KeyenceDeviceMode.Xym
-            || model.EndsWith("(XYM)", StringComparison.OrdinalIgnoreCase))
-        {
-            return model;
-        }
-
-        return $"{model}(XYM)";
-    }
-
     private static DeviceRangeCatalog MapDeviceRangeCatalog(KvDeviceRangeCatalog catalog) =>
         new(
-            catalog.Model,
-            catalog.ResolvedModel,
+            catalog.PlcProfile,
+            catalog.ResolvedPlcProfile,
             catalog.Entries
                 .SelectMany(MapDeviceRangeEntries)
                 .ToArray());
