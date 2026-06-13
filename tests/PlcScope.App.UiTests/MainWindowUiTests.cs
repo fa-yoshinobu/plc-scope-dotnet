@@ -48,7 +48,7 @@ public sealed class MainWindowUiTests
 
             Assert.NotNull(FindFirst(window, condition.ByAutomationId("MonitorListBox")));
 
-            FindFirst(window, condition.ByAutomationId("WatchTab")).Click();
+            SelectMainTab(window, condition, "Watch list");
             Assert.NotNull(FindFirst(window, condition.ByAutomationId("WatchListBox")));
         }
         finally
@@ -105,9 +105,9 @@ public sealed class MainWindowUiTests
                 () => GetStateInt(window, "monitorStart") > initialMonitorStart,
                 timeout: TimeSpan.FromSeconds(5),
                 throwOnTimeout: true,
-                timeoutMessage: $"Expected monitor start to move after start address edit. Current state: {window.HelpText}");
+                timeoutMessage: $"Expected monitor start to move after start address edit. Current state: {GetUiAutomationStateText(window, condition)}");
 
-            FindFirst(window, condition.ByAutomationId("WatchTab")).Click();
+            SelectMainTab(window, condition, "Watch list");
             var watchGrid = FindFirst(window, condition.ByAutomationId("WatchListBox"));
             var initialWatchStart = GetStateInt(window, "watchStart");
             ScrollDownUntilStateIncreases(window, watchGrid, condition, "watchStart", initialWatchStart);
@@ -133,7 +133,7 @@ public sealed class MainWindowUiTests
                 () => GetStateInt(window, "monitorRows") > 0,
                 timeout: TimeSpan.FromSeconds(5),
                 throwOnTimeout: true,
-                timeoutMessage: $"Monitor rows were not generated. Current state: {window.HelpText}");
+                timeoutMessage: $"Monitor rows were not generated. Current state: {GetUiAutomationStateText(window, condition)}");
 
             var valueBox = FindFirst(window, condition.ByAutomationId("MonitorInlineValueTextBox")).AsTextBox();
             valueBox.Focus();
@@ -168,7 +168,7 @@ public sealed class MainWindowUiTests
                 () => window.FindAllDescendants(condition.ByAutomationId("MonitorInlineValueTextBox")).Length >= 2,
                 timeout: TimeSpan.FromSeconds(5),
                 throwOnTimeout: true,
-                timeoutMessage: $"Expected at least two monitor value boxes. Current state: {window.HelpText}");
+                timeoutMessage: $"Expected at least two monitor value boxes. Current state: {GetUiAutomationStateText(window, condition)}");
 
             var valueBoxes = window
                 .FindAllDescendants(condition.ByAutomationId("MonitorInlineValueTextBox"))
@@ -243,6 +243,12 @@ public sealed class MainWindowUiTests
         Keyboard.Press(FlaUI.Core.WindowsAPI.VirtualKeyShort.ENTER);
     }
 
+    private static void SelectMainTab(Window window, ConditionFactory condition, string tabName)
+    {
+        var tab = FindFirst(window, condition.ByAutomationId("MainTabControl")).AsTab();
+        tab.SelectTabItem(tabName);
+    }
+
     private static void ScrollDownUntilStateIncreases(
         Window window,
         AutomationElement element,
@@ -261,7 +267,7 @@ public sealed class MainWindowUiTests
 
         Assert.True(
             GetStateInt(window, stateKey) > initialValue,
-            $"Expected '{stateKey}' to increase from {initialValue}. Current state: {window.HelpText}. Descendants: {DescribeDescendants(element)}");
+            $"Expected '{stateKey}' to increase from {initialValue}. Current state: {GetUiAutomationStateText(window, condition)}. Descendants: {DescribeDescendants(element)}");
     }
 
     private static void ScrollElementDown(AutomationElement element, ConditionFactory condition)
@@ -334,7 +340,7 @@ public sealed class MainWindowUiTests
         var retry = Retry.WhileNull(
             () =>
             {
-                var stateText = window.HelpText;
+                var stateText = GetUiAutomationStateText(window, condition: null);
                 if (string.IsNullOrWhiteSpace(stateText))
                     return null;
 
@@ -343,11 +349,22 @@ public sealed class MainWindowUiTests
             },
             timeout: TimeSpan.FromSeconds(15),
             throwOnTimeout: true,
-            timeoutMessage: $"UI automation state does not contain '{key}': {window.HelpText}");
+            timeoutMessage: $"UI automation state does not contain '{key}': {GetUiAutomationStateText(window, condition: null)}");
 
         var item = retry.Result!;
 
         return item[prefix.Length..];
+    }
+
+    private static string GetUiAutomationStateText(Window window, ConditionFactory? condition)
+    {
+        var helpText = Safe(() => window.HelpText);
+        if (!string.IsNullOrWhiteSpace(helpText))
+            return helpText;
+
+        condition ??= window.Automation.ConditionFactory;
+        var stateElement = window.FindFirstDescendant(condition.ByAutomationId("UiAutomationStateTextBlock"));
+        return stateElement is null ? string.Empty : Safe(() => stateElement.Name);
     }
 
     private static string CreateLargeProjectFile()

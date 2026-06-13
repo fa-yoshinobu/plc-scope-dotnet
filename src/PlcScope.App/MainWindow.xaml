@@ -466,6 +466,15 @@
       </StatusBarItem>
     </StatusBar>
 
+    <TextBlock AutomationProperties.AutomationId="UiAutomationStateTextBlock"
+               AutomationProperties.Name="{Binding UiAutomationStateText}"
+               Text="{Binding UiAutomationStateText}"
+               Width="1"
+               Height="1"
+               Opacity="0"
+               Focusable="False"
+               IsHitTestVisible="False" />
+
     <Grid Margin="12">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />

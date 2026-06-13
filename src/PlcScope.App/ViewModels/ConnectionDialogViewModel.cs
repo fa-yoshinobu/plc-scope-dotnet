@@ -49,17 +49,8 @@ public partial class ConnectionDialogViewModel : ObservableObject
         HostLinkPlcProfileName = settings.HostLinkPlcProfileName;
         SelectedHostLinkProfile = HostLinkProfiles.FirstOrDefault(option => string.Equals(option.Value, settings.HostLinkPlcProfileName, StringComparison.OrdinalIgnoreCase))
             ?? HostLinkProfiles[0];
-        ToyopucPlcProfiles = DefaultToyopucPlcProfiles;
-        if (string.IsNullOrWhiteSpace(settings.ToyopucPlcProfileName))
-        {
-            ToyopucPlcProfileName = string.Empty;
-            SelectedToyopucPlcProfile = null;
-        }
-        else
-        {
-            ToyopucPlcProfileName = ToyopucProfileNames.NormalizeRequired(settings.ToyopucPlcProfileName);
-            SelectedToyopucPlcProfile = ToyopucPlcProfiles.Single(option => option.Value == ToyopucPlcProfileName);
-        }
+        ToyopucPlcProfileName = NormalizeToyopucProfileOrDefault(settings.ToyopucPlcProfileName);
+        SelectedToyopucPlcProfile = ToyopucPlcProfiles.Single(option => option.Value == ToyopucPlcProfileName);
         ToyopucRelayHops = settings.ToyopucRelayHops ?? string.Empty;
         ToyopucLocalPort = settings.ToyopucLocalPort;
         ToyopucRetries = settings.ToyopucRetries;
@@ -81,7 +72,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     ];
     public IReadOnlyList<HostLinkPlcProfileOption> HostLinkProfiles { get; }
 
-    public IReadOnlyList<ToyopucPlcProfileOption> ToyopucPlcProfiles { get; }
+    public IReadOnlyList<ToyopucPlcProfileOption> ToyopucPlcProfiles { get; } = DefaultToyopucPlcProfiles;
     public IReadOnlyList<TransportModeOption> TransportModes { get; } =
     [
         new(TransportMode.Tcp, "TCP"),
@@ -220,6 +211,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
             Port = 8501;
         else if (value.Kind == ProtocolKind.Slmp || value.Kind == ProtocolKind.Toyopuc)
             Port = 1025;
+
+        if (value.Kind == ProtocolKind.Toyopuc && SelectedToyopucPlcProfile is null)
+            SelectedToyopucPlcProfile = ToyopucPlcProfiles.First(option => option.Value == ToyopucProfileNames.Generic);
     }
 
     partial void OnSelectedTransportModeChanged(TransportModeOption value)
@@ -308,9 +302,14 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private static ToyopucPlcProfileOption CreateToyopucPlcProfileOption(string profileName) =>
         new(profileName, PlcProfileDisplayFormatter.FormatToyopucPlcProfileOption(profileName));
 
+    private static string NormalizeToyopucProfileOrDefault(string? profileName) =>
+        string.IsNullOrWhiteSpace(profileName)
+            ? ToyopucProfileNames.Generic
+            : ToyopucProfileNames.NormalizeRequired(profileName);
+
     private string ResolveToyopucProfileForSettings()
     {
-        if (SelectedProtocol.Kind != ProtocolKind.Toyopuc && string.IsNullOrWhiteSpace(ToyopucPlcProfileName))
+        if (SelectedProtocol.Kind != ProtocolKind.Toyopuc)
             return string.Empty;
 
         return ToyopucProfileNames.NormalizeRequired(ToyopucPlcProfileName);

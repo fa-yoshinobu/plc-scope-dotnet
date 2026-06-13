@@ -167,12 +167,14 @@ public sealed class ConnectionDialogViewModelTests
     {
         var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc));
 
-        Assert.Null(viewModel.SelectedToyopucPlcProfile);
-        Assert.Equal(string.Empty, viewModel.ToyopucPlcProfileName);
+        Assert.NotNull(viewModel.SelectedToyopucPlcProfile);
+        Assert.Equal("toyopuc:generic", viewModel.ToyopucPlcProfileName);
+        Assert.Equal("Generic", viewModel.SelectedToyopucPlcProfile.Label);
         Assert.Contains(
             viewModel.ToyopucPlcProfiles,
             option => option.Value == "toyopuc:plus:extended"
-                && option.Label == "TOYOPUC-Plus / Plus Extended mode (toyopuc:plus:extended)");
+                && option.Label == "TOYOPUC-Plus / Plus Extended mode");
+        Assert.DoesNotContain(viewModel.ToyopucPlcProfiles, option => option.Label.Contains("toyopuc:", StringComparison.Ordinal));
 
         viewModel.SelectedToyopucPlcProfile = viewModel.ToyopucPlcProfiles.Single(option => option.Value == "toyopuc:pc10g:pc10");
         var settings = viewModel.BuildSettings();
@@ -183,11 +185,28 @@ public sealed class ConnectionDialogViewModelTests
     [Fact]
     public void BuildSettings_RequiresToyopucPlcProfileWhenToyopucSelected()
     {
-        var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc));
+        var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc))
+        {
+            ToyopucPlcProfileName = string.Empty,
+        };
 
         var exception = Assert.Throws<ArgumentException>(() => viewModel.BuildSettings());
 
         Assert.Contains("TOYOPUC PLC profile is required", exception.Message);
+    }
+
+    [Fact]
+    public void Constructor_DefaultsBlankToyopucPlcProfileToGeneric()
+    {
+        var viewModel = new ConnectionDialogViewModel(
+            ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc) with
+            {
+                ToyopucPlcProfileName = string.Empty,
+            });
+
+        Assert.Equal("toyopuc:generic", viewModel.ToyopucPlcProfileName);
+        Assert.NotNull(viewModel.SelectedToyopucPlcProfile);
+        Assert.Equal("Generic", viewModel.SelectedToyopucPlcProfile.Label);
     }
 
     [Fact]

@@ -59,11 +59,6 @@ internal static class PlcProfileDisplayFormatter
         };
     }
 
-    public static string FormatToyopucPlcProfileOption(string profile)
-    {
-        var displayName = FormatToyopucPlcProfile(profile);
-        return string.Equals(displayName, profile, StringComparison.Ordinal)
-            ? profile
-            : $"{displayName} ({profile})";
-    }
+    public static string FormatToyopucPlcProfileOption(string profile) =>
+        FormatToyopucPlcProfile(profile);
 }

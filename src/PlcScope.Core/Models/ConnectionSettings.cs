@@ -28,7 +28,7 @@ public sealed record ConnectionSettings
             ? PlcScope.Core.Models.KeyenceDeviceMode.Xym
             : PlcScope.Core.Models.KeyenceDeviceMode.Normal;
 
-    public string ToyopucPlcProfileName { get; init; } = string.Empty;
+    public string ToyopucPlcProfileName { get; init; } = ToyopucProfileNames.Generic;
     public string? ToyopucRelayHops { get; init; }
     public int ToyopucLocalPort { get; init; }
     public int ToyopucRetries { get; init; }
@@ -56,6 +56,7 @@ public sealed record ConnectionSettings
             {
                 Protocol = ProtocolKind.Toyopuc,
                 Port = 1025,
+                ToyopucPlcProfileName = ToyopucProfileNames.Generic,
             },
             _ => new ConnectionSettings(),
         };
