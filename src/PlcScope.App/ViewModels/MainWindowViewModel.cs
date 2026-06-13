@@ -2871,21 +2871,25 @@ public partial class MainWindowViewModel : ObservableObject
     private static string FormatSelectedPlcModel(ConnectionSettings settings) =>
         settings.Protocol switch
         {
-            ProtocolKind.Slmp => FormatSlmpPlcFamily(settings.SlmpPlcFamilyName),
+            ProtocolKind.Slmp => FormatSlmpPlcProfile(settings.SlmpPlcProfileName),
             ProtocolKind.HostLink => FormatHostLinkPlcModel(settings.HostLinkPlcModelName, settings.KeyenceDeviceMode),
             ProtocolKind.Toyopuc => FormatToyopucDeviceProfile(settings.ToyopucDeviceProfile),
             _ => settings.Protocol.ToString(),
         };
 
-    private static string FormatSlmpPlcFamily(string familyName) =>
-        familyName switch
+    private static string FormatSlmpPlcProfile(string profileName) =>
+        profileName switch
         {
-            "IqR" => "iQ-R",
-            "IqF" => "iQ-F",
-            "IqL" => "iQ-L",
-            "MxR" => "MX-R",
-            "MxF" => "MX-F",
-            _ => string.IsNullOrWhiteSpace(familyName) ? "MELSEC" : familyName,
+            "melsec:iq-r" => "iQ-R",
+            "melsec:iq-f" => "iQ-F",
+            "melsec:iq-l" => "iQ-L",
+            "melsec:mx-r" => "MX-R",
+            "melsec:mx-f" => "MX-F",
+            "melsec:qnudv" => "QnUDV",
+            "melsec:qnu" => "QnU",
+            "melsec:qcpu" => "QCPU",
+            "melsec:lcpu" => "LCPU",
+            _ => string.IsNullOrWhiteSpace(profileName) ? "MELSEC" : profileName,
         };
 
     private static string FormatHostLinkPlcModel(string modelName, KeyenceDeviceMode deviceMode)

@@ -9,7 +9,7 @@ public sealed record ConnectionSettings
     public TransportMode Transport { get; init; } = TransportMode.Tcp;
     public int AutoRefreshIntervalMs { get; init; } = 500;
 
-    public string SlmpPlcFamilyName { get; init; } = "IqR";
+    public string SlmpPlcProfileName { get; init; } = "melsec:iq-r";
     public byte SlmpNetwork { get; init; } = 0x00;
     public byte SlmpStation { get; init; } = 0xFF;
     public ushort SlmpModuleIo { get; init; } = 0x03FF;
@@ -36,7 +36,7 @@ public sealed record ConnectionSettings
             {
                 Protocol = ProtocolKind.Slmp,
                 Port = 1025,
-                SlmpPlcFamilyName = "IqR",
+                SlmpPlcProfileName = "melsec:iq-r",
             },
             ProtocolKind.HostLink => new ConnectionSettings
             {

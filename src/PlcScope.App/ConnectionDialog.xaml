@@ -85,13 +85,13 @@
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC family" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC profile" VerticalAlignment="Center" Margin="0,0,8,8" />
             <ComboBox Grid.Row="0" Grid.Column="1"
-                      AutomationProperties.AutomationId="ConnectionSlmpFamilyComboBox"
+                      AutomationProperties.AutomationId="ConnectionSlmpProfileComboBox"
                       Margin="0,0,0,8"
-                      ItemsSource="{Binding SlmpFamilies}"
+                      ItemsSource="{Binding SlmpProfiles}"
                       DisplayMemberPath="Label"
-                      SelectedItem="{Binding SelectedSlmpFamily}" />
+                      SelectedItem="{Binding SelectedSlmpProfile}" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Network" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpNetworkTextBox" Margin="0,0,0,8" Text="{Binding SlmpNetworkText, UpdateSourceTrigger=PropertyChanged}" />

@@ -8,7 +8,7 @@ using PlcScope.Core.Services;
 internal sealed class SlmpSession : PlcSessionBase
 {
     private QueuedSlmpClient? _client;
-    private SlmpPlcFamily _plcFamily = SlmpPlcFamily.IqR;
+    private SlmpPlcProfile _plcProfile = SlmpPlcProfile.IqR;
     private SlmpDeviceRangeCatalog? _deviceRangeCatalog;
     private readonly HashSet<string> _reportedReadWarnings = [];
     private bool _remotePasswordUnlocked;
@@ -23,16 +23,14 @@ internal sealed class SlmpSession : PlcSessionBase
         if (_client is not null)
             return;
 
-        _plcFamily = ResolvePlcFamily(Settings.SlmpPlcFamilyName);
-        var profile = SlmpPlcFamilyProfiles.Resolve(_plcFamily);
+        _plcProfile = ResolvePlcProfile(Settings.SlmpPlcProfileName);
+        var profile = SlmpPlcProfiles.Resolve(_plcProfile);
         var inner = new SlmpClient(
             Settings.Host,
+            _plcProfile,
             Settings.Port,
             Settings.Transport == TransportMode.Tcp ? SlmpTransportMode.Tcp : SlmpTransportMode.Udp)
         {
-            FrameType = profile.FrameType,
-            CompatibilityMode = profile.CompatibilityMode,
-            PlcFamily = _plcFamily,
             TargetAddress = new SlmpTargetAddress(Settings.SlmpNetwork, Settings.SlmpStation, Settings.SlmpModuleIo, Settings.SlmpMultidrop),
             MonitoringTimer = Settings.SlmpMonitoringTimer,
             Timeout = Settings.Timeout,
@@ -82,7 +80,7 @@ internal sealed class SlmpSession : PlcSessionBase
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)
     {
         var expanded = ExpandAddress(rawAddress, family);
-        return SlmpAddress.Normalize(expanded, _plcFamily);
+        return SlmpAddress.Normalize(expanded, _plcProfile);
     }
 
     public override async Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
@@ -102,7 +100,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
                 if (query.DeviceKind == DeviceKind.Word)
                 {
-                    var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
+                    var start = SlmpAddress.Parse(normalizedStart, _plcProfile);
                     if (IsLongCurrentValueDevice(start.Code) || IsDWordAddressedDevice(start.Code))
                     {
                         ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
@@ -123,7 +121,7 @@ internal sealed class SlmpSession : PlcSessionBase
                 }
                 else
                 {
-                    var start = SlmpAddress.Parse(normalizedStart, _plcFamily);
+                    var start = SlmpAddress.Parse(normalizedStart, _plcProfile);
                     ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
                     elementAddresses = BuildAddresses(normalizedStart, query.EffectiveItemCount, query.DeviceFamilyCode);
                     bits = IsLongTimerBitDevice(start.Code)
@@ -172,7 +170,7 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(request.Address);
-        var parsedAddress = SlmpAddress.Parse(address, _plcFamily);
+        var parsedAddress = SlmpAddress.Parse(address, _plcProfile);
         ValidateDeviceRange(parsedAddress, GetWritePointCount(parsedAddress, request), "Write");
 
         try
@@ -215,7 +213,7 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(wordAddress);
-        ValidateDeviceRange(SlmpAddress.Parse(address, _plcFamily), 1, "Bit write");
+        ValidateDeviceRange(SlmpAddress.Parse(address, _plcProfile), 1, "Bit write");
         try
         {
             await ExecuteSerializedAsync(
@@ -250,7 +248,7 @@ internal sealed class SlmpSession : PlcSessionBase
         ThrowIfNotConnected(_client is not null);
         if (_deviceRangeCatalog is null)
         {
-            var profile = SlmpPlcFamilyProfiles.Resolve(_plcFamily);
+            var profile = SlmpPlcProfiles.Resolve(_plcProfile);
             await RefreshDeviceRangeCatalogAsync(profile.RangeFamily, cancellationToken).ConfigureAwait(false);
         }
 
@@ -361,7 +359,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private IReadOnlyList<string> BuildAddresses(string startAddress, int count, string deviceFamilyCode)
     {
-        var start = SlmpAddress.Parse(startAddress, _plcFamily);
+        var start = SlmpAddress.Parse(startAddress, _plcProfile);
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
@@ -393,17 +391,17 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             return family.Code + address.Number.ToString(CultureInfo.InvariantCulture);
         }
-        if (family.Code is "X" or "Y" && SlmpPlcFamilyProfiles.UsesIqFXyOctal(_plcFamily))
+        if (family.Code is "X" or "Y" && SlmpPlcProfiles.UsesIqFXyOctal(_plcProfile))
             return family.Code + Convert.ToString(address.Number, 8).ToUpperInvariant();
         if (family.UsesHexAddressing)
             return family.Code + address.Number.ToString("X", CultureInfo.InvariantCulture);
 
-        return SlmpAddress.Format(address, _plcFamily);
+        return SlmpAddress.Format(address, _plcProfile);
     }
 
     private async Task<ushort[]> ReadWordsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
     {
-        var start = SlmpAddress.Parse(startAddress, _plcFamily);
+        var start = SlmpAddress.Parse(startAddress, _plcProfile);
         var values = new List<ushort>(count);
         var offset = 0;
         while (offset < count)
@@ -420,7 +418,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private async Task<bool[]> ReadBitsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
     {
-        var start = SlmpAddress.Parse(startAddress, _plcFamily);
+        var start = SlmpAddress.Parse(startAddress, _plcProfile);
         var values = new List<bool>(count);
         var offset = 0;
         while (offset < count)
@@ -600,7 +598,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
         if (!entry.Supported)
         {
-            throw new InvalidOperationException($"{device} is not supported by the selected PLC family ({_deviceRangeCatalog.Family}).");
+            throw new InvalidOperationException($"{device} is not supported by the selected PLC profile ({_deviceRangeCatalog.Family}).");
         }
 
         if (entry.PointCount == 0)
@@ -633,7 +631,7 @@ internal sealed class SlmpSession : PlcSessionBase
     }
 
     private string FormatAddress(SlmpDeviceAddress address) =>
-        SlmpAddress.Format(address, _plcFamily);
+        SlmpAddress.Format(address, _plcProfile);
 
     private void AddReadUnavailableComments(
         SlmpDeviceAddress start,
@@ -643,7 +641,7 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         for (var index = 0; index < count; index++)
         {
-            var address = SlmpAddress.Format(start with { Number = checked(start.Number + (uint)index) }, _plcFamily);
+            var address = SlmpAddress.Format(start with { Number = checked(start.Number + (uint)index) }, _plcProfile);
             comments[address] = message;
         }
     }
@@ -709,20 +707,8 @@ internal sealed class SlmpSession : PlcSessionBase
             CultureInfo.InvariantCulture,
             $"SLMP read failed. Device={query.DeviceFamilyCode}; Start={query.StartAddress}; Count={query.EffectiveItemCount}; Mode={query.DisplayMode}; Kind={query.DeviceKind}; Radix={query.DisplayRadix}");
 
-    private static SlmpPlcFamily ResolvePlcFamily(string familyName)
+    private static SlmpPlcProfile ResolvePlcProfile(string profileName)
     {
-        return familyName.Trim().Replace("-", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal).ToUpperInvariant() switch
-        {
-            "IQF" => SlmpPlcFamily.IqF,
-            "IQR" => SlmpPlcFamily.IqR,
-            "IQL" => SlmpPlcFamily.IqL,
-            "MXF" => SlmpPlcFamily.MxF,
-            "MXR" => SlmpPlcFamily.MxR,
-            "QCPU" or "Q" => SlmpPlcFamily.QCpu,
-            "LCPU" or "L" => SlmpPlcFamily.LCpu,
-            "QNU" => SlmpPlcFamily.QnU,
-            "QNUDV" or "QNUDVCPU" => SlmpPlcFamily.QnUDV,
-            _ => SlmpPlcFamily.IqR,
-        };
+        return SlmpPlcProfiles.Parse(profileName);
     }
 }

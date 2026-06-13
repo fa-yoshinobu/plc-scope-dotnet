@@ -74,7 +74,7 @@ public sealed class ConnectionDialogViewModelTests
         var viewModel = new ConnectionDialogViewModel(
             ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
             {
-                SlmpPlcFamilyName = "IqF",
+                SlmpPlcProfileName = "melsec:iq-f",
                 SlmpNetwork = 3,
                 SlmpStation = 200,
                 SlmpModuleIo = 0x0123,
@@ -93,7 +93,7 @@ public sealed class ConnectionDialogViewModelTests
         Assert.Equal(255, settings.SlmpStation);
         Assert.Equal(0x03FF, settings.SlmpModuleIo);
         Assert.Equal(0, settings.SlmpMultidrop);
-        Assert.Equal("IqF", settings.SlmpPlcFamilyName);
+        Assert.Equal("melsec:iq-f", settings.SlmpPlcProfileName);
         Assert.Equal("secret1", settings.SlmpRemotePassword);
     }
 

@@ -8,7 +8,7 @@ using System.Globalization;
 
 public sealed record KeyenceDeviceModeOption(KeyenceDeviceMode Mode, string Label);
 public sealed record TransportModeOption(TransportMode Mode, string Label);
-public sealed record SlmpPlcFamilyOption(string Value, string Label);
+public sealed record SlmpPlcProfileOption(string Value, string Label);
 
 public partial class ConnectionDialogViewModel : ObservableObject
 {
@@ -41,9 +41,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Transport = settings.Transport;
         SelectedTransportMode = TransportModes.First(option => option.Mode == settings.Transport);
         AutoRefreshIntervalMs = settings.AutoRefreshIntervalMs;
-        SlmpPlcFamilyName = settings.SlmpPlcFamilyName;
-        SelectedSlmpFamily = SlmpFamilies.FirstOrDefault(option => string.Equals(option.Value, settings.SlmpPlcFamilyName, StringComparison.OrdinalIgnoreCase))
-            ?? SlmpFamilies[0];
+        SlmpPlcProfileName = settings.SlmpPlcProfileName;
+        SelectedSlmpProfile = SlmpProfiles.FirstOrDefault(option => string.Equals(option.Value, settings.SlmpPlcProfileName, StringComparison.OrdinalIgnoreCase))
+            ?? SlmpProfiles[0];
         slmpNetwork = settings.SlmpNetwork;
         slmpStation = settings.SlmpStation;
         slmpModuleIo = settings.SlmpModuleIo;
@@ -64,17 +64,17 @@ public partial class ConnectionDialogViewModel : ObservableObject
     }
 
     public IReadOnlyList<ProtocolDefinition> Protocols { get; } = ProtocolCatalog.All;
-    public IReadOnlyList<SlmpPlcFamilyOption> SlmpFamilies { get; } =
+    public IReadOnlyList<SlmpPlcProfileOption> SlmpProfiles { get; } =
     [
-        new("IqR", "iQ-R"),
-        new("IqF", "iQ-F"),
-        new("IqL", "iQ-L"),
-        new("MxR", "MX-R"),
-        new("MxF", "MX-F"),
-        new("QnUDV", "QnUDV"),
-        new("QnU", "QnU"),
-        new("QCPU", "QCPU"),
-        new("LCPU", "LCPU"),
+        new("melsec:iq-r", "iQ-R"),
+        new("melsec:iq-f", "iQ-F"),
+        new("melsec:iq-l", "iQ-L"),
+        new("melsec:mx-r", "MX-R"),
+        new("melsec:mx-f", "MX-F"),
+        new("melsec:qnudv", "QnUDV"),
+        new("melsec:qnu", "QnU"),
+        new("melsec:qcpu", "QCPU"),
+        new("melsec:lcpu", "LCPU"),
     ];
     public IReadOnlyList<string> HostLinkModels { get; } = DefaultHostLinkModels;
     public IReadOnlyList<KeyenceDeviceModeOption> KeyenceDeviceModes { get; } =
@@ -112,10 +112,10 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private int autoRefreshIntervalMs = 500;
 
     [ObservableProperty]
-    private string slmpPlcFamilyName = "IqR";
+    private string slmpPlcProfileName = "melsec:iq-r";
 
     [ObservableProperty]
-    private SlmpPlcFamilyOption selectedSlmpFamily = new("IqR", "iQ-R");
+    private SlmpPlcProfileOption selectedSlmpProfile = new("melsec:iq-r", "iQ-R");
 
     private byte slmpNetwork;
 
@@ -176,7 +176,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         TimeoutSeconds = TimeoutSeconds,
         Transport = SelectedTransportMode.Mode,
         AutoRefreshIntervalMs = AutoRefreshIntervalMs,
-        SlmpPlcFamilyName = SelectedSlmpFamily.Value,
+        SlmpPlcProfileName = SelectedSlmpProfile.Value,
         SlmpNetwork = slmpNetwork,
         SlmpStation = slmpStation,
         SlmpModuleIo = slmpModuleIo,
@@ -223,9 +223,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Transport = value.Mode;
     }
 
-    partial void OnSelectedSlmpFamilyChanged(SlmpPlcFamilyOption value)
+    partial void OnSelectedSlmpProfileChanged(SlmpPlcProfileOption value)
     {
-        SlmpPlcFamilyName = value.Value;
+        SlmpPlcProfileName = value.Value;
     }
 
     partial void OnSlmpNetworkTextChanged(string value)
