@@ -133,14 +133,72 @@ public sealed class ConnectionDialogViewModelTests
     {
         var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.HostLink));
 
-        Assert.Contains("keyence:kv-x500", viewModel.HostLinkProfiles);
-        Assert.Contains("keyence:kv-x500-xym", viewModel.HostLinkProfiles);
-        Assert.DoesNotContain("KV-X500", viewModel.HostLinkProfiles);
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500" && option.Label == "KV-X500");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500-xym" && option.Label == "KV-X500 / XYM");
+        Assert.DoesNotContain(viewModel.HostLinkProfiles, option => option.Label == "keyence:kv-x500");
 
-        viewModel.HostLinkPlcProfileName = "keyence:kv-x500-xym";
+        viewModel.SelectedHostLinkProfile = viewModel.HostLinkProfiles.Single(option => option.Value == "keyence:kv-x500-xym");
         var settings = viewModel.BuildSettings();
 
         Assert.Equal("keyence:kv-x500-xym", settings.HostLinkPlcProfileName);
         Assert.Equal(KeyenceDeviceMode.Xym, settings.KeyenceDeviceMode);
+    }
+
+    [Fact]
+    public void Constructor_PreservesUnknownHostLinkPlcProfile()
+    {
+        var viewModel = new ConnectionDialogViewModel(
+            ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with
+            {
+                HostLinkPlcProfileName = "keyence:kv-new",
+            });
+
+        var option = Assert.Single(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-new");
+        Assert.Equal("keyence:kv-new", option.Label);
+        Assert.Same(option, viewModel.SelectedHostLinkProfile);
+
+        var settings = viewModel.BuildSettings();
+
+        Assert.Equal("keyence:kv-new", settings.HostLinkPlcProfileName);
+    }
+
+    [Fact]
+    public void BuildSettings_UsesCanonicalToyopucPlcProfile()
+    {
+        var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc));
+
+        Assert.Null(viewModel.SelectedToyopucPlcProfile);
+        Assert.Equal(string.Empty, viewModel.ToyopucPlcProfileName);
+        Assert.Contains(
+            viewModel.ToyopucPlcProfiles,
+            option => option.Value == "toyopuc:plus:extended"
+                && option.Label == "TOYOPUC-Plus / Plus Extended mode (toyopuc:plus:extended)");
+
+        viewModel.SelectedToyopucPlcProfile = viewModel.ToyopucPlcProfiles.Single(option => option.Value == "toyopuc:pc10g:pc10");
+        var settings = viewModel.BuildSettings();
+
+        Assert.Equal("toyopuc:pc10g:pc10", settings.ToyopucPlcProfileName);
+    }
+
+    [Fact]
+    public void BuildSettings_RequiresToyopucPlcProfileWhenToyopucSelected()
+    {
+        var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc));
+
+        var exception = Assert.Throws<ArgumentException>(() => viewModel.BuildSettings());
+
+        Assert.Contains("TOYOPUC PLC profile is required", exception.Message);
+    }
+
+    [Fact]
+    public void Constructor_RejectsUnknownToyopucPlcProfile()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new ConnectionDialogViewModel(
+            ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc) with
+            {
+                ToyopucPlcProfileName = "toyopuc:new-profile",
+            }));
+
+        Assert.Contains("Unknown TOYOPUC PLC profile", exception.Message);
     }
 }

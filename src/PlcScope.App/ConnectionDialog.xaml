@@ -137,7 +137,8 @@
             <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC profile" VerticalAlignment="Center" Margin="0,0,8,0" />
             <ComboBox Grid.Row="0" Grid.Column="1"
                       ItemsSource="{Binding HostLinkProfiles}"
-                      SelectedItem="{Binding HostLinkPlcProfileName}" />
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedHostLinkProfile}" />
           </Grid>
         </GroupBox>
 
@@ -156,8 +157,9 @@
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Profile" VerticalAlignment="Center" Margin="0,0,8,8" />
             <ComboBox Grid.Row="0" Grid.Column="1"
                       Margin="0,0,0,8"
-                      ItemsSource="{Binding ToyopucDeviceProfiles}"
-                      SelectedItem="{Binding ToyopucDeviceProfile}" />
+                      ItemsSource="{Binding ToyopucPlcProfiles}"
+                      DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedToyopucPlcProfile}" />
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Relay hops" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucRelayHops}" />
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Local port" VerticalAlignment="Center" Margin="0,0,8,8" />

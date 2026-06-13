@@ -8,27 +8,20 @@ using System.Globalization;
 
 public sealed record TransportModeOption(TransportMode Mode, string Label);
 public sealed record SlmpPlcProfileOption(string Value, string Label);
+public sealed record HostLinkPlcProfileOption(string Value, string Label);
+public sealed record ToyopucPlcProfileOption(string Value, string Label);
 
 public partial class ConnectionDialogViewModel : ObservableObject
 {
-    private static readonly string[] DefaultHostLinkProfiles =
+    private static readonly HostLinkPlcProfileOption[] DefaultHostLinkProfiles =
         KvHostLinkDeviceRanges.AvailablePlcProfiles()
+            .Select(CreateHostLinkProfileOption)
             .ToArray();
 
-    private static readonly string[] DefaultToyopucDeviceProfiles =
-    [
-        "Generic",
-        "TOYOPUC-Plus:Plus Standard mode",
-        "TOYOPUC-Plus:Plus Extended mode",
-        "Nano 10GX:Nano 10GX mode",
-        "Nano 10GX:Compatible mode",
-        "PC10G:PC10 standard/PC3JG mode",
-        "PC10G:PC10 mode",
-        "PC3JX:PC3 separate mode",
-        "PC3JX:Plus expansion mode",
-        "PC3JG:PC3JG mode",
-        "PC3JG:PC3 separate mode",
-    ];
+    private static readonly ToyopucPlcProfileOption[] DefaultToyopucPlcProfiles =
+        ToyopucProfileNames.CanonicalNames
+            .Select(CreateToyopucPlcProfileOption)
+            .ToArray();
 
     public ConnectionDialogViewModel(ConnectionSettings settings)
     {
@@ -52,8 +45,21 @@ public partial class ConnectionDialogViewModel : ObservableObject
         SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
         SlmpRemotePassword = settings.SlmpRemotePassword ?? string.Empty;
+        HostLinkProfiles = CreateHostLinkProfiles(settings.HostLinkPlcProfileName);
         HostLinkPlcProfileName = settings.HostLinkPlcProfileName;
-        ToyopucDeviceProfile = settings.ToyopucDeviceProfile ?? string.Empty;
+        SelectedHostLinkProfile = HostLinkProfiles.FirstOrDefault(option => string.Equals(option.Value, settings.HostLinkPlcProfileName, StringComparison.OrdinalIgnoreCase))
+            ?? HostLinkProfiles[0];
+        ToyopucPlcProfiles = DefaultToyopucPlcProfiles;
+        if (string.IsNullOrWhiteSpace(settings.ToyopucPlcProfileName))
+        {
+            ToyopucPlcProfileName = string.Empty;
+            SelectedToyopucPlcProfile = null;
+        }
+        else
+        {
+            ToyopucPlcProfileName = ToyopucProfileNames.NormalizeRequired(settings.ToyopucPlcProfileName);
+            SelectedToyopucPlcProfile = ToyopucPlcProfiles.Single(option => option.Value == ToyopucPlcProfileName);
+        }
         ToyopucRelayHops = settings.ToyopucRelayHops ?? string.Empty;
         ToyopucLocalPort = settings.ToyopucLocalPort;
         ToyopucRetries = settings.ToyopucRetries;
@@ -73,9 +79,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
         new("melsec:qcpu", "QCPU"),
         new("melsec:lcpu", "LCPU"),
     ];
-    public IReadOnlyList<string> HostLinkProfiles { get; } = DefaultHostLinkProfiles;
+    public IReadOnlyList<HostLinkPlcProfileOption> HostLinkProfiles { get; }
 
-    public IReadOnlyList<string> ToyopucDeviceProfiles { get; } = DefaultToyopucDeviceProfiles;
+    public IReadOnlyList<ToyopucPlcProfileOption> ToyopucPlcProfiles { get; }
     public IReadOnlyList<TransportModeOption> TransportModes { get; } =
     [
         new(TransportMode.Tcp, "TCP"),
@@ -139,7 +145,13 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private string hostLinkPlcProfileName = "keyence:kv-8000";
 
     [ObservableProperty]
-    private string toyopucDeviceProfile = "TOYOPUC-Plus:Plus Extended mode";
+    private HostLinkPlcProfileOption selectedHostLinkProfile = new("keyence:kv-8000", "KV-8000");
+
+    [ObservableProperty]
+    private string toyopucPlcProfileName = string.Empty;
+
+    [ObservableProperty]
+    private ToyopucPlcProfileOption? selectedToyopucPlcProfile;
 
     [ObservableProperty]
     private string toyopucRelayHops = string.Empty;
@@ -157,28 +169,32 @@ public partial class ConnectionDialogViewModel : ObservableObject
     public bool IsHostLinkSelected => SelectedProtocol.Kind == ProtocolKind.HostLink;
     public bool IsToyopucSelected => SelectedProtocol.Kind == ProtocolKind.Toyopuc;
 
-    public ConnectionSettings BuildSettings() => new()
+    public ConnectionSettings BuildSettings()
     {
-        Protocol = SelectedProtocol.Kind,
-        Host = Host,
-        Port = Port,
-        TimeoutSeconds = TimeoutSeconds,
-        Transport = SelectedTransportMode.Mode,
-        AutoRefreshIntervalMs = AutoRefreshIntervalMs,
-        SlmpPlcProfileName = SelectedSlmpProfile.Value,
-        SlmpNetwork = slmpNetwork,
-        SlmpStation = slmpStation,
-        SlmpModuleIo = slmpModuleIo,
-        SlmpMultidrop = slmpMultidrop,
-        SlmpMonitoringTimer = SlmpMonitoringTimer,
-        SlmpRemotePassword = string.IsNullOrWhiteSpace(SlmpRemotePassword) ? null : SlmpRemotePassword,
-        HostLinkPlcProfileName = HostLinkPlcProfileName,
-        ToyopucDeviceProfile = string.IsNullOrWhiteSpace(ToyopucDeviceProfile) ? null : ToyopucDeviceProfile,
-        ToyopucRelayHops = string.IsNullOrWhiteSpace(ToyopucRelayHops) ? null : ToyopucRelayHops,
-        ToyopucLocalPort = ToyopucLocalPort,
-        ToyopucRetries = ToyopucRetries,
-        ToyopucRetryDelayMs = ToyopucRetryDelayMs,
-    };
+        var toyopucProfile = ResolveToyopucProfileForSettings();
+        return new ConnectionSettings
+        {
+            Protocol = SelectedProtocol.Kind,
+            Host = Host,
+            Port = Port,
+            TimeoutSeconds = TimeoutSeconds,
+            Transport = SelectedTransportMode.Mode,
+            AutoRefreshIntervalMs = AutoRefreshIntervalMs,
+            SlmpPlcProfileName = SelectedSlmpProfile.Value,
+            SlmpNetwork = slmpNetwork,
+            SlmpStation = slmpStation,
+            SlmpModuleIo = slmpModuleIo,
+            SlmpMultidrop = slmpMultidrop,
+            SlmpMonitoringTimer = SlmpMonitoringTimer,
+            SlmpRemotePassword = string.IsNullOrWhiteSpace(SlmpRemotePassword) ? null : SlmpRemotePassword,
+            HostLinkPlcProfileName = HostLinkPlcProfileName,
+            ToyopucPlcProfileName = toyopucProfile,
+            ToyopucRelayHops = string.IsNullOrWhiteSpace(ToyopucRelayHops) ? null : ToyopucRelayHops,
+            ToyopucLocalPort = ToyopucLocalPort,
+            ToyopucRetries = ToyopucRetries,
+            ToyopucRetryDelayMs = ToyopucRetryDelayMs,
+        };
+    }
 
     public void ResetSlmpRoutingToDefaults()
     {
@@ -214,6 +230,22 @@ public partial class ConnectionDialogViewModel : ObservableObject
     partial void OnSelectedSlmpProfileChanged(SlmpPlcProfileOption value)
     {
         SlmpPlcProfileName = value.Value;
+    }
+
+    partial void OnSelectedHostLinkProfileChanged(HostLinkPlcProfileOption value)
+    {
+        if (value is null)
+            return;
+
+        HostLinkPlcProfileName = value.Value;
+    }
+
+    partial void OnSelectedToyopucPlcProfileChanged(ToyopucPlcProfileOption? value)
+    {
+        if (value is null)
+            return;
+
+        ToyopucPlcProfileName = value.Value;
     }
 
     partial void OnSlmpNetworkTextChanged(string value)
@@ -260,4 +292,27 @@ public partial class ConnectionDialogViewModel : ObservableObject
 
     private static string FormatPrefixedHex(int value, int width) =>
         $"0x{value.ToString($"X{width}", CultureInfo.InvariantCulture)}";
+
+    private static IReadOnlyList<HostLinkPlcProfileOption> CreateHostLinkProfiles(string selectedProfileName)
+    {
+        var profiles = DefaultHostLinkProfiles.ToList();
+        if (profiles.All(option => !string.Equals(option.Value, selectedProfileName, StringComparison.OrdinalIgnoreCase)))
+            profiles.Add(CreateHostLinkProfileOption(selectedProfileName));
+
+        return profiles;
+    }
+
+    private static HostLinkPlcProfileOption CreateHostLinkProfileOption(string profileName) =>
+        new(profileName, PlcProfileDisplayFormatter.FormatHostLinkPlcProfile(profileName));
+
+    private static ToyopucPlcProfileOption CreateToyopucPlcProfileOption(string profileName) =>
+        new(profileName, PlcProfileDisplayFormatter.FormatToyopucPlcProfileOption(profileName));
+
+    private string ResolveToyopucProfileForSettings()
+    {
+        if (SelectedProtocol.Kind != ProtocolKind.Toyopuc && string.IsNullOrWhiteSpace(ToyopucPlcProfileName))
+            return string.Empty;
+
+        return ToyopucProfileNames.NormalizeRequired(ToyopucPlcProfileName);
+    }
 }
