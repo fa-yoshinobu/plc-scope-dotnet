@@ -24,8 +24,10 @@ internal static class PlcProfileDisplayFormatter
         {
             "keyence:kv-nano" => "KV-Nano",
             "keyence:kv-nano-xym" => "KV-Nano / XYM",
-            "keyence:kv-3000-5000" => "KV-3000/5000",
-            "keyence:kv-3000-5000-xym" => "KV-3000/5000 / XYM",
+            "keyence:kv-3000" => "KV-3000",
+            "keyence:kv-3000-xym" => "KV-3000 / XYM",
+            "keyence:kv-5000" => "KV-5000",
+            "keyence:kv-5000-xym" => "KV-5000 / XYM",
             "keyence:kv-7000" => "KV-7000",
             "keyence:kv-7000-xym" => "KV-7000 / XYM",
             "keyence:kv-8000" => "KV-8000",
