@@ -18,7 +18,7 @@ It is intended for live I/O checks: select a protocol, connect to a PLC, monitor
 
 ## Supported Protocols
 
-- Mitsubishi MELSEC `SLMP`
+- MELSEC `SLMP`
 - KEYENCE KV `Host Link`
 - JTEKT TOYOPUC `Computer Link`
 
@@ -210,4 +210,6 @@ src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.exe
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+| Item | Value |
+| --- | --- |
+| License | [MIT](LICENSE) |

@@ -24,7 +24,7 @@ public static class ProtocolCatalog
     [
         new(
             ProtocolKind.Slmp,
-            "Mitsubishi MELSEC (SLMP)",
+            "MELSEC (SLMP)",
             new ProtocolCapabilities(
                 SupportsWrite: true,
                 SupportsComments: false,

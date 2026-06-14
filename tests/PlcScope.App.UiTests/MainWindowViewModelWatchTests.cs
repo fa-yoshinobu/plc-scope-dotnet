@@ -49,7 +49,7 @@ public sealed class MainWindowViewModelWatchTests
 
         await viewModel.CpuPauseCommand.ExecuteAsync(null);
         Assert.Null(session.LastCpuCommand);
-        Assert.Equal("CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP).", viewModel.ErrorText);
+        Assert.Equal("CPU PAUSE is only supported for MELSEC (SLMP).", viewModel.ErrorText);
     }
 
     [Fact]

@@ -271,7 +271,7 @@ public partial class MainWindowViewModel : ObservableObject
     }
     public string CpuPauseControlHint => SelectedProtocol.Kind == ProtocolKind.Slmp
         ? "Send SLMP CPU PAUSE command."
-        : "CPU PAUSE is only available for Mitsubishi MELSEC (SLMP).";
+        : "CPU PAUSE is only available for MELSEC (SLMP).";
 
     public async Task InitializeAsync()
     {
@@ -1305,7 +1305,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (!CanIssueCpuCommand(command))
         {
             ErrorText = command == CpuCommand.Pause
-                ? "CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP)."
+                ? "CPU PAUSE is only supported for MELSEC (SLMP)."
                 : "CPU control is not supported by this protocol.";
             return;
         }

@@ -1,4 +1,4 @@
-﻿namespace PlcScope.Infrastructure.Protocols;
+namespace PlcScope.Infrastructure.Protocols;
 
 using System.Globalization;
 using PlcComm.KvHostLink;
@@ -185,7 +185,7 @@ internal sealed class HostLinkSession : PlcSessionBase
     {
         ThrowIfNotConnected(_client is not null);
         if (command == CpuCommand.Pause)
-            throw new NotSupportedException("CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP).");
+            throw new NotSupportedException("CPU PAUSE is only supported for MELSEC (SLMP).");
 
         var mode = command == CpuCommand.Run ? KvPlcMode.Run : KvPlcMode.Program;
         await ExecuteSerializedAsync(async () =>

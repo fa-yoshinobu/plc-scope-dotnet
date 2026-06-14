@@ -172,7 +172,7 @@ internal sealed class ToyopucSession : PlcSessionBase
     {
         ThrowIfNotConnected(_client is not null);
         if (command == CpuCommand.Pause)
-            throw new NotSupportedException("CPU PAUSE is only supported for Mitsubishi MELSEC (SLMP).");
+            throw new NotSupportedException("CPU PAUSE is only supported for MELSEC (SLMP).");
 
         await ExecuteSerializedAsync(async () =>
         {
