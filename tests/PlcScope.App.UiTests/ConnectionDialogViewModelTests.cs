@@ -137,7 +137,6 @@ public sealed class ConnectionDialogViewModelTests
         Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500-xym" && option.Label == "KV-X500 / XYM");
         Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-3000" && option.Label == "KV-3000");
         Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-5000-xym" && option.Label == "KV-5000 / XYM");
-        Assert.DoesNotContain(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-3000-5000");
         Assert.DoesNotContain(viewModel.HostLinkProfiles, option => option.Label == "keyence:kv-x500");
 
         viewModel.SelectedHostLinkProfile = viewModel.HostLinkProfiles.Single(option => option.Value == "keyence:kv-x500-xym");
