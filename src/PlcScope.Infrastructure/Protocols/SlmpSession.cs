@@ -48,7 +48,7 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             await _client.OpenAsync(cancellationToken).ConfigureAwait(false);
             await UnlockRemotePasswordIfConfiguredAsync(cancellationToken).ConfigureAwait(false);
-            await RefreshDeviceRangeCatalogAsync(profile.RangeFamily, cancellationToken).ConfigureAwait(false);
+            await RefreshDeviceRangeCatalogAsync(profile.RangeProfile, cancellationToken).ConfigureAwait(false);
 
             IsConnected = true;
         }
@@ -249,7 +249,7 @@ internal sealed class SlmpSession : PlcSessionBase
         if (_deviceRangeCatalog is null)
         {
             var profile = SlmpPlcProfiles.Resolve(_plcProfile);
-            await RefreshDeviceRangeCatalogAsync(profile.RangeFamily, cancellationToken).ConfigureAwait(false);
+            await RefreshDeviceRangeCatalogAsync(profile.RangeProfile, cancellationToken).ConfigureAwait(false);
         }
 
         if (_deviceRangeCatalog is null)
@@ -563,11 +563,11 @@ internal sealed class SlmpSession : PlcSessionBase
         };
     }
 
-    private async Task RefreshDeviceRangeCatalogAsync(SlmpDeviceRangeFamily rangeFamily, CancellationToken cancellationToken)
+    private async Task RefreshDeviceRangeCatalogAsync(SlmpPlcProfile rangeProfile, CancellationToken cancellationToken)
     {
         try
         {
-            _deviceRangeCatalog = await _client!.ReadDeviceRangeCatalogAsync(rangeFamily, cancellationToken).ConfigureAwait(false);
+            _deviceRangeCatalog = await _client!.ReadDeviceRangeCatalogAsync(rangeProfile, cancellationToken).ConfigureAwait(false);
         }
         catch (SlmpError exception) when (exception.IsRemotePasswordError)
         {
@@ -598,7 +598,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
         if (!entry.Supported)
         {
-            throw new InvalidOperationException($"{device} is not supported by the selected PLC profile ({_deviceRangeCatalog.Family}).");
+            throw new InvalidOperationException($"{device} is not supported by the selected PLC profile ({SlmpPlcProfiles.ToCanonicalString(_deviceRangeCatalog.PlcProfile)}).");
         }
 
         if (entry.PointCount == 0)
@@ -657,7 +657,7 @@ internal sealed class SlmpSession : PlcSessionBase
     private static DeviceRangeCatalog MapDeviceRangeCatalog(SlmpDeviceRangeCatalog catalog) =>
         new(
             catalog.Model,
-            catalog.Family.ToString(),
+            SlmpPlcProfiles.ToCanonicalString(catalog.PlcProfile),
             catalog.Entries
                 .Select(entry => new DeviceRangeEntry(
                     entry.Device,
