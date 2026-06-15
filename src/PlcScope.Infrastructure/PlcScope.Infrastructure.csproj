@@ -9,18 +9,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="PlcComm.Slmp">
-      <HintPath>..\..\lib\plc-comm\net9.0\PlcComm.Slmp.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="PlcComm.KvHostLink">
-      <HintPath>..\..\lib\plc-comm\net9.0\PlcComm.KvHostLink.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="PlcComm.Toyopuc">
-      <HintPath>..\..\lib\plc-comm\net9.0\PlcComm.Toyopuc.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
+    <PackageReference Include="PlcComm.Slmp" />
+    <PackageReference Include="PlcComm.KvHostLink" />
+    <PackageReference Include="PlcComm.Toyopuc" />
   </ItemGroup>
 
 </Project>

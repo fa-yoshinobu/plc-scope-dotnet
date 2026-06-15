@@ -31,7 +31,7 @@ Main libraries:
 - `CommunityToolkit.Mvvm`
 - `Microsoft.Extensions.DependencyInjection`
 
-When sibling PLC communication repositories exist next to this repository, project references are used for local development. Otherwise NuGet package references are used.
+PLC communication libraries are consumed through NuGet package references.
 
 ## Build
 
