@@ -7,6 +7,9 @@ using PlcScope.Core.Services;
 
 internal sealed class SlmpSession : PlcSessionBase
 {
+    private const int MaxRandomReadDevicesPerRequest = 64;
+    private const int MaxRandomBitWritesPerRequest = 64;
+
     private QueuedSlmpClient? _client;
     private SlmpPlcProfile _plcProfile = SlmpPlcProfile.IqR;
     private SlmpDeviceRangeCatalog? _deviceRangeCatalog;
@@ -166,6 +169,119 @@ internal sealed class SlmpSession : PlcSessionBase
         }
     }
 
+    public override async Task<IReadOnlyList<BlockReadBatchItemResult>> ReadBatchAsync(
+        IReadOnlyList<BlockQuery> queries,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        if (queries.Count == 0)
+            return [];
+
+        var results = new BlockReadBatchItemResult?[queries.Count];
+        var randomPlans = new List<SlmpBatchReadPlan>();
+        var sequentialQueries = new List<(int Index, BlockQuery Query)>();
+
+        for (var index = 0; index < queries.Count; index++)
+        {
+            if (TryCreateRandomReadPlan(queries[index], index, out var plan, out var errorResult))
+            {
+                if (errorResult is not null)
+                    results[index] = errorResult;
+                else if (plan is not null)
+                    randomPlans.Add(plan);
+
+                continue;
+            }
+
+            sequentialQueries.Add((index, queries[index]));
+        }
+
+        if (randomPlans.Count > 0)
+        {
+            try
+            {
+                var randomResults = await ReadRandomPlansAsync(randomPlans, cancellationToken).ConfigureAwait(false);
+                foreach (var (index, result) in randomResults)
+                {
+                    results[index] = BlockReadBatchItemResult.FromResult(result);
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                EmitError(new ErrorEntry(
+                    DateTimeOffset.UtcNow,
+                    "SLMP batch read",
+                    "SLMP random read failed. Falling back to sequential reads.",
+                    FormatSlmpErrorDetails(exception)));
+
+                sequentialQueries.AddRange(randomPlans.Select(static plan => (plan.QueryIndex, plan.OriginalQuery)));
+            }
+        }
+
+        foreach (var (index, query) in sequentialQueries.OrderBy(static item => item.Index))
+        {
+            results[index] = await ReadSequentialBatchItemAsync(query, cancellationToken).ConfigureAwait(false);
+        }
+
+        return results
+            .Select((result, index) => result ?? BlockReadBatchItemResult.FromError(
+                queries[index],
+                new InvalidOperationException("PLC batch read did not produce a result.")))
+            .ToArray();
+    }
+
+    public override async Task<IReadOnlyList<WriteResult>> WriteBitBatchAsync(
+        IReadOnlyList<WriteRequest> requests,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        if (requests.Count == 0)
+            return [];
+
+        var entries = new List<(SlmpDeviceAddress Device, bool Value)>(requests.Count);
+        var normalizedAddresses = new List<string>(requests.Count);
+        foreach (var request in requests)
+        {
+            if (request.DataType != ValueDataType.Bit)
+                return await base.WriteBitBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+
+            if (!TryCreateRandomBitWriteEntry(request, out var normalizedAddress, out var device, out var value))
+                return await base.WriteBitBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+
+            normalizedAddresses.Add(normalizedAddress);
+            entries.Add((device, value));
+        }
+
+        try
+        {
+            await ExecuteSerializedAsync(async () =>
+            {
+                for (var offset = 0; offset < entries.Count; offset += MaxRandomBitWritesPerRequest)
+                {
+                    var chunk = entries
+                        .Skip(offset)
+                        .Take(MaxRandomBitWritesPerRequest)
+                        .Select(static entry => (entry.Device, entry.Value))
+                        .ToArray();
+                    await _client!.WriteRandomBitsAsync(chunk, cancellationToken).ConfigureAwait(false);
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            EmitError(new ErrorEntry(
+                DateTimeOffset.UtcNow,
+                "SLMP bit batch write",
+                "SLMP random bit write failed. Falling back to sequential writes.",
+                FormatSlmpErrorDetails(exception)));
+            return await base.WriteBitBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+        }
+
+        return normalizedAddresses
+            .Select(static address => new WriteResult(address, "Write completed.", DateTimeOffset.UtcNow))
+            .ToArray();
+    }
+
     public override async Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
@@ -293,6 +409,248 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         await DisconnectAsync().ConfigureAwait(false);
         DisposeSynchronization();
+    }
+
+    private bool TryCreateRandomReadPlan(
+        BlockQuery query,
+        int queryIndex,
+        out SlmpBatchReadPlan? plan,
+        out BlockReadBatchItemResult? errorResult)
+    {
+        plan = null;
+        errorResult = null;
+
+        if (query.DeviceKind != DeviceKind.Word)
+            return false;
+
+        try
+        {
+            var normalizedStart = NormalizeAddress(query.StartAddress, ResolveFamily(Definition, query.DeviceFamilyCode));
+            var effectiveQuery = query with { StartAddress = normalizedStart };
+            var start = SlmpAddress.Parse(normalizedStart, _plcProfile);
+
+            if (IsLongCurrentValueDevice(start.Code) || IsDWordAddressedDevice(start.Code))
+            {
+                if (start.Code is not SlmpDeviceCode.LCN && !IsDWordAddressedDevice(start.Code))
+                    return false;
+
+                var dwordCount = query.EffectiveItemCount;
+                if (dwordCount > MaxRandomReadDevicesPerRequest)
+                    return false;
+
+                ValidateDeviceRange(start, dwordCount, "Read");
+                plan = new SlmpBatchReadPlan(
+                    queryIndex,
+                    query,
+                    effectiveQuery,
+                    start,
+                    dwordCount,
+                    ReadsDWords: true);
+                return true;
+            }
+
+            var wordCount = query.DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32
+                ? checked(query.EffectiveItemCount * 2)
+                : query.EffectiveItemCount;
+            if (wordCount > MaxRandomReadDevicesPerRequest)
+                return false;
+
+            ValidateDeviceRange(start, wordCount, "Read");
+            plan = new SlmpBatchReadPlan(
+                queryIndex,
+                query,
+                effectiveQuery,
+                start,
+                wordCount,
+                ReadsDWords: false);
+            return true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorResult = BlockReadBatchItemResult.FromError(query, exception);
+            return true;
+        }
+    }
+
+    private async Task<BlockReadBatchItemResult> ReadSequentialBatchItemAsync(
+        BlockQuery query,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await ReadBlockAsync(query, cancellationToken).ConfigureAwait(false);
+            return BlockReadBatchItemResult.FromResult(result);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return BlockReadBatchItemResult.FromError(query, exception);
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<int, BlockReadResult>> ReadRandomPlansAsync(
+        IReadOnlyList<SlmpBatchReadPlan> plans,
+        CancellationToken cancellationToken)
+    {
+        var wordValues = new Dictionary<int, List<ushort>>();
+        var dwordValues = new Dictionary<int, List<uint>>();
+        CpuState? cpuState = null;
+        var elapsedMilliseconds = 0d;
+        var timestamp = DateTimeOffset.UtcNow;
+
+        await ExecuteSerializedAsync(async () =>
+        {
+            var timer = StartTimer();
+            foreach (var chunk in BuildRandomReadChunks(plans))
+            {
+                var wordDevices = chunk
+                    .Where(static entry => !entry.ReadsDWord)
+                    .Select(static entry => entry.Device)
+                    .ToArray();
+                var dwordDevices = chunk
+                    .Where(static entry => entry.ReadsDWord)
+                    .Select(static entry => entry.Device)
+                    .ToArray();
+
+                var (words, dwords) = await _client!.ReadRandomAsync(wordDevices, dwordDevices, cancellationToken)
+                    .ConfigureAwait(false);
+
+                var wordIndex = 0;
+                var dwordIndex = 0;
+                foreach (var entry in chunk.Where(static item => !item.ReadsDWord))
+                {
+                    if (!wordValues.TryGetValue(entry.QueryIndex, out var values))
+                    {
+                        values = [];
+                        wordValues[entry.QueryIndex] = values;
+                    }
+
+                    values.Add(words[wordIndex++]);
+                }
+
+                foreach (var entry in chunk.Where(static item => item.ReadsDWord))
+                {
+                    if (!dwordValues.TryGetValue(entry.QueryIndex, out var values))
+                    {
+                        values = [];
+                        dwordValues[entry.QueryIndex] = values;
+                    }
+
+                    values.Add(dwords[dwordIndex++]);
+                }
+            }
+
+            try
+            {
+                cpuState = await ReadCpuStateForBlockAsync(ReadCpuStateInternalAsync, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                EmitError(new ErrorEntry(
+                    DateTimeOffset.UtcNow,
+                    "SLMP CPU state read",
+                    exception.Message,
+                    FormatSlmpErrorDetails(exception)));
+                cpuState = null;
+            }
+
+            timer.Stop();
+            elapsedMilliseconds = timer.Elapsed.TotalMilliseconds;
+            timestamp = DateTimeOffset.UtcNow;
+        }, cancellationToken).ConfigureAwait(false);
+
+        var results = new Dictionary<int, BlockReadResult>();
+        foreach (var plan in plans)
+        {
+            if (plan.ReadsDWords)
+            {
+                var values = dwordValues.TryGetValue(plan.QueryIndex, out var dwords)
+                    ? dwords
+                    : [];
+                results[plan.QueryIndex] = new BlockReadResult(
+                    plan.EffectiveQuery,
+                    BuildDWordElementAddresses(plan.Start, plan.DeviceCount, plan.EffectiveQuery.DeviceFamilyCode),
+                    PackDWordValues(values),
+                    [],
+                    new Dictionary<string, string>(),
+                    timestamp,
+                    elapsedMilliseconds,
+                    cpuState);
+                continue;
+            }
+
+            var words = wordValues.TryGetValue(plan.QueryIndex, out var readWords)
+                ? readWords.ToArray()
+                : [];
+            results[plan.QueryIndex] = new BlockReadResult(
+                plan.EffectiveQuery,
+                BuildAddresses(plan.EffectiveQuery.StartAddress, plan.DeviceCount, plan.EffectiveQuery.DeviceFamilyCode),
+                words,
+                [],
+                new Dictionary<string, string>(),
+                timestamp,
+                elapsedMilliseconds,
+                cpuState);
+        }
+
+        return results;
+    }
+
+    private static IEnumerable<IReadOnlyList<SlmpRandomReadEntry>> BuildRandomReadChunks(
+        IReadOnlyList<SlmpBatchReadPlan> plans)
+    {
+        var current = new List<SlmpRandomReadEntry>(MaxRandomReadDevicesPerRequest);
+        foreach (var plan in plans)
+        {
+            if (current.Count + plan.DeviceCount > MaxRandomReadDevicesPerRequest && current.Count > 0)
+            {
+                yield return current.ToArray();
+                current.Clear();
+            }
+
+            for (var offset = 0; offset < plan.DeviceCount; offset++)
+            {
+                current.Add(new SlmpRandomReadEntry(
+                    plan.QueryIndex,
+                    plan.Start with { Number = checked(plan.Start.Number + (uint)offset) },
+                    plan.ReadsDWords));
+            }
+        }
+
+        if (current.Count > 0)
+            yield return current.ToArray();
+    }
+
+    private bool TryCreateRandomBitWriteEntry(
+        WriteRequest request,
+        out string normalizedAddress,
+        out SlmpDeviceAddress device,
+        out bool value)
+    {
+        normalizedAddress = string.Empty;
+        device = default;
+        value = false;
+
+        try
+        {
+            normalizedAddress = NormalizeAddress(request.Address);
+            device = SlmpAddress.Parse(normalizedAddress, _plcProfile);
+            var family = ResolveFamily(Definition, device.Code.ToString());
+            if (family?.Kind != DeviceKind.Bit)
+                return false;
+
+            ValidateDeviceRange(device, 1, "Write");
+            value = ToBoolean(request.Value);
+            return true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            EmitError(new ErrorEntry(
+                DateTimeOffset.UtcNow,
+                "SLMP bit batch write",
+                exception.Message,
+                FormatSlmpErrorDetails(exception)));
+            return false;
+        }
     }
 
     private bool HasRemotePassword => !string.IsNullOrWhiteSpace(Settings.SlmpRemotePassword);
@@ -706,6 +1064,19 @@ internal sealed class SlmpSession : PlcSessionBase
         string.Create(
             CultureInfo.InvariantCulture,
             $"SLMP read failed. Device={query.DeviceFamilyCode}; Start={query.StartAddress}; Count={query.EffectiveItemCount}; Mode={query.DisplayMode}; Kind={query.DeviceKind}; Radix={query.DisplayRadix}");
+
+    private sealed record SlmpBatchReadPlan(
+        int QueryIndex,
+        BlockQuery OriginalQuery,
+        BlockQuery EffectiveQuery,
+        SlmpDeviceAddress Start,
+        int DeviceCount,
+        bool ReadsDWords);
+
+    private sealed record SlmpRandomReadEntry(
+        int QueryIndex,
+        SlmpDeviceAddress Device,
+        bool ReadsDWord);
 
     private static SlmpPlcProfile ResolvePlcProfile(string profileName)
     {

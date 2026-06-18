@@ -845,6 +845,7 @@ public partial class MainWindowViewModel : ObservableObject
             .Take(Math.Max(1, _visibleWatchRowCount))
             .ToArray();
 
+        var plans = new List<WatchReadPlan>();
         foreach (var item in visibleItems)
         {
             if (string.IsNullOrWhiteSpace(item.Address))
@@ -852,7 +853,57 @@ public partial class MainWindowViewModel : ObservableObject
             if (item.IsValueEditing)
                 continue;
 
-            await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
+            try
+            {
+                plans.Add(CreateWatchReadPlan(item));
+            }
+            catch (Exception exception)
+            {
+                await ApplyWatchReadFailureAsync(item, exception).ConfigureAwait(true);
+            }
+        }
+
+        if (plans.Count == 0)
+            return;
+
+        IReadOnlyList<BlockReadBatchItemResult> results;
+        try
+        {
+            results = await _session.ReadBatchAsync(plans.Select(static plan => plan.Query).ToArray()).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await LogErrorAsync("Watch", exception).ConfigureAwait(true);
+            foreach (var plan in plans)
+            {
+                await RefreshSingleWatchItemAsync(plan.Item).ConfigureAwait(true);
+            }
+
+            return;
+        }
+
+        for (var index = 0; index < plans.Count; index++)
+        {
+            var plan = plans[index];
+            if (index >= results.Count)
+            {
+                await ApplyWatchReadFailureAsync(
+                    plan.Item,
+                    new InvalidOperationException("PLC batch read did not return a result for this watch item.")).ConfigureAwait(true);
+                continue;
+            }
+
+            var result = results[index];
+            if (result.Success && result.Result is not null)
+            {
+                ApplyWatchReadSuccess(plan, result.Result);
+            }
+            else
+            {
+                await ApplyWatchReadFailureAsync(
+                    plan.Item,
+                    result.Error ?? new InvalidOperationException("PLC batch read failed without an error detail.")).ConfigureAwait(true);
+            }
         }
     }
 
@@ -870,24 +921,20 @@ public partial class MainWindowViewModel : ObservableObject
     {
         try
         {
-            var result = await ReadWatchItemAsync(item).ConfigureAwait(true);
-            item.ValueText = result.ValueText;
-            item.RawText = result.RawText;
-            item.HasError = false;
-            item.ErrorText = string.Empty;
+            if (_session is null)
+                throw new InvalidOperationException("Connect to the PLC before reading the watch list.");
+
+            var plan = CreateWatchReadPlan(item);
+            var result = await _session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
+            ApplyWatchReadSuccess(plan, result);
         }
         catch (Exception exception)
         {
-            item.HasError = true;
-            item.ErrorText = exception.Message;
-            item.ValueText = string.Empty;
-            item.RawText = string.Empty;
-            item.Bits.Clear();
-            await LogErrorAsync("Watch", exception).ConfigureAwait(true);
+            await ApplyWatchReadFailureAsync(item, exception).ConfigureAwait(true);
         }
     }
 
-    private async Task<(string ValueText, string RawText)> ReadWatchItemAsync(WatchItemViewModel item)
+    private WatchReadPlan CreateWatchReadPlan(WatchItemViewModel item)
     {
         if (_session is null)
             throw new InvalidOperationException("Connect to the PLC before reading the watch list.");
@@ -899,28 +946,67 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (dataType == ValueDataType.Bit && TryParseWatchWordBitAddress(item.Address, family, out var wordBit))
         {
-            var wordBitQuery = WatchReadQueryBuilder.BuildWordBitQuery(
+            return new WatchReadPlan(
+                item,
+                WatchReadQueryBuilder.BuildWordBitQuery(
                 SelectedProtocol.Kind,
                 family,
                 wordBit,
-                item.DisplayRadix);
-            var wordBitResult = await _session.ReadBlockAsync(wordBitQuery).ConfigureAwait(true);
-            var resolvedWordAddress = wordBitResult.ElementAddresses.FirstOrDefault() ?? wordBit.WordAddress;
-            var wordBitValue = WatchValueInterpreter.InterpretWordBit(wordBitResult.WordValues, wordBit.BitIndex);
-            SetWatchWordBit(item, resolvedWordAddress, wordBit.BitIndex, wordBitValue.Value, CanToggleWatchBits(family));
-            return (wordBitValue.ValueText, wordBitValue.RawText);
+                item.DisplayRadix),
+                family,
+                dataType,
+                wordBit);
         }
 
         var displayMode = WatchReadQueryBuilder.GetDisplayMode(dataType);
-        var query = WatchReadQueryBuilder.Build(
+        return new WatchReadPlan(
+            item,
+            WatchReadQueryBuilder.Build(
             SelectedProtocol.Kind,
             family,
             item.Address,
             GetWatchReadPointCount(family, displayMode),
             item.DisplayRadix,
-            displayMode);
+            displayMode),
+            family,
+            dataType,
+            null);
+    }
 
-        var result = await _session.ReadBlockAsync(query).ConfigureAwait(true);
+    private void ApplyWatchReadSuccess(WatchReadPlan plan, BlockReadResult result)
+    {
+        var item = plan.Item;
+        var (valueText, rawText) = InterpretWatchReadResult(plan, result);
+        item.ValueText = valueText;
+        item.RawText = rawText;
+        item.HasError = false;
+        item.ErrorText = string.Empty;
+    }
+
+    private async Task ApplyWatchReadFailureAsync(WatchItemViewModel item, Exception exception)
+    {
+        item.HasError = true;
+        item.ErrorText = exception.Message;
+        item.ValueText = string.Empty;
+        item.RawText = string.Empty;
+        item.Bits.Clear();
+        await LogErrorAsync("Watch", exception).ConfigureAwait(true);
+    }
+
+    private (string ValueText, string RawText) InterpretWatchReadResult(WatchReadPlan plan, BlockReadResult result)
+    {
+        var item = plan.Item;
+        var dataType = plan.DataType;
+        var family = plan.Family;
+
+        if (plan.WordBitAddress is { } wordBit)
+        {
+            var resolvedWordAddress = result.ElementAddresses.FirstOrDefault() ?? wordBit.WordAddress;
+            var wordBitValue = WatchValueInterpreter.InterpretWordBit(result.WordValues, wordBit.BitIndex);
+            SetWatchWordBit(item, resolvedWordAddress, wordBit.BitIndex, wordBitValue.Value, CanToggleWatchBits(family));
+            return (wordBitValue.ValueText, wordBitValue.RawText);
+        }
+
         var normalizedAddress = result.ElementAddresses.FirstOrDefault() ?? item.Address;
         if (dataType == ValueDataType.Bit)
         {
@@ -936,6 +1022,13 @@ public partial class MainWindowViewModel : ObservableObject
         SetWatchBits(item, normalizedAddress, interpreted.RawValue, interpreted.BitCount, CanToggleWatchBits(family));
         return (interpreted.ValueText, interpreted.RawText);
     }
+
+    private sealed record WatchReadPlan(
+        WatchItemViewModel Item,
+        BlockQuery Query,
+        DeviceFamilyDefinition Family,
+        ValueDataType DataType,
+        WatchWordBitAddress? WordBitAddress);
 
     private (string ValueText, string RawText) ReadWatchBitDeviceItem(
         WatchItemViewModel item,
@@ -1274,12 +1367,13 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             var bitList = bits.ToArray();
+            var requests = new List<WriteRequest>(bitList.Length > 0 ? bitList.Length : bitCount);
             if (bitList.Length > 0)
             {
                 foreach (var bit in bitList)
                 {
                     var bitValue = ((value >> bit.BitIndex) & 0x1) == 1;
-                    await _session.WriteAsync(new WriteRequest(bit.Address, ValueDataType.Bit, bitValue)).ConfigureAwait(true);
+                    requests.Add(new WriteRequest(bit.Address, ValueDataType.Bit, bitValue));
                 }
             }
             else
@@ -1293,10 +1387,11 @@ public partial class MainWindowViewModel : ObservableObject
                 for (var bitIndex = 0; bitIndex < bitCount; bitIndex++)
                 {
                     var bitValue = ((value >> bitIndex) & 0x1) == 1;
-                    await _session.WriteAsync(new WriteRequest(address.FormatOffset(bitIndex), ValueDataType.Bit, bitValue)).ConfigureAwait(true);
+                    requests.Add(new WriteRequest(address.FormatOffset(bitIndex), ValueDataType.Bit, bitValue));
                 }
             }
 
+            await _session.WriteBitBatchAsync(requests).ConfigureAwait(true);
             await ReadOnceAsync().ConfigureAwait(true);
         }
         catch (Exception exception)

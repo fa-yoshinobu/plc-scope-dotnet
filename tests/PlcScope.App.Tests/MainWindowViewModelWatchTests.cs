@@ -356,6 +356,43 @@ public sealed class MainWindowViewModelWatchTests
         Assert.Equal(16, query.ItemCount);
     }
 
+    [Fact]
+    public async Task ReadOnceAsync_WatchTabUsesBatchReadForVisibleItems()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        viewModel.SelectedMainTabIndex = 1;
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D2" }) { IsValueEditing = true });
+
+        await viewModel.ReadOnceCommand.ExecuteAsync(null);
+
+        var batch = Assert.Single(session.BatchReadQueries);
+        Assert.Equal(["D0", "D1"], batch.Select(static query => query.StartAddress).ToArray());
+        Assert.Empty(session.ReadQueries);
+        Assert.Equal("1", viewModel.WatchItems[0].ValueText);
+        Assert.Equal("1", viewModel.WatchItems[1].ValueText);
+        Assert.Equal(string.Empty, viewModel.WatchItems[2].ValueText);
+    }
+
+    [Fact]
+    public async Task ReadOnceAsync_WatchBatchKeepsRowErrorsIsolated()
+    {
+        var session = new CapturingSession { FailingBatchAddress = "D1" };
+        var viewModel = CreateConnectedViewModel(session);
+        viewModel.SelectedMainTabIndex = 1;
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
+
+        await viewModel.ReadOnceCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.WatchItems[0].HasError);
+        Assert.Equal("1", viewModel.WatchItems[0].ValueText);
+        Assert.True(viewModel.WatchItems[1].HasError);
+        Assert.Equal("Batch read failed.", viewModel.WatchItems[1].ErrorText);
+    }
+
     private static MainWindowViewModel CreateConnectedViewModel(CapturingSession session)
     {
         var viewModel = new MainWindowViewModel(
@@ -410,9 +447,11 @@ public sealed class MainWindowViewModelWatchTests
         public bool IsConnected { get; private set; }
         public BlockQuery? LastQuery { get; private set; }
         public List<BlockQuery> ReadQueries { get; } = [];
+        public List<IReadOnlyList<BlockQuery>> BatchReadQueries { get; } = [];
         public WriteRequest? LastWriteRequest { get; private set; }
         public (string WordAddress, int BitIndex, bool Value)? LastWordBitWrite { get; private set; }
         public CpuCommand? LastCpuCommand { get; private set; }
+        public string? FailingBatchAddress { get; init; }
 
         public event EventHandler<TraceEntry>? TraceReceived
         {
@@ -444,16 +483,33 @@ public sealed class MainWindowViewModelWatchTests
         {
             LastQuery = query;
             ReadQueries.Add(query);
+            return Task.FromResult(CreateReadResult(query));
+        }
+
+        public Task<IReadOnlyList<BlockReadBatchItemResult>> ReadBatchAsync(
+            IReadOnlyList<BlockQuery> queries,
+            CancellationToken cancellationToken = default)
+        {
+            BatchReadQueries.Add(queries.ToArray());
+            return Task.FromResult<IReadOnlyList<BlockReadBatchItemResult>>(queries
+                .Select(query => string.Equals(query.StartAddress, FailingBatchAddress, StringComparison.Ordinal)
+                    ? BlockReadBatchItemResult.FromError(query, new InvalidOperationException("Batch read failed."))
+                    : BlockReadBatchItemResult.FromResult(CreateReadResult(query)))
+                .ToArray());
+        }
+
+        private static BlockReadResult CreateReadResult(BlockQuery query)
+        {
             if (query.DeviceKind == DeviceKind.Bit)
             {
                 var addresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => $"M{index}").ToArray();
                 var bits = Enumerable.Range(0, query.EffectiveItemCount).Select(index => index % 2 == 1).ToArray();
-                return Task.FromResult(new BlockReadResult(query, addresses, [], bits, new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null));
+                return new BlockReadResult(query, addresses, [], bits, new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null);
             }
 
             var wordAddresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => $"D{index}").ToArray();
             var words = Enumerable.Range(0, query.EffectiveItemCount).Select(static _ => (ushort)1).ToArray();
-            return Task.FromResult(new BlockReadResult(query, wordAddresses, words, [], new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null));
+            return new BlockReadResult(query, wordAddresses, words, [], new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null);
         }
 
         public Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default)

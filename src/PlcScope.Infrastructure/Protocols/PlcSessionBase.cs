@@ -30,7 +30,41 @@ internal abstract class PlcSessionBase : IPlcSession
     public abstract Task DisconnectAsync(CancellationToken cancellationToken = default);
     public abstract string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null);
     public abstract Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default);
+    public virtual async Task<IReadOnlyList<BlockReadBatchItemResult>> ReadBatchAsync(
+        IReadOnlyList<BlockQuery> queries,
+        CancellationToken cancellationToken = default)
+    {
+        var results = new List<BlockReadBatchItemResult>(queries.Count);
+        foreach (var query in queries)
+        {
+            try
+            {
+                var result = await ReadBlockAsync(query, cancellationToken).ConfigureAwait(false);
+                results.Add(BlockReadBatchItemResult.FromResult(result));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                results.Add(BlockReadBatchItemResult.FromError(query, exception));
+            }
+        }
+
+        return results;
+    }
+
     public abstract Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default);
+    public virtual async Task<IReadOnlyList<WriteResult>> WriteBitBatchAsync(
+        IReadOnlyList<WriteRequest> requests,
+        CancellationToken cancellationToken = default)
+    {
+        var results = new List<WriteResult>(requests.Count);
+        foreach (var request in requests)
+        {
+            results.Add(await WriteAsync(request, cancellationToken).ConfigureAwait(false));
+        }
+
+        return results;
+    }
+
     public abstract Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default);
     public abstract Task<CpuState> ReadCpuStateAsync(CancellationToken cancellationToken = default);
     public virtual Task<DeviceRangeCatalog> ReadDeviceRangeCatalogAsync(CancellationToken cancellationToken = default) =>

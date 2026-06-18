@@ -27,6 +27,20 @@ public sealed record BlockReadResult(
     double ElapsedMilliseconds,
     CpuState? CpuState);
 
+public sealed record BlockReadBatchItemResult(
+    BlockQuery Query,
+    BlockReadResult? Result,
+    Exception? Error)
+{
+    public bool Success => Error is null && Result is not null;
+
+    public static BlockReadBatchItemResult FromResult(BlockReadResult result) =>
+        new(result.Query, result, null);
+
+    public static BlockReadBatchItemResult FromError(BlockQuery query, Exception error) =>
+        new(query, null, error);
+}
+
 public sealed record BitCellState(
     int Index,
     bool Value,

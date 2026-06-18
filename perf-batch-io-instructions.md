@@ -219,3 +219,98 @@ dotnet test .\PlcScopeDotNet.sln -m:1
 - NuGet 依存の追加・更新
 - 実機 PLC を使う検証の実施(チェックリスト作成まで)
 - リトライ・タイムアウト等の通信ポリシー変更
+
+---
+
+## 実施結果(2026-06-19)
+
+### できたこと
+
+- 作業ブランチ `codex/perf-batch-io` で実装済み。ただし、この時点では未コミット。
+- Phase 0:
+  - `AGENTS.md` を確認。
+  - `git status` が clean であることを確認してから着手。
+  - refactor 第2サイクルが `d912c4e Complete refactor cycle 2` として完了済みであることを確認。
+- Phase 1:
+  - `lib/plc-comm/net9.0` の 3 DLL を reflection で調査。
+  - SLMP は `ReadRandomAsync`、`WriteRandomBitsAsync`、`WriteRandomWordsAsync`、
+    `WriteBlockAsync` を公開していることを確認。
+  - KV Host Link は monitor / named / consecutive 系 API を公開していることを確認。
+  - TOYOPUC は `ReadManyAsync` / `WriteManyAsync` などを公開していることを確認。
+- Phase 2:
+  - `IPlcSession.ReadBatchAsync(...)` を追加。
+  - `IPlcSession.WriteBitBatchAsync(...)` を追加。
+  - どちらも interface default implementation と `PlcSessionBase` virtual implementation で
+    逐次 fallback を持つ形にした。
+  - 一括 API 未実装 session でも既存挙動が維持されるようにした。
+- Phase 3:
+  - `SlmpSession.ReadBatchAsync(...)` を override。
+  - watch 可視行の Word / DWord 系 query を `ReadRandomAsync` にまとめる実装を追加。
+  - Word と DWord random operands の混載を実装。
+  - 64 device ごとの chunk 分割を実装。
+  - 解析不能・range validation 失敗は該当行だけ error result にする形にした。
+  - random read frame が失敗した場合は逐次 read へ fallback する形にした。
+  - bit device / word-bit / 未対応特殊 query は逐次 fallback のままにした。
+- Phase 5:
+  - `SlmpSession.WriteBitBatchAsync(...)` を override。
+  - 直接 bit device への bit 書込のみ `WriteRandomBitsAsync` にまとめる実装を追加。
+  - word-bit read-modify-write 経路は、対象外 bit 不変の保証を守るため一括化していない。
+- Phase 6:
+  - `TODO.md` の Remaining Manual Validation に実機検証チェックリストを追記。
+  - `docs/perf-batch-io-report.md` に support table、実装内容、Stop And Ask、実機確認内容を記録。
+
+### できていないこと / 残したこと
+
+- 実機 PLC 検証は未実施。
+  - 大量 watch 行の scroll read。
+  - Word / DWord / Float32 / Bit / word-bit の値一致確認。
+  - 無効 address が他行を巻き込まないことの実機確認。
+  - random read 拒否時の逐次 fallback 確認。
+  - bit 一括書込時に対象外 device / bit が変わらないことの確認。
+  - 長時間 trace / error logging の安定確認。
+- Host Link の cross-watch batch read / bit batch write は未実装。
+  - DLL metadata だけでは cross-watch の点数上限・混載制約を確定できなかったため。
+  - 既存 `ReadBlockAsync` 内の monitor / consecutive / named optimization は維持。
+- TOYOPUC の cross-watch batch read / bit batch write は未実装。
+  - DLL metadata だけでは `ReadMany` / relay / mixed-device 制約を確定できなかったため。
+  - 既存 `ReadBlockAsync` 内の block / packed read は維持。
+- SLMP の word-bit 書込一括化は未実装。
+  - 対象外 bit を変更しない read-modify-write semantics を優先したため。
+- `lib/` DLL の変更、兄弟リポジトリ改修、通信 retry / timeout policy 変更は未実施。
+
+### 検証結果
+
+- 着手時 baseline:
+  - `dotnet build .\PlcScopeDotNet.sln`: 成功、0 warnings / 0 errors。
+  - `dotnet test .\PlcScopeDotNet.sln -m:1`: 成功、274 tests。
+    - Core: 200
+    - App.UiTests: 33
+    - App.Tests: 41
+  - 最初に build / test を並列実行した際は MSBuild intermediate file locking が発生。
+    `dotnet build-server shutdown` 後、直列で再実行して baseline 成功を確認。
+- 実装後:
+  - `dotnet build .\PlcScopeDotNet.sln`: 成功、0 warnings / 0 errors。
+  - `dotnet test .\PlcScopeDotNet.sln -m:1`: 成功、282 tests。
+    - Core: 206
+    - App.UiTests: 33
+    - App.Tests: 43
+  - `build.bat Release`: 成功。
+  - `git diff --check`: 空白エラーなし、CRLF 警告のみ。
+- 追加した主な自動テスト:
+  - default sequential batch read / write fallback。
+  - watch tab の可視行 batch read。
+  - batch read 内の行単位 error isolation。
+  - SLMP mixed Word / DWord random read。
+  - SLMP 64 device chunking。
+  - SLMP random read failure から逐次 read への fallback。
+  - SLMP random bit write。
+- 禁止領域の確認:
+  - XAML 変更なし。
+  - `lib/` 変更なし。
+  - `Directory.Packages.props` 変更なし。
+  - `.github/` 変更なし。
+  - VM の public property / command 名変更なし。
+
+### マージ判断
+
+この変更は実機 PLC 確認が完了するまで merge-ready としない。

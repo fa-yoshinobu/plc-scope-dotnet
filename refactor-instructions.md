@@ -585,3 +585,59 @@ dotnet test .\PlcScopeDotNet.sln -m:1
 - D2c で指定した以外のテストプロジェクト構成変更
 - `MainWindow.xaml.cs` の Behavior 化(提案のみ)
 - 実機 PLC を使う検証、兄弟リポジトリの変更
+
+---
+
+## 実施結果(2026-06-19)
+
+### できたこと
+
+- 第2サイクルの refactor は完了済み。コミット `d912c4e Complete refactor cycle 2` として
+  `codex/refactor-cycle-2` に反映し、`origin/codex/refactor-cycle-2` へ push 済み。
+- D1 / D1b / D7:
+  - 重複していた `ErrorText` 設定や不要なインデントを整理。
+  - 指定されたユーザー可視文言 2 箇所のみ調整。
+  - release workflow の clone step 削除を実施。
+- D2 / D2c:
+  - `tests/PlcScope.App.Tests` を追加し、ViewModel 系テストを UIA テストから分離。
+  - `AppThemeResourceTests` は WPF Application / FlaUI 依存が不要なため App.Tests 側へ移動。
+  - `MainWindowUiTests` / `MonitorLayoutTests` は UiTests 側に残した。
+- D3 / D4 / D5:
+  - `RawValueConverter`、`StatusTextFormatter`、`ProjectCommentCsvPathPolicy`、
+    `PlcProfileDisplayFormatter`、`CommentCsvMergePolicy`、
+    `WatchReadQueryBuilder`、`WatchValueInterpreter` を Core 側へ分離。
+  - `CommentAddressKeyProvider` を Core へ移動し、関連テストを追加。
+- D6 / D9 / D10 / D11 / D12:
+  - 行 VM 生成ロジックを整理し、factory 系テストを追加。
+  - watch 書込後の再読込を対象 item のみへ縮小。
+  - コメント解決 cache / sorted family cache を追加し、設定・CSV・protocol 変更時に無効化。
+  - `FileLogStore` の trim 発動を 600 件、保持を 500 件へ調整。
+  - `MonitorRowRefreshComparer` と行 VM を更新し、条件が合う行は in-place 更新するようにした。
+
+### できていないこと / やらないこととして残したこと
+
+- サブ ViewModel 分割は提案事項のまま。今回の scope では実装していない。
+- `MainWindow.xaml.cs` の Behavior 化は提案事項のまま。今回の scope では実装していない。
+- 実機 PLC 検証は未実施。自動テストと release publish までで完了。
+- 通信往復数の一括化は本指示書の out-of-scope のため未実施。
+  後続の `perf-batch-io-instructions.md` 側で扱う。
+
+### 検証結果
+
+- refactor 着手前 baseline:
+  - `dotnet build .\PlcScopeDotNet.sln`: 成功、0 warnings / 0 errors。
+  - `dotnet test .\PlcScopeDotNet.sln -m:1`: 成功、236 tests。
+- refactor 完了後:
+  - `dotnet build .\PlcScopeDotNet.sln`: 成功、0 warnings / 0 errors。
+  - `dotnet test .\PlcScopeDotNet.sln -m:1`: 成功、274 tests。
+    - Core: 200
+    - App.UiTests: 33
+    - App.Tests: 41
+  - `build.bat Release`: 成功。
+  - `git diff --check`: 空白エラーなし、CRLF 警告のみ。
+- 禁止領域の確認:
+  - XAML 変更なし。
+  - `lib/` 変更なし。
+  - `Directory.Packages.props` 変更なし。
+  - `.github/` 変更は D7 の release workflow clone step 削除のみ。
+  - Infrastructure 変更は D11 の `FileLogStore.cs` のみ。
