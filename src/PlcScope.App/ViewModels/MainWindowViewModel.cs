@@ -3,7 +3,6 @@ namespace PlcScope.App.ViewModels;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -63,6 +62,10 @@ public partial class MainWindowViewModel : ObservableObject
     private SequentialDeviceAddress? _generatedStartAddress;
     private DeviceRangeCatalog? _deviceRangeCatalog;
     private readonly Dictionary<string, string> _commentCsvComments = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string?> _resolvedCommentCache = new(StringComparer.OrdinalIgnoreCase);
+    private ProtocolKind? _sortedFamilyProtocol;
+    private KeyenceDeviceMode? _sortedFamilyKeyenceMode;
+    private DeviceFamilyDefinition[]? _sortedFamiliesByCodeLength;
     private readonly List<string> _commentCsvPaths = [];
     private string? _inlineEditingAddress;
     private string? _layoutErrorText;
@@ -257,7 +260,7 @@ public partial class MainWindowViewModel : ObservableObject
     public string ConnectionToggleToolTip => ConnectionState == ConnectionState.Connected
         ? "Disconnect from the PLC."
         : "Connect with the selected settings.";
-    public string SelectedPlcModelText => $"PLC: {FormatSelectedPlcModel(ConnectionSettings)}";
+    public string SelectedPlcModelText => $"PLC: {StatusTextFormatter.FormatSelectedPlcModel(ConnectionSettings)}";
     public string UiAutomationStateText =>
         $"monitorStart={_visibleStartIndex};monitorCount={_visibleRowCount};monitorRows={Rows.Count};watchStart={_visibleWatchStartIndex};watchCount={_visibleWatchRowCount};watchRows={WatchItems.Count};inlineEditing={_isInlineEditing};scrollPaused={_isScrollReadPaused}";
     public string CpuControlHint
@@ -348,7 +351,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         OnPropertyChanged(nameof(UiAutomationStateText));
 
-        await LoadProjectCommentCsvAsync(GetProjectCommentCsvPaths(project)).ConfigureAwait(true);
+        await LoadProjectCommentCsvAsync(ProjectCommentCsvPathPolicy.GetProjectCommentCsvPaths(project)).ConfigureAwait(true);
     }
 
     public void NewProject()
@@ -358,6 +361,7 @@ public partial class MainWindowViewModel : ObservableObject
         CommentCsvPath = string.Empty;
         _commentCsvPaths.Clear();
         _commentCsvComments.Clear();
+        InvalidateCommentResolutionCache();
         ErrorText = string.Empty;
         ConnectionSettings = ConnectionSettings.CreateDefault(SelectedProtocol.Kind);
         AutoRefreshIntervalMs = ConnectionSettings.AutoRefreshIntervalMs;
@@ -387,10 +391,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task ImportCommentCsvAsync(IReadOnlyList<string> paths)
     {
-        var normalizedPaths = NormalizeCommentCsvPaths(paths);
+        var normalizedPaths = ProjectCommentCsvPathPolicy.NormalizeCommentCsvPaths(paths);
         var comments = await LoadCommentCsvFilesAsync(normalizedPaths).ConfigureAwait(true);
         SetCommentCsv(normalizedPaths, comments);
-        ErrorText = string.Empty;
         ErrorText = string.Empty;
 
         if (IsConnected)
@@ -530,7 +533,7 @@ public partial class MainWindowViewModel : ObservableObject
                 case WordRowViewModel word:
                     var wordType = MonitorDataType == ValueDataType.Int16 ? ValueDataType.Int16 : ValueDataType.UInt16;
                     var parsedWordValue = NumericFormatter.ParseByType(valueText, wordType, DisplayRadix);
-                    var wordValue = ToRawWord(parsedWordValue);
+                    var wordValue = RawValueConverter.ToRawWord(parsedWordValue);
                     if (SelectedDeviceFamily.Kind == DeviceKind.Bit && DisplayMode == BlockDisplayMode.Word)
                         await WriteBitValuesAsync(word.Address, word.Bits, 16, wordValue, "Bit word write").ConfigureAwait(true);
                     else
@@ -539,7 +542,7 @@ public partial class MainWindowViewModel : ObservableObject
                 case DWordRowViewModel dword:
                     var dwordType = MonitorDataType == ValueDataType.Int32 ? ValueDataType.Int32 : ValueDataType.UInt32;
                     var parsedDWordValue = NumericFormatter.ParseByType(valueText, dwordType, DisplayRadix);
-                    var dwordValue = ToRawDWord(parsedDWordValue);
+                    var dwordValue = RawValueConverter.ToRawDWord(parsedDWordValue);
                     if (SelectedDeviceFamily.Kind == DeviceKind.Bit)
                         await WriteBitValuesAsync(dword.Address, dword.Bits, 32, dwordValue, "Bit dword write").ConfigureAwait(true);
                     else
@@ -558,7 +561,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
         {
-            ErrorText = FormatInputError(GetMonitorRowDataType(row), exception);
+            ErrorText = StatusTextFormatter.FormatInputError(GetMonitorRowDataType(row), exception);
             return false;
         }
     }
@@ -591,8 +594,8 @@ public partial class MainWindowViewModel : ObservableObject
             await LogErrorAsync(
                 "Connect",
                 exception,
-                FormatConnectionContext(ConnectionSettings),
-                FormatConnectionError(ConnectionSettings, exception)).ConfigureAwait(true);
+                StatusTextFormatter.FormatConnectionContext(ConnectionSettings),
+                StatusTextFormatter.FormatConnectionError(ConnectionSettings, exception)).ConfigureAwait(true);
             ConnectionState = ConnectionState.Error;
             StatusText = "Connection error";
         }
@@ -618,7 +621,7 @@ public partial class MainWindowViewModel : ObservableObject
         ConnectionState = ConnectionState.Disconnected;
         if (_session is null)
         {
-        StatusText = "Disconnected";
+            StatusText = "Disconnected";
             return;
         }
 
@@ -674,7 +677,7 @@ public partial class MainWindowViewModel : ObservableObject
 
             LastReadText = lastResult.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             ResponseTimeText = $"{lastResult.ElapsedMilliseconds:0.0} ms";
-            CpuStateText = FormatCpuStateText(lastResult.CpuState);
+            CpuStateText = StatusTextFormatter.FormatCpuStateText(lastResult.CpuState);
             StatusText = $"Connected: {SelectedProtocol.DisplayName}";
         }
         catch (Exception exception)
@@ -682,7 +685,10 @@ public partial class MainWindowViewModel : ObservableObject
             if (!ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
                 return;
 
-            await LogErrorAsync(FormatReadOperation(currentReadQuery), exception, FormatReadContext(currentReadQuery)).ConfigureAwait(true);
+            await LogErrorAsync(
+                StatusTextFormatter.FormatReadOperation(currentReadQuery),
+                exception,
+                StatusTextFormatter.FormatReadContext(currentReadQuery)).ConfigureAwait(true);
             ErrorText = exception.Message;
         }
         finally
@@ -711,7 +717,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
         {
-            ErrorText = FormatInputError(SelectedWriteDataType, exception);
+            ErrorText = StatusTextFormatter.FormatInputError(SelectedWriteDataType, exception);
         }
     }
 
@@ -846,23 +852,7 @@ public partial class MainWindowViewModel : ObservableObject
             if (item.IsValueEditing)
                 continue;
 
-            try
-            {
-                var result = await ReadWatchItemAsync(item).ConfigureAwait(true);
-                item.ValueText = result.ValueText;
-                item.RawText = result.RawText;
-                item.HasError = false;
-                item.ErrorText = string.Empty;
-            }
-            catch (Exception exception)
-            {
-                item.HasError = true;
-                item.ErrorText = exception.Message;
-                item.ValueText = string.Empty;
-                item.RawText = string.Empty;
-                item.Bits.Clear();
-                await LogErrorAsync("Watch", exception).ConfigureAwait(true);
-            }
+            await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
         }
     }
 
@@ -873,6 +863,11 @@ public partial class MainWindowViewModel : ObservableObject
         if (item.IsValueEditing)
             return;
 
+        await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
+    }
+
+    private async Task RefreshSingleWatchItemAsync(WatchItemViewModel item)
+    {
         try
         {
             var result = await ReadWatchItemAsync(item).ConfigureAwait(true);
@@ -895,7 +890,7 @@ public partial class MainWindowViewModel : ObservableObject
     private async Task<(string ValueText, string RawText)> ReadWatchItemAsync(WatchItemViewModel item)
     {
         if (_session is null)
-            throw new InvalidOperationException("Connect to the PLC before opening device ranges.");
+            throw new InvalidOperationException("Connect to the PLC before reading the watch list.");
 
         var family = ResolveDeviceFamilyForAddress(item.Address);
         var dataType = NormalizeWatchDataType(family, item.DataType);
@@ -904,43 +899,26 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (dataType == ValueDataType.Bit && TryParseWatchWordBitAddress(item.Address, family, out var wordBit))
         {
-            var wordBitQuery = new BlockQuery
-            {
-                Protocol = SelectedProtocol.Kind,
-                DeviceFamilyCode = family.Code,
-                DeviceKind = DeviceKind.Word,
-                AddressDisplayRule = family.AddressDisplayRule,
-                StartAddress = wordBit.WordAddress,
-                ItemCount = 1,
-                DisplayRadix = item.DisplayRadix,
-                DisplayMode = BlockDisplayMode.Word,
-            };
+            var wordBitQuery = WatchReadQueryBuilder.BuildWordBitQuery(
+                SelectedProtocol.Kind,
+                family,
+                wordBit,
+                item.DisplayRadix);
             var wordBitResult = await _session.ReadBlockAsync(wordBitQuery).ConfigureAwait(true);
             var resolvedWordAddress = wordBitResult.ElementAddresses.FirstOrDefault() ?? wordBit.WordAddress;
-            var wordBitRaw = wordBitResult.WordValues.FirstOrDefault();
-            var wordBitValue = ((wordBitRaw >> wordBit.BitIndex) & 0x1) != 0;
-            SetWatchWordBit(item, resolvedWordAddress, wordBit.BitIndex, wordBitValue, CanToggleWatchBits(family));
-            return (wordBitValue ? "1" : "0", $"0x{wordBitRaw:X4}");
+            var wordBitValue = WatchValueInterpreter.InterpretWordBit(wordBitResult.WordValues, wordBit.BitIndex);
+            SetWatchWordBit(item, resolvedWordAddress, wordBit.BitIndex, wordBitValue.Value, CanToggleWatchBits(family));
+            return (wordBitValue.ValueText, wordBitValue.RawText);
         }
 
-        var displayMode = dataType switch
-        {
-            ValueDataType.Bit => BlockDisplayMode.BitExpand,
-            ValueDataType.Int32 or ValueDataType.UInt32 => BlockDisplayMode.DWord,
-            ValueDataType.Float32 => BlockDisplayMode.Float32,
-            _ => BlockDisplayMode.Word,
-        };
-        var query = new BlockQuery
-        {
-            Protocol = SelectedProtocol.Kind,
-            DeviceFamilyCode = family.Code,
-            DeviceKind = family.Kind,
-            AddressDisplayRule = family.AddressDisplayRule,
-            StartAddress = item.Address,
-            ItemCount = GetWatchReadPointCount(family, displayMode),
-            DisplayRadix = item.DisplayRadix,
-            DisplayMode = displayMode,
-        };
+        var displayMode = WatchReadQueryBuilder.GetDisplayMode(dataType);
+        var query = WatchReadQueryBuilder.Build(
+            SelectedProtocol.Kind,
+            family,
+            item.Address,
+            GetWatchReadPointCount(family, displayMode),
+            item.DisplayRadix,
+            displayMode);
 
         var result = await _session.ReadBlockAsync(query).ConfigureAwait(true);
         var normalizedAddress = result.ElementAddresses.FirstOrDefault() ?? item.Address;
@@ -948,35 +926,15 @@ public partial class MainWindowViewModel : ObservableObject
         {
             var value = result.BitValues.FirstOrDefault();
             SetWatchDirectBit(item, normalizedAddress, value, CanToggleWatchBits(family));
-            return (value ? "1" : "0", string.Empty);
+            return (WatchValueInterpreter.FormatBit(value), string.Empty);
         }
 
         if (family.Kind == DeviceKind.Bit)
             return ReadWatchBitDeviceItem(item, dataType, item.DisplayRadix, result, family);
 
-        if (dataType == ValueDataType.Float32)
-        {
-            var raw = CombineWords(result.WordValues);
-            SetWatchBits(item, normalizedAddress, raw, 32, CanToggleWatchBits(family));
-            return (NumericFormatter.FormatFloat(NumericFormatter.RawBitsToFloat(raw)), $"0x{raw:X8}");
-        }
-
-        if (dataType is ValueDataType.Int32 or ValueDataType.UInt32)
-        {
-            var raw = CombineWords(result.WordValues);
-            SetWatchBits(item, normalizedAddress, raw, 32, CanToggleWatchBits(family));
-            var valueText = dataType == ValueDataType.Int32
-                ? FormatInt32(unchecked((int)raw), item.DisplayRadix)
-                : NumericFormatter.FormatDWord(raw, item.DisplayRadix);
-            return (valueText, $"0x{raw:X8}");
-        }
-
-        var word = result.WordValues.FirstOrDefault();
-        SetWatchBits(item, normalizedAddress, word, 16, CanToggleWatchBits(family));
-        var text = dataType == ValueDataType.Int16
-            ? FormatInt16(unchecked((short)word), item.DisplayRadix)
-            : NumericFormatter.FormatWord(word, item.DisplayRadix);
-        return (text, $"0x{word:X4}");
+        var interpreted = WatchValueInterpreter.InterpretWordDevice(result.WordValues, dataType, item.DisplayRadix);
+        SetWatchBits(item, normalizedAddress, interpreted.RawValue, interpreted.BitCount, CanToggleWatchBits(family));
+        return (interpreted.ValueText, interpreted.RawText);
     }
 
     private (string ValueText, string RawText) ReadWatchBitDeviceItem(
@@ -986,46 +944,13 @@ public partial class MainWindowViewModel : ObservableObject
         BlockReadResult result,
         DeviceFamilyDefinition family)
     {
-        if (dataType == ValueDataType.Float32)
-        {
-            var raw = PackBits(result.BitValues, 32);
-            SetWatchBits(item, result.BitValues, result.ElementAddresses, 32, CanToggleWatchBits(family));
-            return (NumericFormatter.FormatFloat(NumericFormatter.RawBitsToFloat(raw)), $"0x{raw:X8}");
-        }
-
-        if (dataType is ValueDataType.Int32 or ValueDataType.UInt32)
-        {
-            var raw = PackBits(result.BitValues, 32);
-            SetWatchBits(item, result.BitValues, result.ElementAddresses, 32, CanToggleWatchBits(family));
-            var valueText = dataType == ValueDataType.Int32
-                ? FormatInt32(unchecked((int)raw), displayRadix)
-                : NumericFormatter.FormatDWord(raw, displayRadix);
-            return (valueText, $"0x{raw:X8}");
-        }
-
-        var word = (ushort)PackBits(result.BitValues, 16);
-        SetWatchBits(item, result.BitValues, result.ElementAddresses, 16, CanToggleWatchBits(family));
-        var text = dataType == ValueDataType.Int16
-            ? FormatInt16(unchecked((short)word), displayRadix)
-            : NumericFormatter.FormatWord(word, displayRadix);
-        return (text, $"0x{word:X4}");
+        var interpreted = WatchValueInterpreter.InterpretBitDevice(result.BitValues, dataType, displayRadix);
+        SetWatchBits(item, result.BitValues, result.ElementAddresses, interpreted.BitCount, CanToggleWatchBits(family));
+        return (interpreted.ValueText, interpreted.RawText);
     }
 
     private int GetWatchReadPointCount(DeviceFamilyDefinition family, BlockDisplayMode displayMode)
         => WatchDataTypePolicy.GetReadPointCount(SelectedProtocol.Kind, family, displayMode);
-
-    private static uint PackBits(IReadOnlyList<bool> bits, int bitCount)
-    {
-        uint value = 0;
-        var count = Math.Min(bitCount, bits.Count);
-        for (var index = 0; index < count; index++)
-        {
-            if (bits[index])
-                value |= 1u << index;
-        }
-
-        return value;
-    }
 
     private void SetWatchDirectBit(WatchItemViewModel item, string address, bool value, bool canToggle)
     {
@@ -1044,7 +969,7 @@ public partial class MainWindowViewModel : ObservableObject
             value,
             address,
             canToggle,
-            canToggle ? next => WriteWatchDirectBitAsync(address, next) : null));
+            canToggle ? next => WriteWatchDirectBitAsync(item, address, next) : null));
     }
 
     private void SetWatchWordBit(WatchItemViewModel item, string wordAddress, int bitIndex, bool value, bool canToggle)
@@ -1065,7 +990,7 @@ public partial class MainWindowViewModel : ObservableObject
             value,
             bitAddress,
             canToggle,
-            canToggle ? next => WriteWatchBitAsync(wordAddress, bitIndex, next) : null));
+            canToggle ? next => WriteWatchBitAsync(item, wordAddress, bitIndex, next) : null));
     }
 
     private void SetWatchBits(WatchItemViewModel item, string wordAddress, uint value, int bitCount, bool canToggleBits)
@@ -1105,7 +1030,7 @@ public partial class MainWindowViewModel : ObservableObject
                 ((value >> bitIndex) & 0x1) != 0,
                 $"{wordAddress}.{bitIndex}",
                 canToggleBits,
-                canToggleBits ? next => WriteWatchBitAsync(wordAddress, bitIndex, next) : null));
+                canToggleBits ? next => WriteWatchBitAsync(item, wordAddress, bitIndex, next) : null));
         }
     }
 
@@ -1153,11 +1078,11 @@ public partial class MainWindowViewModel : ObservableObject
                 bitIndex < values.Count && values[bitIndex],
                 address,
                 canToggleBits,
-                canToggleBits && !string.IsNullOrWhiteSpace(address) ? next => WriteWatchDirectBitAsync(address, next) : null));
+                canToggleBits && !string.IsNullOrWhiteSpace(address) ? next => WriteWatchDirectBitAsync(item, address, next) : null));
         }
     }
 
-    private async Task WriteWatchDirectBitAsync(string address, bool value)
+    private async Task WriteWatchDirectBitAsync(WatchItemViewModel item, string address, bool value)
     {
         if (_session is null)
             return;
@@ -1165,7 +1090,7 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             await _session.WriteAsync(new WriteRequest(address, ValueDataType.Bit, value)).ConfigureAwait(true);
-            await ReadWatchListAsync().ConfigureAwait(true);
+            await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
         }
         catch (Exception exception)
         {
@@ -1173,7 +1098,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private async Task WriteWatchBitAsync(string wordAddress, int bitIndex, bool value)
+    private async Task WriteWatchBitAsync(WatchItemViewModel item, string wordAddress, int bitIndex, bool value)
     {
         if (_session is null)
             return;
@@ -1181,7 +1106,7 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             await _session.WriteBitInWordAsync(wordAddress, bitIndex, value).ConfigureAwait(true);
-            await ReadWatchListAsync().ConfigureAwait(true);
+            await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
         }
         catch (Exception exception)
         {
@@ -1210,12 +1135,12 @@ public partial class MainWindowViewModel : ObservableObject
             item.HasError = false;
             item.ErrorText = string.Empty;
             item.IsValueEditing = false;
-            await ReadWatchListAsync().ConfigureAwait(true);
+            await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
         }
         catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
         {
             item.HasError = true;
-            item.ErrorText = FormatInputError(item.DataType, exception);
+            item.ErrorText = StatusTextFormatter.FormatInputError(item.DataType, exception);
         }
         catch (Exception exception)
         {
@@ -1225,54 +1150,50 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private static string FormatInt16(short value, DisplayRadix radix) =>
-        radix == DisplayRadix.Dec
-            ? value.ToString(CultureInfo.InvariantCulture)
-            : NumericFormatter.FormatWord(unchecked((ushort)value), radix);
-
-    private static string FormatInt32(int value, DisplayRadix radix) =>
-        radix == DisplayRadix.Dec
-            ? value.ToString(CultureInfo.InvariantCulture)
-            : NumericFormatter.FormatDWord(unchecked((uint)value), radix);
-
     private string FormatWordValue(ushort value) =>
         MonitorDataType == ValueDataType.Int16
-            ? FormatInt16(unchecked((short)value), DisplayRadix)
+            ? RawValueConverter.FormatInt16(unchecked((short)value), DisplayRadix)
             : NumericFormatter.FormatWord(value, DisplayRadix);
 
     private string FormatDWordValue(uint value) =>
         MonitorDataType == ValueDataType.Int32
-            ? FormatInt32(unchecked((int)value), DisplayRadix)
+            ? RawValueConverter.FormatInt32(unchecked((int)value), DisplayRadix)
             : NumericFormatter.FormatDWord(value, DisplayRadix);
-
-    private static ushort ToRawWord(object value) =>
-        value switch
-        {
-            short signed => unchecked((ushort)signed),
-            ushort unsigned => unsigned,
-            _ => Convert.ToUInt16(value, CultureInfo.InvariantCulture),
-        };
-
-    private static uint ToRawDWord(object value) =>
-        value switch
-        {
-            int signed => unchecked((uint)signed),
-            uint unsigned => unsigned,
-            _ => Convert.ToUInt32(value, CultureInfo.InvariantCulture),
-        };
 
     private DeviceFamilyDefinition ResolveDeviceFamilyForAddress(string address)
     {
         var trimmed = address.Trim();
-        var families = ProtocolCatalog.GetDeviceFamilies(SelectedProtocol, ConnectionSettings.KeyenceDeviceMode)
-            .OrderByDescending(static family => family.Code.Length);
-        foreach (var family in families)
+        foreach (var family in GetSortedDeviceFamilies(SelectedProtocol))
         {
             if (trimmed.StartsWith(family.Code, StringComparison.OrdinalIgnoreCase))
                 return family;
         }
 
         return SelectedDeviceFamily;
+    }
+
+    private IReadOnlyList<DeviceFamilyDefinition> GetSortedDeviceFamilies(ProtocolDefinition protocol)
+    {
+        var keyenceMode = ConnectionSettings.KeyenceDeviceMode;
+        if (_sortedFamiliesByCodeLength is null
+            || _sortedFamilyProtocol != protocol.Kind
+            || _sortedFamilyKeyenceMode != keyenceMode)
+        {
+            _sortedFamiliesByCodeLength = ProtocolCatalog.GetDeviceFamilies(protocol, keyenceMode)
+                .OrderByDescending(static family => family.Code.Length)
+                .ToArray();
+            _sortedFamilyProtocol = protocol.Kind;
+            _sortedFamilyKeyenceMode = keyenceMode;
+        }
+
+        return _sortedFamiliesByCodeLength;
+    }
+
+    private void InvalidateSortedDeviceFamilyCache()
+    {
+        _sortedFamiliesByCodeLength = null;
+        _sortedFamilyProtocol = null;
+        _sortedFamilyKeyenceMode = null;
     }
 
     private ValueDataType NormalizeWatchDataType(DeviceFamilyDefinition family, ValueDataType dataType)
@@ -1290,13 +1211,6 @@ public partial class MainWindowViewModel : ObservableObject
     private bool CanToggleWatchBits(DeviceFamilyDefinition family) =>
         WatchDataTypePolicy.CanToggleBits(CanUseWritePanel, SelectedProtocol.Kind, family);
 
-    private static uint CombineWords(IReadOnlyList<ushort> words)
-    {
-        var low = words.Count > 0 ? words[0] : 0;
-        var high = words.Count > 1 ? words[1] : 0;
-        return (uint)(low | (high << 16));
-    }
-
     private async Task ExecuteCpuCommandAsync(CpuCommand command)
     {
         if (_session is null)
@@ -1313,7 +1227,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (RequestCpuCommandConfirmationAsync is not null
             && !await RequestCpuCommandConfirmationAsync(command).ConfigureAwait(true))
         {
-            var commandText = TranslateCpuCommand(command);
+            var commandText = StatusTextFormatter.TranslateCpuCommand(command);
             ErrorText = $"CPU {commandText} was canceled.";
             return;
         }
@@ -1401,17 +1315,72 @@ public partial class MainWindowViewModel : ObservableObject
         for (var index = 0; index < rows.Count && startIndex + index < Rows.Count; index++)
         {
             var rowIndex = startIndex + index;
-            if (ShouldKeepExistingRowDuringRefresh(Rows[rowIndex], rows[index]))
+            var existingRow = Rows[rowIndex];
+            var nextRow = rows[index];
+            if (ShouldKeepExistingRowDuringRefresh(existingRow, nextRow))
                 continue;
 
             if (MonitorRowRefreshComparer.IsSameVisibleRow(
-                    Rows[rowIndex],
-                    rows[index],
+                    existingRow,
+                    nextRow,
                     SelectedProtocol.Capabilities.SupportsWrite,
                     CanToggleNumericBits()))
+            {
                 continue;
+            }
 
-            Rows[rowIndex] = CreateRowViewModel(rows[index]);
+            if (MonitorRowRefreshComparer.CanUpdateVisibleRow(
+                    existingRow,
+                    nextRow,
+                    SelectedProtocol.Capabilities.SupportsWrite,
+                    CanToggleNumericBits()))
+            {
+                UpdateRowViewModel(existingRow, nextRow);
+                continue;
+            }
+
+            Rows[rowIndex] = CreateRowViewModel(nextRow);
+        }
+    }
+
+    private void UpdateRowViewModel(MonitorRowViewModel existingRow, MonitorRow nextRow)
+    {
+        switch (existingRow, nextRow)
+        {
+            case (WordRowViewModel existing, WordMonitorRow next):
+                existing.Update(next.Value, FormatWordValue(next.Value), $"0x{next.Value:X4}", next.Comment);
+                UpdateBitCells(existing.Bits, next.Bits);
+                break;
+            case (PackedBitRowViewModel existing, PackedBitMonitorRow next):
+                existing.Update(next.Comment);
+                UpdateBitCells(existing.Bits, next.Bits);
+                break;
+            case (SingleBitRowViewModel existing, SingleBitMonitorRow next):
+                existing.Update(next.Value, next.Comment);
+                break;
+            case (DWordRowViewModel existing, DWordMonitorRow next):
+                existing.Update(next.Value, FormatDWordValue(next.Value), $"0x{next.Value:X8}", next.Comment);
+                UpdateBitCells(existing.Bits, next.Bits);
+                break;
+            case (FloatRowViewModel existing, FloatMonitorRow next):
+                existing.Update(next.Value, NumericFormatter.FormatFloat(next.Value), $"0x{next.RawBits:X8}", next.Comment);
+                UpdateBitCells(existing.Bits, next.Bits);
+                break;
+            case (ExpandedWordHeaderRowViewModel existing, ExpandedWordHeaderMonitorRow next):
+                existing.Update(next.Value, FormatWordValue(next.Value), $"0x{next.Value:X4}", next.Comment);
+                UpdateBitCells(existing.Bits, next.Bits);
+                break;
+            case (ExpandedBitRowViewModel existing, ExpandedBitMonitorRow next):
+                existing.Update(next.Value);
+                break;
+        }
+    }
+
+    private static void UpdateBitCells(IReadOnlyList<BitCellViewModel> existingBits, IReadOnlyList<BitCellState> nextBits)
+    {
+        for (var index = 0; index < existingBits.Count && index < nextBits.Count; index++)
+        {
+            existingBits[index].IsOn = nextBits[index].Value;
         }
     }
 
@@ -1961,9 +1930,11 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private MonitorRowViewModel CreateRowViewModel(MonitorRow row) =>
+        CreateRowViewModel(row, SelectedProtocol.Capabilities.SupportsWrite);
+
+    private MonitorRowViewModel CreateRowViewModel(MonitorRow row, bool canWrite) =>
         row switch
         {
-            var _ when !SelectedProtocol.Capabilities.SupportsWrite => CreateReadOnlyRowViewModel(row),
             WordMonitorRow word => new WordRowViewModel(
                 word.Address,
                 word.Value,
@@ -1973,32 +1944,42 @@ public partial class MainWindowViewModel : ObservableObject
                     bit.Index,
                     bit.Value,
                     bit.Address,
-                    true,
-                    CreateWordBitToggle(word.Address, bit),
+                    canWrite,
+                    canWrite ? CreateWordBitToggle(word.Address, bit) : null,
                     CreateWordBitLabel(bit))),
-                true,
+                canWrite,
                 word.Comment),
             PackedBitMonitorRow packed => new PackedBitRowViewModel(
                 packed.Address,
                 packed.Bits.FirstOrDefault()?.Address ?? packed.Address,
-                packed.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, true, next => ToggleDirectBitAsync(bit.Address, next))),
+                packed.Bits.Select(bit => new BitCellViewModel(
+                    bit.Index,
+                    bit.Value,
+                    bit.Address,
+                    canWrite,
+                    canWrite ? next => ToggleDirectBitAsync(bit.Address, next) : null)),
                 packed.Comment),
-            SingleBitMonitorRow single => new SingleBitRowViewModel(single.Address, single.Value, true, next => ToggleDirectBitAsync(single.Address, next), single.Comment),
+            SingleBitMonitorRow single => new SingleBitRowViewModel(
+                single.Address,
+                single.Value,
+                canWrite,
+                canWrite ? next => ToggleDirectBitAsync(single.Address, next) : null,
+                single.Comment),
             DWordMonitorRow dword => new DWordRowViewModel(
                 dword.Address,
                 dword.Value,
                 FormatDWordValue(dword.Value),
                 $"0x{dword.Value:X8}",
-                dword.Bits.Select(bit => CreateNumericBitCell(dword.Address, bit)),
-                true,
+                dword.Bits.Select(bit => CreateNumericBitCell(dword.Address, bit, canWrite)),
+                canWrite,
                 dword.Comment),
             FloatMonitorRow @float => new FloatRowViewModel(
                 @float.Address,
                 @float.Value,
                 NumericFormatter.FormatFloat(@float.Value),
                 $"0x{@float.RawBits:X8}",
-                @float.Bits.Select(bit => CreateNumericBitCell(@float.Address, bit)),
-                true,
+                @float.Bits.Select(bit => CreateNumericBitCell(@float.Address, bit, canWrite)),
+                canWrite,
                 @float.Comment),
             ExpandedWordHeaderMonitorRow header => new ExpandedWordHeaderRowViewModel(
                 header.Address,
@@ -2012,8 +1993,8 @@ public partial class MainWindowViewModel : ObservableObject
                 expandedBit.Address.Split('.')[0],
                 expandedBit.BitIndex,
                 expandedBit.Value,
-                true,
-                next => ToggleWordBitAsync(expandedBit.Address.Split('.')[0], expandedBit.BitIndex, next)),
+                canWrite,
+                canWrite ? next => ToggleWordBitAsync(expandedBit.Address.Split('.')[0], expandedBit.BitIndex, next) : null),
             _ => throw new NotSupportedException($"Unsupported row type: {row.GetType().Name}"),
         };
 
@@ -2027,9 +2008,9 @@ public partial class MainWindowViewModel : ObservableObject
             ? next => ToggleDirectBitAsync(bit.Address, next)
             : next => ToggleDWordBitAsync(rowAddress, bit.Index, next);
 
-    private BitCellViewModel CreateNumericBitCell(string rowAddress, BitCellState bit)
+    private BitCellViewModel CreateNumericBitCell(string rowAddress, BitCellState bit, bool canWrite)
     {
-        var canToggle = !IsSlmpDWordOnlyFamily();
+        var canToggle = canWrite && !IsSlmpDWordOnlyFamily();
         return new BitCellViewModel(
             bit.Index,
             bit.Value,
@@ -2051,13 +2032,13 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (IsSlmpDWordOnlyFamily())
         {
-                    ErrorText = "The bit write target address could not be parsed.";
+            ErrorText = "Bit writes are not supported for this device.";
             return Task.CompletedTask;
         }
 
         if (!DeviceAddressRangeProvider.TryParseAddress(rowAddress, SelectedDeviceFamily, out var address))
         {
-                    ErrorText = "The bit write target address could not be parsed.";
+            ErrorText = "The bit write target address could not be parsed.";
             return Task.CompletedTask;
         }
 
@@ -2092,9 +2073,9 @@ public partial class MainWindowViewModel : ObservableObject
     private static string FormatInputError(MonitorRowViewModel row, Exception exception) =>
         row switch
         {
-            WordRowViewModel => FormatInputError(ValueDataType.UInt16, exception),
-            DWordRowViewModel => FormatInputError(ValueDataType.UInt32, exception),
-            FloatRowViewModel => FormatInputError(ValueDataType.Float32, exception),
+            WordRowViewModel => StatusTextFormatter.FormatInputError(ValueDataType.UInt16, exception),
+            DWordRowViewModel => StatusTextFormatter.FormatInputError(ValueDataType.UInt32, exception),
+            FloatRowViewModel => StatusTextFormatter.FormatInputError(ValueDataType.Float32, exception),
             _ => "Check the input value.",
         };
 
@@ -2108,24 +2089,6 @@ public partial class MainWindowViewModel : ObservableObject
             _ => ValueDataType.UInt16,
         };
 
-    private static string FormatInputError(ValueDataType dataType, Exception exception)
-    {
-        var message = dataType switch
-        {
-            ValueDataType.Bit => "Enter Bit as 0/1, ON/OFF, or TRUE/FALSE.",
-            ValueDataType.Int16 => "Enter Int16 in the range -32768 to 32767.",
-            ValueDataType.UInt16 => "Enter Word in the range 0 to 65535. To write a DWord value, select a DWord type.",
-            ValueDataType.Int32 => "Enter Int32 in the range -2147483648 to 2147483647.",
-            ValueDataType.UInt32 => "Enter DWord in the range 0 to 4294967295.",
-            ValueDataType.Float32 => "Enter Float32 as a decimal number.",
-            _ => "Check the input value.",
-        };
-
-        return exception is FormatException
-            ? $"The input format is invalid. {message}"
-            : message;
-    }
-
     private async Task LogErrorAsync(string operation, Exception exception, string? context = null, string? message = null)
     {
         message ??= exception.Message;
@@ -2134,33 +2097,6 @@ public partial class MainWindowViewModel : ObservableObject
             ? exception.ToString()
             : string.Concat(context, Environment.NewLine, exception);
         await _logStore.AppendErrorAsync(new ErrorEntry(DateTimeOffset.UtcNow, operation, message, details)).ConfigureAwait(true);
-    }
-
-    private static string FormatConnectionError(ConnectionSettings settings, Exception exception)
-    {
-        var endpoint = $"{settings.Host}:{settings.Port}";
-        if (exception is OperationCanceledException)
-            return $"Connection timed out after {settings.Timeout.TotalSeconds:0.#} s: {endpoint} ({settings.Transport}).";
-
-        return exception.Message;
-    }
-
-    private static string FormatConnectionContext(ConnectionSettings settings) =>
-        string.Create(
-            CultureInfo.InvariantCulture,
-            $"Protocol={settings.Protocol}; Host={settings.Host}; Port={settings.Port}; Transport={settings.Transport}; TimeoutSeconds={settings.Timeout.TotalSeconds:0.###}");
-
-    private static string FormatReadOperation(BlockQuery? query) =>
-        query is null ? "Read" : $"Read {query.DeviceFamilyCode}";
-
-    private static string? FormatReadContext(BlockQuery? query)
-    {
-        if (query is null)
-            return null;
-
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"Device={query.DeviceFamilyCode}; Start={query.StartAddress}; Count={query.EffectiveItemCount}; Mode={query.DisplayMode}; Kind={query.DeviceKind}; Radix={query.DisplayRadix}");
     }
 
     private async void RefreshTimerOnTick(object? sender, EventArgs e)
@@ -2267,9 +2203,10 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task LoadProjectCommentCsvAsync(IReadOnlyList<string> paths)
     {
-        var normalizedPaths = NormalizeCommentCsvPaths(paths);
+        var normalizedPaths = ProjectCommentCsvPathPolicy.NormalizeCommentCsvPaths(paths);
         SetCommentCsvPaths(normalizedPaths);
         _commentCsvComments.Clear();
+        InvalidateCommentResolutionCache();
         if (normalizedPaths.Count == 0)
             return;
 
@@ -2325,11 +2262,13 @@ public partial class MainWindowViewModel : ObservableObject
     {
         foreach (var (address, comment) in comments)
         {
-            foreach (var key in GetCommentAddressKeys(address))
+            foreach (var key in CommentAddressKeyProvider.GetKeys(address, SelectedProtocol, ConnectionSettings.KeyenceDeviceMode))
             {
                 _commentCsvComments[key] = comment;
             }
         }
+
+        InvalidateCommentResolutionCache();
     }
 
     private void UpdateWatchCommentsFromCsv()
@@ -2339,75 +2278,49 @@ public partial class MainWindowViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(item.Comment))
                 continue;
 
-            foreach (var key in GetCommentAddressKeys(item.Address))
-            {
-                if (_commentCsvComments.TryGetValue(key, out var comment))
-                {
-                    item.Comment = comment;
-                    break;
-                }
-            }
+            var comment = ResolveCsvCommentForAddress(item.Address);
+            if (comment is not null)
+                item.Comment = comment;
         }
     }
 
     private async Task<IReadOnlyDictionary<string, string>> LoadCommentCsvFilesAsync(IReadOnlyList<string> paths)
     {
-        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var commentSets = new List<IReadOnlyDictionary<string, string>>(paths.Count);
         foreach (var path in paths)
         {
             var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
-            foreach (var (address, comment) in comments)
-            {
-                merged[address] = comment;
-            }
+            commentSets.Add(comments);
         }
 
-        return merged;
+        return CommentCsvMergePolicy.MergeCommentSets(commentSets);
     }
 
-    private static IReadOnlyList<string> GetProjectCommentCsvPaths(ProjectFile project)
+    private BlockReadResult ApplyCsvComments(BlockReadResult result) =>
+        CommentCsvMergePolicy.ApplyCsvComments(
+            result,
+            _commentCsvComments,
+            SelectedProtocol,
+            ConnectionSettings.KeyenceDeviceMode,
+            ResolveCsvCommentForAddress);
+
+    private string? ResolveCsvCommentForAddress(string address)
     {
-        if (project.CommentCsvPaths is { Count: > 0 })
-            return NormalizeCommentCsvPaths(project.CommentCsvPaths);
-
-        return string.IsNullOrWhiteSpace(project.CommentCsvPath)
-            ? []
-            : [project.CommentCsvPath];
-    }
-
-    private static IReadOnlyList<string> NormalizeCommentCsvPaths(IEnumerable<string> paths) =>
-        paths
-            .Where(static path => !string.IsNullOrWhiteSpace(path))
-            .Select(static path => path.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-    private BlockReadResult ApplyCsvComments(BlockReadResult result)
-    {
-        if (_commentCsvComments.Count == 0)
-            return result;
-
-        var comments = new Dictionary<string, string>(result.Comments, StringComparer.OrdinalIgnoreCase);
-        foreach (var address in result.ElementAddresses)
+        if (!_resolvedCommentCache.TryGetValue(address, out var comment))
         {
-            if (comments.ContainsKey(address))
-                continue;
-
-            foreach (var key in GetCommentAddressKeys(address))
-            {
-                if (_commentCsvComments.TryGetValue(key, out var comment))
-                {
-                    comments[address] = comment;
-                    break;
-                }
-            }
+            comment = CommentCsvMergePolicy.FindComment(
+                address,
+                _commentCsvComments,
+                SelectedProtocol,
+                ConnectionSettings.KeyenceDeviceMode);
+            _resolvedCommentCache[address] = comment;
         }
 
-        return result with { Comments = comments };
+        return comment;
     }
 
-    private IEnumerable<string> GetCommentAddressKeys(string rawAddress) =>
-        CommentAddressKeyProvider.GetKeys(rawAddress, SelectedProtocol, ConnectionSettings.KeyenceDeviceMode);
+    private void InvalidateCommentResolutionCache() =>
+        _resolvedCommentCache.Clear();
 
     private void RefreshDisplayModes()
     {
@@ -2593,6 +2506,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnSelectedProtocolChanged(ProtocolDefinition value)
     {
+        InvalidateCommentResolutionCache();
+        InvalidateSortedDeviceFamilyCache();
         _deviceRangeCatalog = null;
         RefreshAvailableDeviceFamilies(value);
         RefreshDisplayModes();
@@ -2614,6 +2529,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnConnectionSettingsChanged(ConnectionSettings value)
     {
+        InvalidateCommentResolutionCache();
+        InvalidateSortedDeviceFamilyCache();
         OnPropertyChanged(nameof(SelectedPlcModelText));
         UpdateAllWatchAvailableDataTypes();
     }
@@ -2788,54 +2705,7 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     private MonitorRowViewModel CreateReadOnlyRowViewModel(MonitorRow row) =>
-        row switch
-        {
-            WordMonitorRow word => new WordRowViewModel(
-                word.Address,
-                word.Value,
-                FormatWordValue(word.Value),
-                $"0x{word.Value:X4}",
-                word.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null, CreateWordBitLabel(bit))),
-                false,
-                word.Comment),
-            PackedBitMonitorRow packed => new PackedBitRowViewModel(
-                packed.Address,
-                packed.Bits.FirstOrDefault()?.Address ?? packed.Address,
-                packed.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null)),
-                packed.Comment),
-            SingleBitMonitorRow single => new SingleBitRowViewModel(single.Address, single.Value, false, null, single.Comment),
-            DWordMonitorRow dword => new DWordRowViewModel(
-                dword.Address,
-                dword.Value,
-                FormatDWordValue(dword.Value),
-                $"0x{dword.Value:X8}",
-                dword.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null, CreateWordBitLabel(bit))),
-                false,
-                dword.Comment),
-            FloatMonitorRow @float => new FloatRowViewModel(
-                @float.Address,
-                @float.Value,
-                NumericFormatter.FormatFloat(@float.Value),
-                $"0x{@float.RawBits:X8}",
-                @float.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null, CreateWordBitLabel(bit))),
-                false,
-                @float.Comment),
-            ExpandedWordHeaderMonitorRow header => new ExpandedWordHeaderRowViewModel(
-                header.Address,
-                header.Value,
-                FormatWordValue(header.Value),
-                $"0x{header.Value:X4}",
-                header.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null)),
-                header.Comment),
-            ExpandedBitMonitorRow expandedBit => new ExpandedBitRowViewModel(
-                expandedBit.Address,
-                expandedBit.Address.Split('.')[0],
-                expandedBit.BitIndex,
-                expandedBit.Value,
-                false,
-                null),
-            _ => throw new NotSupportedException($"Unsupported row type: {row.GetType().Name}"),
-        };
+        CreateRowViewModel(row, false);
 
     private async Task DisposeSessionAsync()
     {
@@ -2868,24 +2738,6 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private static string FormatSelectedPlcModel(ConnectionSettings settings) =>
-        settings.Protocol switch
-        {
-            ProtocolKind.Slmp => FormatSlmpPlcProfile(settings.SlmpPlcProfileName),
-            ProtocolKind.HostLink => FormatHostLinkPlcProfile(settings.HostLinkPlcProfileName),
-            ProtocolKind.Toyopuc => FormatToyopucPlcProfile(settings.ToyopucPlcProfileName),
-            _ => settings.Protocol.ToString(),
-        };
-
-    private static string FormatSlmpPlcProfile(string profileName) =>
-        PlcProfileDisplayFormatter.FormatSlmpPlcProfile(profileName);
-
-    private static string FormatHostLinkPlcProfile(string profileName) =>
-        PlcProfileDisplayFormatter.FormatHostLinkPlcProfile(profileName);
-
-    private static string FormatToyopucPlcProfile(string? profile) =>
-        PlcProfileDisplayFormatter.FormatToyopucPlcProfile(profile);
-
     private static string GetProjectDisplayName(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -2894,32 +2746,6 @@ public partial class MainWindowViewModel : ObservableObject
         var fileName = Path.GetFileName(path);
         return string.IsNullOrWhiteSpace(fileName) ? "Untitled" : fileName;
     }
-
-    private static string FormatCpuStateText(CpuState? state)
-    {
-        if (state is null)
-            return "Unknown";
-
-        var label = state.State switch
-        {
-            CpuRunState.Run => "RUN",
-            CpuRunState.Stop => "STOP",
-            CpuRunState.Pause => "PAUSE",
-            CpuRunState.Program => "PROGRAM",
-            _ => "Unknown",
-        };
-
-        return label;
-    }
-
-    private static string TranslateCpuCommand(CpuCommand command) =>
-        command switch
-        {
-            CpuCommand.Run => "RUN",
-            CpuCommand.Stop => "STOP",
-            CpuCommand.Pause => "PAUSE",
-            _ => command.ToString().ToUpperInvariant(),
-        };
 
     private static FontSizeOption FindFontSizeOption(double size) =>
         FontSizeOption.All.MinBy(option => Math.Abs(option.Size - size)) ?? FontSizeOption.Standard;

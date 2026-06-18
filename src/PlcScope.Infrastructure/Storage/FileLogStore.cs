@@ -9,6 +9,7 @@ using PlcScope.Infrastructure.Serialization;
 public sealed class FileLogStore : ILogStore, IDisposable
 {
     private const int MaxLogRecords = 500;
+    private const int TrimTriggerRecordCount = 600;
     private static readonly TimeSpan TraceFlushInterval = TimeSpan.FromSeconds(5);
 
     private static readonly JsonSerializerOptions LogLineOptions = new(JsonDefaults.Options)
@@ -199,7 +200,7 @@ public sealed class FileLogStore : ILogStore, IDisposable
                 ? knownCount + lines.Count
                 : await CountLogRecordsAsync(path, cancellationToken).ConfigureAwait(false);
 
-            if (recordCount > MaxLogRecords)
+            if (recordCount > TrimTriggerRecordCount)
                 recordCount = await TrimLogFileAsync(path, cancellationToken).ConfigureAwait(false);
 
             _knownRecordCounts[path] = recordCount;

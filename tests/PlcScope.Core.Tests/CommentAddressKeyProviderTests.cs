@@ -1,6 +1,5 @@
-namespace PlcScope.App.UiTests;
+namespace PlcScope.Core.Tests;
 
-using PlcScope.App.ViewModels;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
 

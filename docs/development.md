@@ -31,7 +31,7 @@ Main libraries:
 - `CommunityToolkit.Mvvm`
 - `Microsoft.Extensions.DependencyInjection`
 
-PLC communication libraries are consumed through NuGet package references.
+PLC communication libraries are consumed from `lib/plc-comm/net9.0/` through direct assembly references. See `lib/plc-comm/README.md` for refresh steps.
 
 ## Build
 
