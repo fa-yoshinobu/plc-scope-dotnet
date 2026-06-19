@@ -31,6 +31,28 @@ public sealed class NumericFormatterTests
     }
 
     [Fact]
+    public void ParseByType_ClampsSignedIntegerValuesBelowTypeRange()
+    {
+        Assert.Equal(short.MinValue, NumericFormatter.ParseByType("-999999999999999999999", ValueDataType.Int16, DisplayRadix.Dec));
+        Assert.Equal(int.MinValue, NumericFormatter.ParseByType("-999999999999999999999", ValueDataType.Int32, DisplayRadix.Dec));
+    }
+
+    [Fact]
+    public void ParseByType_HexPrefixIsOnlyAcceptedInHexMode()
+    {
+        Assert.Equal((ushort)0x001A, NumericFormatter.ParseByType("0x1A", ValueDataType.UInt16, DisplayRadix.Hex));
+        Assert.Throws<FormatException>(() => NumericFormatter.ParseByType("0x1A", ValueDataType.UInt16, DisplayRadix.Dec));
+    }
+
+    [Fact]
+    public void ParseByType_Float32RejectsInvalidAndNonFiniteValues()
+    {
+        Assert.Throws<FormatException>(() => NumericFormatter.ParseByType("not-a-float", ValueDataType.Float32, DisplayRadix.Dec));
+        Assert.Throws<FormatException>(() => NumericFormatter.ParseByType("NaN", ValueDataType.Float32, DisplayRadix.Dec));
+        Assert.Throws<FormatException>(() => NumericFormatter.ParseByType("Infinity", ValueDataType.Float32, DisplayRadix.Dec));
+    }
+
+    [Fact]
     public void FloatRawBits_RoundTrips()
     {
         var bits = NumericFormatter.FloatToRawBits(3.1415927f);

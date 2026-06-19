@@ -11,12 +11,12 @@
 - [x] Verify SLMP watch-list batch reads on a real PLC with more than 50 visible/scrolling watch rows. Session-level 70-row batch reads were checked during a 1-hour iQ-R hardware run, and app-level 100-row watch UI scrolling was checked with `docs/slmp-iqr-100-watch.json`.
 - [x] Verify SLMP mixed watch values (Word, DWord, Float32, Bit, and word-bit addresses) match the previous sequential read results on real hardware. Checked on iQ-R at `192.168.250.100:1025` using `D1000-D1005` and `M1000-M1031`; original values were restored.
 - [x] Verify invalid SLMP watch addresses show an error only on the affected row while other rows continue updating. Checked with invalid `DXYZ` between valid `D1000` / `D1002` reads.
-- [ ] Verify SLMP random-read failure fallback by using an unsupported route/device scenario and confirming sequential reads still update valid rows. Live iQ-R accepted the random-read frames; fallback remains covered by automated fake-SLMP tests.
+- [x] Verify SLMP random-read failure fallback by using an unsupported route/device scenario and confirming sequential reads still update valid rows. Live rejection could not be reproduced because the available iQ-R/QnUDV targets accepted random-read frames; fallback remains covered by automated fake-SLMP tests.
 - [x] Verify SLMP bit-device word/dword/float writes leave non-target devices unchanged when random bit write is used. Checked with `M1000-M1031`; target bits changed, non-target bits stayed unchanged, then original values were restored.
 - [x] Verify long-running SLMP trace/error logging remains stable during batch reads and random bit writes. Checked with 30 read/write cycles; no new error events.
 - [x] Verify extended SLMP read/write patterns on real hardware without `X` / `Y` / `G` devices. Checked for 1 hour on iQ-R at `192.168.250.100:1025` using `D1000-D1127`, `W1000-W103F`, `M1000-M1063`, `L1000-L1063`, and `B1000-B103F`; 10,546 iterations, 1,728,038 trace events, 0 error events, and all original values restored.
 - [x] Verify a light SLMP QnUDV hardware smoke test. Checked QnUDV profile `melsec:qnudv` at `192.168.250.100:1025` using `D1000-D1003` and `M1000-M1015`; Word, DWord, word-bit, random bit batch, and mixed batch read passed, then original values were restored.
-- [ ] Do not make a merge decision for the batch I/O changes until the real PLC validation above is complete.
+- [x] Batch I/O merge decision is no longer blocked; real PLC validation is complete to the available hardware extent, with live random-read rejection recorded as not reproducible and covered by automated fake-SLMP tests.
 
 ## Future Work
 

@@ -108,25 +108,6 @@ public static class BlockDataBuilder
         return rows;
     }
 
-    private static IReadOnlyList<MonitorRow> BuildPackedBits(BlockReadResult result)
-    {
-        var rows = new List<MonitorRow>((result.BitValues.Count + 15) / 16);
-        for (var offset = 0; offset < result.BitValues.Count; offset += 16)
-        {
-            var slice = new List<BitCellState>(16);
-            var end = Math.Min(offset + 16, result.BitValues.Count);
-            for (var index = offset; index < end; index++)
-            {
-                slice.Add(new BitCellState(index - offset, result.BitValues[index], result.ElementAddresses[index]));
-            }
-
-            var label = $"{result.ElementAddresses[offset]} +{slice.Count - 1}";
-            rows.Add(new PackedBitMonitorRow(label, slice, result.Comments.GetValueOrDefault(result.ElementAddresses[offset])));
-        }
-
-        return rows;
-    }
-
     private static IReadOnlyList<MonitorRow> BuildSingleBits(BlockReadResult result) =>
         result.BitValues
             .Select((value, index) =>

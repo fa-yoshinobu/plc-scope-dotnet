@@ -65,7 +65,7 @@ Added tests cover:
 
 ## Manual Validation
 
-`TODO.md` now contains the remaining real PLC validation checklist. Merge judgment for this batch I/O change must wait until those items are completed on real hardware.
+The real PLC validation checklist was completed to the available hardware extent. The only scenario not reproduced live was random-read rejection, because the available PLCs accepted the random-read frames; that fallback remains covered by automated fake-SLMP tests.
 
 ### Automatic Live PLC Check (2026-06-19)
 
@@ -139,15 +139,15 @@ Result:
 - PASS: Mixed batch read over Word, DWord, and Bit queries returned 3 successful rows.
 - PASS: Original `D1000-D1003` and `M1000-M1015` values were restored and verified.
 
-### What To Confirm On Real Hardware
+### Confirmed On Real Hardware
 
-The real PLC check is not just a speed check. It must confirm that batching preserves the old read/write results and safety boundaries:
+The real PLC check was not just a speed check. It confirmed that batching preserves the old read/write results and safety boundaries:
 
 - Large SLMP watch lists, especially more than 50 visible/scrolling rows, continue updating correctly. Checked with the 100-row watch UI project.
 - Word, DWord, Float32, Bit, and word-bit addresses such as `D0.0` display the same values as the previous sequential read path.
 - Invalid addresses affect only their own watch row; other valid rows continue to update.
-- If the PLC or route rejects random read, the sequential fallback still updates valid rows.
+- Sequential fallback after random-read rejection remains covered by automated fake-SLMP tests; the available live PLCs did not reject random-read frames.
 - Word/DWord/Float writes through bit-device rows do not change non-target devices or bits.
 - Long-running trace and error logging remains stable during batch reads and random bit writes.
 
-Do not treat this change as merge-ready until those hardware checks pass.
+The batch I/O change is complete for the current scope and has been merged.

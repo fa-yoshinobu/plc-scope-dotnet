@@ -278,8 +278,46 @@ public sealed class FileLogStore : ILogStore, IDisposable
         if (!File.Exists(path))
             return 0;
 
-        var lines = await File.ReadAllLinesAsync(path, cancellationToken).ConfigureAwait(false);
-        return ReadJsonRecords(lines).Count();
+        var count = 0;
+        var isReadingMultilineRecord = false;
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: 4096,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var trimmed = line.Trim();
+            if (!isReadingMultilineRecord)
+            {
+                if (trimmed.StartsWith('{') && !trimmed.EndsWith('}'))
+                {
+                    isReadingMultilineRecord = true;
+                    continue;
+                }
+
+                count++;
+                continue;
+            }
+
+            if (!trimmed.EndsWith('}'))
+                continue;
+
+            count++;
+            isReadingMultilineRecord = false;
+        }
+
+        if (isReadingMultilineRecord)
+            count++;
+
+        return count;
     }
 
     private static async Task<int> TrimLogFileAsync(string path, CancellationToken cancellationToken)

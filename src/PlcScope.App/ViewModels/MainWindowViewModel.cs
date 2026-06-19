@@ -2138,15 +2138,27 @@ public partial class MainWindowViewModel : ObservableObject
                 $"0x{header.Value:X4}",
                 header.Bits.Select(bit => new BitCellViewModel(bit.Index, bit.Value, bit.Address, false, null)),
                 header.Comment),
-            ExpandedBitMonitorRow expandedBit => new ExpandedBitRowViewModel(
-                expandedBit.Address,
-                expandedBit.Address.Split('.')[0],
-                expandedBit.BitIndex,
-                expandedBit.Value,
-                canWrite,
-                canWrite ? next => ToggleWordBitAsync(expandedBit.Address.Split('.')[0], expandedBit.BitIndex, next) : null),
+            ExpandedBitMonitorRow expandedBit => CreateExpandedBitRowViewModel(expandedBit, canWrite),
             _ => throw new NotSupportedException($"Unsupported row type: {row.GetType().Name}"),
         };
+
+    private ExpandedBitRowViewModel CreateExpandedBitRowViewModel(ExpandedBitMonitorRow expandedBit, bool canWrite)
+    {
+        var wordAddress = GetExpandedBitWordAddress(expandedBit.Address);
+        return new ExpandedBitRowViewModel(
+            expandedBit.Address,
+            wordAddress,
+            expandedBit.BitIndex,
+            expandedBit.Value,
+            canWrite,
+            canWrite ? next => ToggleWordBitAsync(wordAddress, expandedBit.BitIndex, next) : null);
+    }
+
+    private static string GetExpandedBitWordAddress(string address)
+    {
+        var separatorIndex = address.LastIndexOf('.');
+        return separatorIndex <= 0 ? address : address[..separatorIndex];
+    }
 
     private Func<bool, Task> CreateWordBitToggle(string wordAddress, BitCellState bit) =>
         SelectedDeviceFamily.Kind == DeviceKind.Bit

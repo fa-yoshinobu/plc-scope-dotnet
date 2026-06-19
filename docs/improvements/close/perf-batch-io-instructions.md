@@ -257,11 +257,11 @@ dotnet test .\PlcScopeDotNet.sln -m:1
   - word-bit read-modify-write 経路は、対象外 bit 不変の保証を守るため一括化していない。
 - Phase 6:
   - `TODO.md` の Remaining Manual Validation に実機検証チェックリストを追記。
-  - `docs/improvements/perf-batch-io-report.md` に support table、実装内容、Stop And Ask、実機確認内容を記録。
+  - `docs/improvements/close/perf-batch-io-report.md` に support table、実装内容、Stop And Ask、実機確認内容を記録。
 
-### できていないこと / 残したこと
+### 残したこと / scope 外
 
-- 実機 PLC 検証は一部のみ実施済み。
+- 実機 PLC 検証は可能な範囲で実施済み。
   - `192.168.250.100:1025` の SLMP iQ-R で、Word / DWord / Float32 / Bit /
     word-bit の値一致、無効 address の行単位 error isolation、bit 一括書込の
     対象外 bit 不変、30 cycle の trace / error logging smoke は確認済み。
@@ -274,7 +274,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
     `D1000-D1003` と `M1000-M1015` を使用し、Word / DWord / word-bit /
     random bit batch / mixed batch read を確認、全 scratch 値の復元確認済み。
   - `docs/slmp-iqr-100-watch.json` による 100 行 watch UI の app-level scroll read は確認済み。
-  - random read 拒否時の逐次 fallback は実機では未実施。
+  - random read 拒否時の逐次 fallback は live では再現不可。
     対象 iQ-R が random-read frame を受け入れたため、拒否 scenario を自動再現できなかった。
     fallback path 自体は fake-SLMP 自動テストで確認済み。
 - Host Link の cross-watch batch read / bit batch write は未実装。
@@ -285,7 +285,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
   - 既存 `ReadBlockAsync` 内の block / packed read は維持。
 - SLMP の word-bit 書込一括化は未実装。
   - 対象外 bit を変更しない read-modify-write semantics を優先したため。
-- `lib/` DLL の変更、兄弟リポジトリ改修、通信 retry / timeout policy 変更は未実施。
+- `lib/` DLL の変更、兄弟リポジトリ改修、通信 retry / timeout policy 変更は対象外。
 
 ### 検証結果
 
@@ -322,4 +322,6 @@ dotnet test .\PlcScopeDotNet.sln -m:1
 
 ### マージ判断
 
-この変更は実機 PLC 確認が完了するまで merge-ready としない。
+実機 PLC 確認は可能な範囲で完了し、この変更は main に merge 済み。
+random read 拒否時の逐次 fallback は、手元の実機が random-read frame を受け入れたため
+live では再現できなかったが、fake-SLMP 自動テストで確認済み。

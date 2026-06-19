@@ -32,7 +32,7 @@ public static class NumericFormatter
 
     public static ushort ParseWord(string text, DisplayRadix radix)
     {
-        var normalized = NormalizeNumericText(text);
+        var normalized = NormalizeIntegerText(text, radix);
         return radix switch
         {
             DisplayRadix.Dec => (ushort)ParseUnsignedWithUpperClamp(normalized, ushort.MaxValue, isHex: false),
@@ -43,7 +43,7 @@ public static class NumericFormatter
 
     public static uint ParseDWord(string text, DisplayRadix radix)
     {
-        var normalized = NormalizeNumericText(text);
+        var normalized = NormalizeIntegerText(text, radix);
         return radix switch
         {
             DisplayRadix.Dec => (uint)ParseUnsignedWithUpperClamp(normalized, uint.MaxValue, isHex: false),
@@ -54,21 +54,14 @@ public static class NumericFormatter
 
     public static object ParseByType(string text, ValueDataType dataType, DisplayRadix radix)
     {
-        var normalized = NormalizeNumericText(text);
         return dataType switch
         {
-            ValueDataType.Bit => normalized switch
-            {
-                "1" or "TRUE" or "ON" => true,
-                "0" or "FALSE" or "OFF" => false,
-                _ when decimal.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitValue) => bitValue >= 1,
-                _ => throw new FormatException("Bit value must be 0/1, ON/OFF, or TRUE/FALSE."),
-            },
-            ValueDataType.Int16 => ParseInt16(normalized, radix),
-            ValueDataType.UInt16 => ParseWord(normalized, radix),
-            ValueDataType.Int32 => ParseInt32(normalized, radix),
-            ValueDataType.UInt32 => ParseDWord(normalized, radix),
-            ValueDataType.Float32 => float.Parse(normalized, CultureInfo.InvariantCulture),
+            ValueDataType.Bit => ParseBit(text),
+            ValueDataType.Int16 => ParseInt16(NormalizeIntegerText(text, radix), radix),
+            ValueDataType.UInt16 => ParseWord(text, radix),
+            ValueDataType.Int32 => ParseInt32(NormalizeIntegerText(text, radix), radix),
+            ValueDataType.UInt32 => ParseDWord(text, radix),
+            ValueDataType.Float32 => ParseFloat32(text),
             _ => throw new ArgumentOutOfRangeException(nameof(dataType), dataType, null),
         };
     }
@@ -87,11 +80,47 @@ public static class NumericFormatter
         return BinaryPrimitives.ReadSingleLittleEndian(buffer);
     }
 
+    private static bool ParseBit(string text)
+    {
+        var normalized = NormalizeBitText(text);
+        return normalized switch
+        {
+            "1" or "TRUE" or "ON" => true,
+            "0" or "FALSE" or "OFF" => false,
+            _ when decimal.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitValue) => bitValue >= 1,
+            _ => throw new FormatException("Bit value must be 0/1, ON/OFF, or TRUE/FALSE."),
+        };
+    }
+
+    private static float ParseFloat32(string text)
+    {
+        var normalized = NormalizeNumericText(text);
+        if (!float.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            || float.IsNaN(value)
+            || float.IsInfinity(value))
+        {
+            throw new FormatException("Float32 value must be a finite decimal number.");
+        }
+
+        return value;
+    }
+
+    private static string NormalizeIntegerText(string text, DisplayRadix radix)
+    {
+        var normalized = NormalizeNumericText(text);
+        return radix == DisplayRadix.Hex ? StripPrefix(normalized, "0X") : normalized;
+    }
+
+    private static string NormalizeBitText(string text) =>
+        StripPrefix(NormalizeNumericText(text), "0B");
+
     private static string NormalizeNumericText(string text) =>
-        text.Trim().Replace("_", string.Empty, StringComparison.Ordinal)
-            .Replace("0X", string.Empty, StringComparison.OrdinalIgnoreCase)
-            .Replace("0B", string.Empty, StringComparison.OrdinalIgnoreCase)
+        text.Trim()
+            .Replace("_", string.Empty, StringComparison.Ordinal)
             .ToUpperInvariant();
+
+    private static string StripPrefix(string text, string prefix) =>
+        text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? text[prefix.Length..] : text;
 
     private static short ParseInt16(string normalized, DisplayRadix radix)
     {
@@ -133,7 +162,7 @@ public static class NumericFormatter
         if (decimal.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
             return value > maxValue ? maxValue : checked((ulong)value);
 
-        if (normalized.All(char.IsDigit))
+        if (IsUnsignedIntegerText(normalized))
             return maxValue;
 
         return ulong.Parse(normalized, CultureInfo.InvariantCulture);
@@ -151,9 +180,21 @@ public static class NumericFormatter
             return checked((long)value);
         }
 
-        if (normalized.All(char.IsDigit))
-            return maxValue;
+        if (IsSignedIntegerText(normalized))
+            return normalized[0] == '-' ? minValue : maxValue;
 
         return long.Parse(normalized, CultureInfo.InvariantCulture);
+    }
+
+    private static bool IsUnsignedIntegerText(string text) =>
+        text.Length > 0 && text.All(char.IsDigit);
+
+    private static bool IsSignedIntegerText(string text)
+    {
+        if (text.Length == 0)
+            return false;
+
+        var startIndex = text[0] is '-' or '+' ? 1 : 0;
+        return startIndex < text.Length && text[startIndex..].All(char.IsDigit);
     }
 }

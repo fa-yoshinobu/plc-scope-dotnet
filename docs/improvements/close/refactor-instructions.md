@@ -195,7 +195,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1   # -m:1 必須(UI テスト直列化)
 
 UiTests が環境的に実行不能な場合は
 `dotnet test .\tests\PlcScope.Core.Tests\PlcScope.Core.Tests.csproj` を baseline とし、
-UiTests 未実施を報告書に明記する。
+UiTests を省略する場合は報告書に明記する。
 
 ---
 
@@ -545,7 +545,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
   ユーザー可視文字列の変更が D1b の指定 2 箇所のみ
 - `build.bat Release` が成功すること(単一 EXE publish)
 - フレークした UI テストはアイドル状態で単体再実行してから判定
-- UiTests 未実施の場合: 人間が手動確認すべき項目(接続 → 監視 → インライン編集 →
+- UiTests を省略する場合: 人間が手動確認すべき項目(接続 → 監視 → インライン編集 →
   ウォッチ操作 → コメント CSV 取込 → プロジェクト保存/読込)を報告書に列挙
 
 ---
@@ -562,7 +562,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
    `AppThemeResourceTests` の判断根拠)、D7 の CI ステップ削除と `git grep` 確認結果、
    D9〜D11 の実施内容、D12 の実施可否判断(特性テストで固定できたか)と結果
 6. **提案事項**: 実装しなかった改善案(サブ VM 分割等)
-7. **未実施事項**: スキップしたフェーズとその理由、人間の手動確認チェックリスト
+7. **省略事項**: スキップしたフェーズとその理由、人間の手動確認チェックリスト
 
 ---
 
@@ -618,9 +618,9 @@ dotnet test .\PlcScopeDotNet.sln -m:1
 
 - サブ ViewModel 分割は提案事項のまま。今回の scope では実装していない。
 - `MainWindow.xaml.cs` の Behavior 化は提案事項のまま。今回の scope では実装していない。
-- 実機 PLC 検証は未実施。自動テストと release publish までで完了。
-- 通信往復数の一括化は本指示書の out-of-scope のため未実施。
-  後続の `perf-batch-io-instructions.md` 側で扱う。
+- 実機 PLC 検証は本 refactor scope では対象外。自動テストと release publish までで完了。
+- 通信往復数の一括化は本指示書の out-of-scope として分離し、
+  後続の `perf-batch-io-instructions.md` 側で完了済み。
 
 ### 検証結果
 
