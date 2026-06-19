@@ -1,8 +1,36 @@
 # Development History
 
+## 2026-06-19 Batch I/O And Improvement Closure
+
+The SLMP batch I/O work and the open improvement findings were completed and merged to `main`.
+
+### Scope
+
+- Added visible-row watch-list batch reads through `IPlcSession.ReadBatchAsync`.
+- Added SLMP random-read batching for supported word-device watch queries.
+- Added SLMP direct bit-device batch writes through `WriteBitBatchAsync`.
+- Preserved row-level watch errors so an invalid watch address does not stop other visible rows from updating.
+- Kept Host Link and TOYOPUC cross-watch batching out of scope until library/source or protocol-limit details are available.
+- Closed the remaining improvement findings; the bit-device data-type policy item was kept as the intended packed-read/write behavior.
+- Moved completed improvement plans and reports into `docs/improvements/close/`.
+
+### Verification
+
+- `dotnet test .\PlcScopeDotNet.sln -m:1` passed with Core, App, and FlaUI UI test projects.
+- SLMP iQ-R hardware validation passed at `192.168.250.100:1025` using `D`, `W`, `M`, `L`, and `B` scratch ranges while avoiding `X`, `Y`, and `G`.
+- A 1-hour extended iQ-R pattern check completed with 10,546 iterations, 1,728,038 trace events, 0 error events, and all original scratch values restored.
+- SLMP QnUDV smoke validation passed at `192.168.250.100:1025` for word, DWord, word-bit, random bit batch, and mixed batch reads.
+- App-level 100-row watch UI scrolling was checked with `docs/slmp-iqr-100-watch.json`.
+
+### Notes
+
+- Live random-read rejection could not be reproduced because the available iQ-R and QnUDV targets accepted random-read frames. The sequential fallback path remains covered by automated fake-SLMP tests.
+- Batch I/O is complete for the current scope and no longer blocks merge decisions.
+- Current validation status is recorded in `TODO.md`; completed implementation and verification detail is archived under `docs/improvements/close/`.
+
 ## 2026-06-11 Archived Refactor Plan
 
-The older refactor planning notes now live under `docs/improvements/`.
+The older refactor planning notes now live under `docs/improvements/close/`.
 
 ### Scope
 

@@ -30,11 +30,13 @@ It is intended for live I/O checks: select a protocol, connect to a PLC, monitor
 - Add monitor rows to the watch list from the right-click menu.
 - Keep monitor and watch list views in separate tabs.
 - Read only visible watch list rows.
+- Batch SLMP visible watch-list reads where supported, with sequential fallback and row-isolated errors.
 - Reorder watch list rows by drag and drop.
 - Import and export the watch list as CSV.
 - Import comments from one or more external comment CSV files.
 - Display values as `Dec` or `Hex`.
 - Display word bits as clickable bit cells.
+- Batch SLMP direct bit-device writes where supported.
 - Edit values inline and write with `Enter`.
 - Pause refresh while a value is being edited so input is not overwritten.
 - Clamp out-of-range integer input to the target type range before writing.
@@ -87,6 +89,7 @@ The Watch list supports:
 - address, type, format, value, raw hex, bit cells, and comment columns
 - `Dec` and `Hex` formats
 - word bit addresses such as `D0.0`
+- SLMP batch reads for visible rows when the selected devices can be read by random read
 - duplicate address prevention
 - invalid address highlighting
 - row removal from the right-click menu or the `Delete` key
@@ -106,13 +109,13 @@ Inline editing is available in the Monitor and Watch list views.
 
 Periodic refresh pauses while a value cell is being edited.
 
-Integer input above the target range is clamped before writing. Examples:
+Integer input outside the target range is clamped before writing. Examples:
 
 - `Bit`: values less than `1` become `0`; values `1` or greater become `1`
-- `UInt16`: maximum `65535`
-- `Int16`: maximum `32767`
-- `UInt32`: maximum `4294967295`
-- `Int32`: maximum `2147483647`
+- `UInt16`: range `0` to `65535`
+- `Int16`: range `-32768` to `32767`
+- `UInt32`: range `0` to `4294967295`
+- `Int32`: range `-2147483648` to `2147483647`
 
 For bit cells, click the bit button to toggle the value when writing is supported by the selected protocol and device.
 
@@ -207,7 +210,14 @@ src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.exe
 
 - [Specification](docs/specification.md)
 - [Development notes](docs/development.md)
-- [TODO](TODO.md)
+- [Development history](docs/DEVELOPMENT_HISTORY.md)
+- [Security notes](SECURITY.md)
+- [Improvement plans and archive](docs/improvements/README.md)
+- [Batch I/O report](docs/improvements/close/perf-batch-io-report.md)
+- [TOYOPUC relay validation](docs/toyopuc-relay-hop-validation-2026-06-12.md)
+- [SLMP iQ-R 100-row watch sample project](docs/slmp-iqr-100-watch.json)
+- [SLMP QnUDV 100-row watch sample project](docs/slmp-iqr-100-watcha.json)
+- [Validation checklist](TODO.md)
 
 ## License
 
