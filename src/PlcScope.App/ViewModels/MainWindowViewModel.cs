@@ -819,20 +819,44 @@ public partial class MainWindowViewModel : ObservableObject
     private void UpdateWatchAvailableDataTypes(WatchItemViewModel item)
     {
         var availableDataTypes = GetAvailableWatchDataTypes(item).ToArray();
-        item.AvailableDataTypes.Clear();
-        foreach (var dataType in availableDataTypes)
-        {
-            item.AvailableDataTypes.Add(dataType);
-        }
-
         if (!availableDataTypes.Contains(item.DataType))
             item.DataType = availableDataTypes.Contains(ValueDataType.UInt16) ? ValueDataType.UInt16 : availableDataTypes[0];
+
+        SyncAvailableDataTypes(item.AvailableDataTypes, availableDataTypes);
     }
 
     private IEnumerable<ValueDataType> GetAvailableWatchDataTypes(WatchItemViewModel item)
     {
         var family = ResolveDeviceFamilyForAddress(item.Address);
         return WatchDataTypePolicy.GetAvailableDataTypes(item.Address, family, ValueDataTypes);
+    }
+
+    private static void SyncAvailableDataTypes(
+        ObservableCollection<ValueDataType> target,
+        IReadOnlyList<ValueDataType> desired)
+    {
+        if (target.SequenceEqual(desired))
+            return;
+
+        for (var index = target.Count - 1; index >= 0; index--)
+        {
+            if (!desired.Contains(target[index]))
+                target.RemoveAt(index);
+        }
+
+        for (var index = 0; index < desired.Count; index++)
+        {
+            var dataType = desired[index];
+            var existingIndex = target.IndexOf(dataType);
+            if (existingIndex < 0)
+            {
+                target.Insert(index, dataType);
+            }
+            else if (existingIndex != index)
+            {
+                target.Move(existingIndex, index);
+            }
+        }
     }
 
     private async Task ReadWatchListAsync()

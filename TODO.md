@@ -8,7 +8,7 @@
 - [x] Verify TOYOPUC CPU STOP, stop release, and scan resume from the app with relay hops. Relay path `P1-L1:N2` to Nano 10GX is available, basic Python/.NET relay read/write/stress checks pass, plc-scope session read/write has relay frame coverage, and app-level RUN/STOP was observed on real hardware.
 - [x] Verify Watch list visible-row-only reads while scrolling through a large watch list on a real KV PLC.
 - [x] Verify optional communication trace logging during long-running communication with a real KV PLC.
-- [ ] Verify SLMP watch-list batch reads on a real PLC with more than 50 visible/scrolling watch rows. Session-level 70-row batch reads were checked during a 1-hour iQ-R hardware run; UI scroll behavior still needs app-level confirmation.
+- [x] Verify SLMP watch-list batch reads on a real PLC with more than 50 visible/scrolling watch rows. Session-level 70-row batch reads were checked during a 1-hour iQ-R hardware run, and app-level 100-row watch UI scrolling was checked with `docs/slmp-iqr-100-watch.json`.
 - [x] Verify SLMP mixed watch values (Word, DWord, Float32, Bit, and word-bit addresses) match the previous sequential read results on real hardware. Checked on iQ-R at `192.168.250.100:1025` using `D1000-D1005` and `M1000-M1031`; original values were restored.
 - [x] Verify invalid SLMP watch addresses show an error only on the affected row while other rows continue updating. Checked with invalid `DXYZ` between valid `D1000` / `D1002` reads.
 - [ ] Verify SLMP random-read failure fallback by using an unsupported route/device scenario and confirming sequential reads still update valid rows. Live iQ-R accepted the random-read frames; fallback remains covered by automated fake-SLMP tests.

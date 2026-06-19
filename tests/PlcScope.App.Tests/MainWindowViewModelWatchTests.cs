@@ -1,5 +1,6 @@
 namespace PlcScope.App.Tests;
 
+using System.Collections.Specialized;
 using System.Reflection;
 using PlcScope.App.ViewModels;
 using PlcScope.Core.Abstractions;
@@ -119,6 +120,30 @@ public sealed class MainWindowViewModelWatchTests
         Assert.Equal([ValueDataType.Bit], wordBitItem.AvailableDataTypes);
         Assert.Contains(ValueDataType.Bit, bitDeviceItem.AvailableDataTypes);
         Assert.Contains(ValueDataType.UInt16, bitDeviceItem.AvailableDataTypes);
+    }
+
+    [Fact]
+    public void WatchTypeOptions_ReapplyingSameOptionsDoesNotResetAvailableTypes()
+    {
+        var viewModel = new MainWindowViewModel(
+            new CapturingSessionFactory(new CapturingSession()),
+            new NullProjectStore(),
+            new InMemorySettingsStore(),
+            new NullLogStore());
+        var item = new WatchItemViewModel(new WatchItem { Address = "D0", DataType = ValueDataType.UInt16 });
+        viewModel.WatchItems.Add(item);
+        var originalOptions = item.AvailableDataTypes.ToArray();
+        var collectionChanges = new List<NotifyCollectionChangedAction>();
+        item.AvailableDataTypes.CollectionChanged += (_, args) => collectionChanges.Add(args.Action);
+
+        viewModel.ConnectionSettings = viewModel.ConnectionSettings with
+        {
+            AutoRefreshIntervalMs = viewModel.ConnectionSettings.AutoRefreshIntervalMs + 1,
+        };
+
+        Assert.Equal(originalOptions, item.AvailableDataTypes);
+        Assert.Empty(collectionChanges);
+        Assert.Equal(ValueDataType.UInt16, item.DataType);
     }
 
     [Fact]

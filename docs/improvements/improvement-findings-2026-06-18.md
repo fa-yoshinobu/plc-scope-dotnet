@@ -2,6 +2,7 @@
 
 調査日: 2026-06-18  
 対象ブランチ: main (commit 98be138)
+更新: 2026-06-19 main で完了済み項目にチェックを反映。
 
 ---
 
@@ -26,34 +27,34 @@
 
 ### 1. 確認済みの不具合・欠陥
 
-- [ ] **1-A** `ImportCommentCsvAsync` の死コード行 — `MainWindowViewModel.cs:393-394`
-- [ ] **1-B** `DisconnectAsync` インデント崩れ — `MainWindowViewModel.cs:621`
-- [ ] **1-C** `ToggleDWordBitAsync` インデント崩れ（2箇所） — `MainWindowViewModel.cs:2054,2060`
+- [x] **1-A** `ImportCommentCsvAsync` の死コード行 — `MainWindowViewModel.cs:393-394`
+- [x] **1-B** `DisconnectAsync` インデント崩れ — `MainWindowViewModel.cs:621`
+- [x] **1-C** `ToggleDWordBitAsync` インデント崩れ（2箇所） — `MainWindowViewModel.cs:2054,2060`
 - [ ] **1-D** `NumericFormatter` 符号あり/なしのオーバーフロー処理の非対称 — `NumericFormatter.cs:154-157`
 - [ ] **1-E** `ParseByType` Float32 のエラー処理なし — `NumericFormatter.cs:71`
 - [ ] **1-F** `NormalizeDataType` ビットデバイスへの非 Bit 型素通り — `WatchDataTypePolicy.cs:31-32`
 
 ### 2. エラーメッセージの誤流用
 
-- [ ] **2-A** `ReadWatchItemAsync` のメッセージが文脈と不一致 — `MainWindowViewModel.cs:898`
-- [ ] **2-B** `ToggleDWordBitAsync` 1箇所目のメッセージが文脈と不一致 — `MainWindowViewModel.cs:2054`
+- [x] **2-A** `ReadWatchItemAsync` のメッセージが文脈と不一致 — `MainWindowViewModel.cs:898`
+- [x] **2-B** `ToggleDWordBitAsync` 1箇所目のメッセージが文脈と不一致 — `MainWindowViewModel.cs:2054`
 
 ### 3. コード重複・設計負債
 
-- [ ] **3-A** ウォッチ読取エラー処理の完全重複 — `MainWindowViewModel.cs:842-893`
-- [ ] **3-B** 行 VM 生成の二重 switch — `MainWindowViewModel.cs:1963, ~2790`
-- [ ] **3-C** テストダブルの重複定義 — `MainWindowViewModelWatchTests.cs` / `CommentCsvTests.cs`
-- [ ] **3-D** 純粋フォーマッタ関数の VM 同居 — `MainWindowViewModel.cs`（約20関数）
-- [ ] **3-E** FlaUI テストと VM 単体テストの混在 — `tests/PlcScope.App.UiTests`
+- [x] **3-A** ウォッチ読取エラー処理の完全重複 — `MainWindowViewModel.cs:842-893`
+- [x] **3-B** 行 VM 生成の二重 switch — `MainWindowViewModel.cs:1963, ~2790`
+- [x] **3-C** テストダブルの重複定義 — `MainWindowViewModelWatchTests.cs` / `CommentCsvTests.cs`
+- [x] **3-D** 純粋フォーマッタ関数の VM 同居 — `MainWindowViewModel.cs`（約20関数）
+- [x] **3-E** FlaUI テストと VM 単体テストの混在 — `tests/PlcScope.App.UiTests`
 
 ### 4. パフォーマンス改善機会
 
-- [ ] **4-A** ログトリムの毎回フルリライト（高頻度・実測影響あり） — `FileLogStore.cs:191-211`
-- [ ] **4-B** コメント解決の毎リフレッシュ再計算 — `MainWindowViewModel.cs: ApplyCsvComments`
-- [ ] **4-C** ファミリ解決の毎回再構築 — `MainWindowViewModel.cs: ResolveDeviceFamilyForAddress`
-- [ ] **4-D** ウォッチ書込後の全行再読 — `MainWindowViewModel.cs: WriteWatchXxxAsync`
-- [ ] **4-E** 監視行 VM の毎回新規生成（GC負荷） — `MainWindowViewModel.cs: ReplaceRows`
-- [ ] **4-F** ウォッチ一括読み（通信往復数削減・大規模改善） — `SlmpSession` + VM
+- [x] **4-A** ログトリムの毎回フルリライト（高頻度・実測影響あり） — `FileLogStore.cs:191-211`
+- [x] **4-B** コメント解決の毎リフレッシュ再計算 — `MainWindowViewModel.cs: ApplyCsvComments`
+- [x] **4-C** ファミリ解決の毎回再構築 — `MainWindowViewModel.cs: ResolveDeviceFamilyForAddress`
+- [x] **4-D** ウォッチ書込後の全行再読 — `MainWindowViewModel.cs: WriteWatchXxxAsync`
+- [x] **4-E** 監視行 VM の毎回新規生成（GC負荷） — `MainWindowViewModel.cs: ReplaceRows`
+- [x] **4-F** ウォッチ一括読み（通信往復数削減・大規模改善） — `SlmpSession` + VM
 
 ### 5. 潜在的な問題（軽微・エッジケース）
 
@@ -64,33 +65,33 @@
 
 ### 6. ドキュメント・CI との乖離
 
-- [ ] **6-A** `docs/development.md` 依存関係記述が実態と不一致
-- [ ] **6-B** `release.yml` に使われていないステップが残存
+- [x] **6-A** `docs/development.md` 依存関係記述が実態と不一致
+- [x] **6-B** `release.yml` に使われていないステップが残存
 
 ### 7. 既承認タスク（refactor-instructions.md 第2サイクル）
 
-- [ ] **D1** 重複行削除・インデント修正（L393, L621, L2053-2061）
-- [ ] **D1b** 誤流用エラーメッセージ修正 L898, L2054
-- [ ] **D2a** ウォッチ読取エラー処理の重複統合
-- [ ] **D2b** テストダブルの共有ファイルへ統合
-- [ ] **D2c** VM 単体テストを PlcScope.App.Tests へ分離
-- [ ] **D3** 純粋フォーマッタ群を Core へ抽出
-- [ ] **D4** コメント CSV マージロジックを Core へ抽出
-- [ ] **D5** ウォッチ読取解釈ロジックを Core へ抽出
-- [ ] **D6** 行 VM 生成の二重 switch 統合
-- [ ] **D7** `docs/development.md` 修正 + CI ステップ削除
-- [ ] **D9** ウォッチ書込後の全行再読 → 1 行のみ再読
-- [ ] **D10** コメント解決・ファミリ解決のキャッシュ導入
-- [ ] **D11** ログトリムのヒステリシス導入
-- [ ] **D12** 行 VM の in-place 更新（特性テスト前提）
-- [ ] **perf-batch** ウォッチ一括読み・ビット一括書込（第2サイクル完了後）
+- [x] **D1** 重複行削除・インデント修正（L393, L621, L2053-2061）
+- [x] **D1b** 誤流用エラーメッセージ修正 L898, L2054
+- [x] **D2a** ウォッチ読取エラー処理の重複統合
+- [x] **D2b** テストダブルの共有ファイルへ統合
+- [x] **D2c** VM 単体テストを PlcScope.App.Tests へ分離
+- [x] **D3** 純粋フォーマッタ群を Core へ抽出
+- [x] **D4** コメント CSV マージロジックを Core へ抽出
+- [x] **D5** ウォッチ読取解釈ロジックを Core へ抽出
+- [x] **D6** 行 VM 生成の二重 switch 統合
+- [x] **D7** `docs/development.md` 修正 + CI ステップ削除
+- [x] **D9** ウォッチ書込後の全行再読 → 1 行のみ再読
+- [x] **D10** コメント解決・ファミリ解決のキャッシュ導入
+- [x] **D11** ログトリムのヒステリシス導入
+- [x] **D12** 行 VM の in-place 更新（特性テスト前提）
+- [x] **perf-batch** ウォッチ一括読み・ビット一括書込（第2サイクル完了後）
 
 ---
 
 ## 1. 確認済みの不具合・欠陥
 
 ### 1-A. `ImportCommentCsvAsync` の死コード行
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 393–394
@@ -106,7 +107,7 @@ ErrorText = string.Empty;   // ← 同一行が連続。片方は死コード
 ---
 
 ### 1-B. `DisconnectAsync` 内のインデント崩れ
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 619–622
@@ -124,7 +125,7 @@ StatusText = "Disconnected";   // ← インデント崩れ（ブロック内な
 ---
 
 ### 1-C. `ToggleDWordBitAsync` のインデント崩れ（2箇所）
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 2053–2061
@@ -215,7 +216,7 @@ if (family.Kind == DeviceKind.Bit)
 ## 2. エラーメッセージの誤流用
 
 ### 2-A. `ReadWatchItemAsync` のメッセージが文脈と不一致
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 898
@@ -232,7 +233,7 @@ if (_session is null)
 ---
 
 ### 2-B. `ToggleDWordBitAsync` の 1 箇所目のメッセージが文脈と不一致
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 2054
@@ -252,7 +253,7 @@ if (IsSlmpDWordOnlyFamily())
 ## 3. コード重複・設計負債
 
 ### 3-A. ウォッチ読取エラー処理の完全重複
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 842–866 (`ReadWatchListAsync` ループ本体) と 869–893 (`RefreshWatchItemAsync`)
@@ -264,7 +265,7 @@ try/catch の内容・例外処理・ビット初期化がほぼ完全に同一�
 ---
 
 ### 3-B. 行 VM 生成の二重 switch
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 1963–2018 (`CreateRowViewModel`) と 推定 2790 付近 (`CreateReadOnlyRowViewModel`)
@@ -276,7 +277,7 @@ try/catch の内容・例外処理・ビット初期化がほぼ完全に同一�
 ---
 
 ### 3-C. テストダブルの重複定義
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `tests/PlcScope.App.UiTests/` 以下の複数ファイル
 
@@ -286,7 +287,7 @@ try/catch の内容・例外処理・ビット初期化がほぼ完全に同一�
 ---
 
 ### 3-D. 純粋フォーマッタ関数の VM 同居
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`
 
@@ -297,7 +298,7 @@ Core への抽出でユニットテストが追加可能になる。
 ---
 
 ### 3-E. FlaUI テストと VM 単体テストの混在
-- [ ] 対応完了
+- [x] 対応完了
 
 **プロジェクト**: `tests/PlcScope.App.UiTests`
 
@@ -310,7 +311,7 @@ UIA スモークテスト（実デスクトップセッション必須）と高�
 ## 4. パフォーマンス改善機会
 
 ### 4-A. ログトリムの毎回フルリライト（高頻度・実測影響あり）
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.Infrastructure/Storage/FileLogStore.cs`  
 **行**: 191–211
@@ -332,7 +333,7 @@ PLC 切断中に自動リフレッシュが動いていると 500ms ごとにエ
 ---
 
 ### 4-B. コメント解決の毎リフレッシュ再計算
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **箇所**: `ApplyCsvComments` → `GetCommentAddressKeys` → `CommentAddressKeyProvider.GetKeys`
@@ -347,7 +348,7 @@ PLC 切断中に自動リフレッシュが動いていると 500ms ごとにエ
 ---
 
 ### 4-C. ファミリ解決の毎回再構築
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 推定 1264 (`ResolveDeviceFamilyForAddress`)
@@ -361,7 +362,7 @@ PLC 切断中に自動リフレッシュが動いていると 500ms ごとにエ
 ---
 
 ### 4-D. ウォッチ書込後の全行再読
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **箇所**: `WriteWatchDirectBitAsync`, `WriteWatchBitAsync`, `WriteWatchItemAsync`
@@ -375,7 +376,7 @@ PLC 切断中に自動リフレッシュが動いていると 500ms ごとにエ
 ---
 
 ### 4-E. 監視行 VM の毎回新規生成（GC負荷）
-- [ ] 対応完了
+- [x] 対応完了
 
 **ファイル**: `src/PlcScope.App/ViewModels/MainWindowViewModel.cs`  
 **行**: 推定 1399–1416 (`ReplaceRows`)
@@ -391,7 +392,7 @@ PLC 切断中に自動リフレッシュが動いていると 500ms ごとにエ
 ---
 
 ### 4-F. ウォッチ一括読み（通信往復数削減）— 大規模改善
-- [ ] 対応完了
+- [x] 対応完了
 
 **現状**: 可視 1 行 = 1 往復の逐次読み（100行可視時 = 100往復直列）  
 **改善案**: SLMP `ReadRandomAsync` を活用し複数アドレスを 1〜数往復でまとめて読む。  
@@ -471,7 +472,7 @@ private static async Task<int> CountLogRecordsAsync(string path, ...)
 ## 6. ドキュメント・CI との乖離
 
 ### 6-A. `docs/development.md` の依存関係記述が実態と不一致
-- [ ] 対応完了
+- [x] 対応完了
 
 **行**: 34 付近
 
@@ -482,7 +483,7 @@ private static async Task<int> CountLogRecordsAsync(string path, ...)
 ---
 
 ### 6-B. `release.yml` に使われていないステップが残存
-- [ ] 対応完了
+- [x] 対応完了
 
 `.github/workflows/release.yml` の "Checkout protocol dependencies" ステップ（兄弟リポジトリ3つのclone）は commit `2c8c3f4` 以降どの csproj からも使われていない。  
 （`refactor-instructions.md` D7 に承認済み）
@@ -493,21 +494,21 @@ private static async Task<int> CountLogRecordsAsync(string path, ...)
 
 | チェック | ID | 内容 |
 |:---:|----|----|
-| - [ ] | D1 | 重複行削除・インデント修正（L393, L621, L2053-2061） |
-| - [ ] | D1b | 誤流用エラーメッセージ修正 L898, L2054 |
-| - [ ] | D2a | ウォッチ読取エラー処理の重複統合 |
-| - [ ] | D2b | テストダブルの共有ファイルへ統合 |
-| - [ ] | D2c | VM 単体テストを PlcScope.App.Tests へ分離 |
-| - [ ] | D3 | 純粋フォーマッタ群を Core へ抽出 |
-| - [ ] | D4 | コメント CSV マージロジックを Core へ抽出 |
-| - [ ] | D5 | ウォッチ読取解釈ロジックを Core へ抽出 |
-| - [ ] | D6 | 行 VM 生成の二重 switch 統合 |
-| - [ ] | D7 | `docs/development.md` 修正 + CI ステップ削除 |
-| - [ ] | D9 | ウォッチ書込後の全行再読 → 1 行のみ再読 |
-| - [ ] | D10 | コメント解決・ファミリ解決のキャッシュ導入 |
-| - [ ] | D11 | ログトリムのヒステリシス導入 |
-| - [ ] | D12 | 行 VM の in-place 更新（特性テスト前提） |
-| - [ ] | perf-batch | ウォッチ一括読み・ビット一括書込（第2サイクル完了後） |
+| - [x] | D1 | 重複行削除・インデント修正（L393, L621, L2053-2061） |
+| - [x] | D1b | 誤流用エラーメッセージ修正 L898, L2054 |
+| - [x] | D2a | ウォッチ読取エラー処理の重複統合 |
+| - [x] | D2b | テストダブルの共有ファイルへ統合 |
+| - [x] | D2c | VM 単体テストを PlcScope.App.Tests へ分離 |
+| - [x] | D3 | 純粋フォーマッタ群を Core へ抽出 |
+| - [x] | D4 | コメント CSV マージロジックを Core へ抽出 |
+| - [x] | D5 | ウォッチ読取解釈ロジックを Core へ抽出 |
+| - [x] | D6 | 行 VM 生成の二重 switch 統合 |
+| - [x] | D7 | `docs/development.md` 修正 + CI ステップ削除 |
+| - [x] | D9 | ウォッチ書込後の全行再読 → 1 行のみ再読 |
+| - [x] | D10 | コメント解決・ファミリ解決のキャッシュ導入 |
+| - [x] | D11 | ログトリムのヒステリシス導入 |
+| - [x] | D12 | 行 VM の in-place 更新（特性テスト前提） |
+| - [x] | perf-batch | ウォッチ一括読み・ビット一括書込（第2サイクル完了後） |
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## 2026-06-11 Archived Refactor Plan
 
-The previous `refactor-instructions.md` was archived into this history file.
+The older refactor planning notes now live under `docs/improvements/`.
 
 ### Scope
 

@@ -257,7 +257,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
   - word-bit read-modify-write 経路は、対象外 bit 不変の保証を守るため一括化していない。
 - Phase 6:
   - `TODO.md` の Remaining Manual Validation に実機検証チェックリストを追記。
-  - `docs/perf-batch-io-report.md` に support table、実装内容、Stop And Ask、実機確認内容を記録。
+  - `docs/improvements/perf-batch-io-report.md` に support table、実装内容、Stop And Ask、実機確認内容を記録。
 
 ### できていないこと / 残したこと
 
@@ -273,7 +273,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
   - `melsec:qnudv` profile でも `192.168.250.100:1025` に対して軽量 smoke を実施済み。
     `D1000-D1003` と `M1000-M1015` を使用し、Word / DWord / word-bit /
     random bit batch / mixed batch read を確認、全 scratch 値の復元確認済み。
-  - 大量 watch 行(>50)の app-level scroll read は未実施。
+  - `docs/slmp-iqr-100-watch.json` による 100 行 watch UI の app-level scroll read は確認済み。
   - random read 拒否時の逐次 fallback は実機では未実施。
     対象 iQ-R が random-read frame を受け入れたため、拒否 scenario を自動再現できなかった。
     fallback path 自体は fake-SLMP 自動テストで確認済み。
