@@ -61,11 +61,83 @@ Added tests cover:
 
 - Host Link cross-watch batching needs library source or protocol documentation for point limits and mixed-device constraints before implementation.
 - TOYOPUC cross-watch batching needs library source or protocol documentation for `ReadMany` / relay / mixed-device constraints before implementation.
-- Real PLC validation has not been performed by the implementation agent.
+- Live random-read rejection fallback has not been reproduced on the real iQ-R used for automatic checks because the PLC accepted the random-read frames. The fallback path remains covered by fake-SLMP automated tests.
 
 ## Manual Validation
 
 `TODO.md` now contains the remaining real PLC validation checklist. Merge judgment for this batch I/O change must wait until those items are completed on real hardware.
+
+### Automatic Live PLC Check (2026-06-19)
+
+Target:
+
+- PLC: SLMP iQ-R profile
+- Endpoint: `192.168.250.100:1025` over TCP
+- Scratch devices used: `D1000-D1005` and `M1000-M1031`
+
+Result:
+
+- Connected successfully. CPU state reported `Run`, raw `0x0000`.
+- Saved original scratch values before writes.
+- PASS: Mixed watch reads for Word, DWord, Float32, Bit, and word-bit matched the previous sequential read results.
+- PASS: Invalid address `DXYZ` produced an error only for that row; valid `D1000` and `D1002` rows still succeeded.
+- PASS: Random bit write changed target bits only; non-target `M1016-M1031` bits stayed unchanged.
+- PASS: 30 read/write cycles completed with `NewErrorEvents=0` and `TraceEvents=222`.
+- PASS: Original `D1000-D1005` and `M1000-M1031` values were restored and verified.
+- SKIP: Live random-read rejection fallback. The PLC accepted the random-read frames; fallback remains covered by automated fake-SLMP tests.
+
+### Extended Live PLC Pattern Check (2026-06-19)
+
+Target:
+
+- PLC: SLMP iQ-R profile
+- Endpoint: `192.168.250.100:1025` over TCP
+- Duration: about 1 hour (`01:00:00.0107279`)
+- Devices intentionally not used: `X`, `Y`, `G`
+- Scratch ranges used:
+  - `D1000-D1127`
+  - `W1000-W103F`
+  - `M1000-M1063`
+  - `L1000-L1063`
+  - `B1000-B103F`
+
+Result:
+
+- Active device ranges: `D`, `W`, `M`, `L`, and `B` were all readable/writable on the target PLC.
+- PASS: Scalar word writes and reads across `D` / `W` patterns.
+- PASS: `UInt32` and `Float32` values on `D` devices read back through sequential and batch paths.
+- PASS: `WriteBitInWordAsync` changed only the requested bit in `D` word devices.
+- PASS: Random bit writes across `M`, `L`, and `B` changed target bits only and preserved non-target bits.
+- PASS: Mixed sequential reads and `ReadBatchAsync` results matched across word, DWord, Float32, and bit-device queries.
+- PASS: 70 single-word query batches crossed the 64-device random-read chunk boundary correctly.
+- PASS: Invalid address checks remained row-isolated during the long run.
+- PASS: Long run completed with `iterations=10546`, `TraceEvents=1728038`, and `ErrorEvents=0`.
+- PASS: Original values for all scratch ranges were restored and verified.
+
+Notes:
+
+- Session-level `>50` row batch behavior is covered by the 70-query checks above.
+- App-level visible-row scrolling still needs UI confirmation.
+- Live random-read rejection fallback is still not reproduced on this iQ-R because random-read frames are accepted.
+
+### Light QnUDV Live PLC Smoke Check (2026-06-19)
+
+Target:
+
+- PLC: SLMP QnUDV profile (`melsec:qnudv`)
+- Endpoint: `192.168.250.100:1025` over TCP
+- Scratch devices used: `D1000-D1003` and `M1000-M1015`
+
+Result:
+
+- Connected successfully. CPU state reported `Run`, raw `0x0000`.
+- Saved original scratch values before writes.
+- PASS: Word writes to `D1000` / `D1001` read back correctly.
+- PASS: DWord write to `D1002` read back as `D1002=0xCDEF`, `D1003=0x89AB`.
+- PASS: Word-bit write `D1000.3` read back correctly.
+- PASS: Random bit batch write over `M1000-M1015` read back correctly.
+- PASS: Mixed batch read over Word, DWord, and Bit queries returned 3 successful rows.
+- PASS: Original `D1000-D1003` and `M1000-M1015` values were restored and verified.
 
 ### What To Confirm On Real Hardware
 

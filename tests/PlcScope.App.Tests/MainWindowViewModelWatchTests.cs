@@ -357,6 +357,50 @@ public sealed class MainWindowViewModelWatchTests
     }
 
     [Fact]
+    public async Task WatchDWordBitToggle_MapsHighBitToNextWord()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "D0",
+            DataType = ValueDataType.UInt32,
+        });
+
+        await viewModel.RefreshWatchItemAsync(item);
+        session.ClearReadQueries();
+
+        var highBit = item.Bits[0];
+        await highBit.ToggleCommand.ExecuteAsync(null);
+
+        Assert.Equal(31, highBit.BitIndex);
+        Assert.Equal("D1.15", highBit.Address);
+        Assert.Equal(("D1", 15, true), session.LastWordBitWrite);
+        var query = Assert.Single(session.ReadQueries);
+        Assert.Equal("D0", query.StartAddress);
+    }
+
+    [Fact]
+    public async Task WatchDWordOnlyDeviceBits_AreReadOnlyAndUseDWordBitAddresses()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "LZ0",
+            DataType = ValueDataType.UInt32,
+        });
+
+        await viewModel.RefreshWatchItemAsync(item);
+
+        Assert.Equal(32, item.Bits.Count);
+        Assert.Equal("LZ0.31", item.Bits[0].Address);
+        Assert.Equal("LZ0.0", item.Bits[^1].Address);
+        Assert.All(item.Bits, bit => Assert.False(bit.CanToggle));
+        Assert.Null(session.LastWordBitWrite);
+    }
+
+    [Fact]
     public async Task ReadOnceAsync_WatchTabUsesBatchReadForVisibleItems()
     {
         var session = new CapturingSession();
@@ -502,14 +546,30 @@ public sealed class MainWindowViewModelWatchTests
         {
             if (query.DeviceKind == DeviceKind.Bit)
             {
-                var addresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => $"M{index}").ToArray();
+                var addresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => FormatAddress(query.StartAddress, index)).ToArray();
                 var bits = Enumerable.Range(0, query.EffectiveItemCount).Select(index => index % 2 == 1).ToArray();
                 return new BlockReadResult(query, addresses, [], bits, new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null);
             }
 
-            var wordAddresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => $"D{index}").ToArray();
-            var words = Enumerable.Range(0, query.EffectiveItemCount).Select(static _ => (ushort)1).ToArray();
+            var wordCount = query.DeviceFamilyCode == "LZ"
+                ? query.EffectiveItemCount * 2
+                : query.EffectiveItemCount;
+            var wordAddresses = Enumerable.Range(0, wordCount)
+                .Select(index => query.DeviceFamilyCode == "LZ"
+                    ? query.StartAddress
+                    : FormatAddress(query.StartAddress, index))
+                .ToArray();
+            var words = Enumerable.Range(0, wordCount).Select(static _ => (ushort)1).ToArray();
             return new BlockReadResult(query, wordAddresses, words, [], new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null);
+        }
+
+        private static string FormatAddress(string startAddress, int offset)
+        {
+            var prefix = new string(startAddress.TakeWhile(char.IsLetter).ToArray());
+            var numberText = startAddress[prefix.Length..];
+            return int.TryParse(numberText, out var number)
+                ? $"{prefix}{number + offset}"
+                : startAddress;
         }
 
         public Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default)

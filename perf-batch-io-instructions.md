@@ -261,13 +261,22 @@ dotnet test .\PlcScopeDotNet.sln -m:1
 
 ### できていないこと / 残したこと
 
-- 実機 PLC 検証は未実施。
-  - 大量 watch 行の scroll read。
-  - Word / DWord / Float32 / Bit / word-bit の値一致確認。
-  - 無効 address が他行を巻き込まないことの実機確認。
-  - random read 拒否時の逐次 fallback 確認。
-  - bit 一括書込時に対象外 device / bit が変わらないことの確認。
-  - 長時間 trace / error logging の安定確認。
+- 実機 PLC 検証は一部のみ実施済み。
+  - `192.168.250.100:1025` の SLMP iQ-R で、Word / DWord / Float32 / Bit /
+    word-bit の値一致、無効 address の行単位 error isolation、bit 一括書込の
+    対象外 bit 不変、30 cycle の trace / error logging smoke は確認済み。
+  - 追加で約 1 時間の実機 read/write pattern check を実施済み。
+    `X` / `Y` / `G` を除外し、`D1000-D1127`、`W1000-W103F`、
+    `M1000-M1063`、`L1000-L1063`、`B1000-B103F` を使用。
+    10,546 iterations、1,728,038 trace events、0 error events、全 scratch 値の復元確認済み。
+  - 70 single-word query batch により、64 device random-read chunk 境界超えは確認済み。
+  - `melsec:qnudv` profile でも `192.168.250.100:1025` に対して軽量 smoke を実施済み。
+    `D1000-D1003` と `M1000-M1015` を使用し、Word / DWord / word-bit /
+    random bit batch / mixed batch read を確認、全 scratch 値の復元確認済み。
+  - 大量 watch 行(>50)の app-level scroll read は未実施。
+  - random read 拒否時の逐次 fallback は実機では未実施。
+    対象 iQ-R が random-read frame を受け入れたため、拒否 scenario を自動再現できなかった。
+    fallback path 自体は fake-SLMP 自動テストで確認済み。
 - Host Link の cross-watch batch read / bit batch write は未実装。
   - DLL metadata だけでは cross-watch の点数上限・混載制約を確定できなかったため。
   - 既存 `ReadBlockAsync` 内の monitor / consecutive / named optimization は維持。

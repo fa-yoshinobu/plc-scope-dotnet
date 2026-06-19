@@ -1019,7 +1019,7 @@ public partial class MainWindowViewModel : ObservableObject
             return ReadWatchBitDeviceItem(item, dataType, item.DisplayRadix, result, family);
 
         var interpreted = WatchValueInterpreter.InterpretWordDevice(result.WordValues, dataType, item.DisplayRadix);
-        SetWatchBits(item, normalizedAddress, interpreted.RawValue, interpreted.BitCount, CanToggleWatchBits(family));
+        SetWatchBits(item, family, normalizedAddress, interpreted.RawValue, interpreted.BitCount, CanToggleWatchBits(family));
         return (interpreted.ValueText, interpreted.RawText);
     }
 
@@ -1029,6 +1029,11 @@ public partial class MainWindowViewModel : ObservableObject
         DeviceFamilyDefinition Family,
         ValueDataType DataType,
         WatchWordBitAddress? WordBitAddress);
+
+    private sealed record WatchWordDeviceBitTarget(
+        string WordAddress,
+        int BitIndex,
+        string BitAddress);
 
     private (string ValueText, string RawText) ReadWatchBitDeviceItem(
         WatchItemViewModel item,
@@ -1086,7 +1091,13 @@ public partial class MainWindowViewModel : ObservableObject
             canToggle ? next => WriteWatchBitAsync(item, wordAddress, bitIndex, next) : null));
     }
 
-    private void SetWatchBits(WatchItemViewModel item, string wordAddress, uint value, int bitCount, bool canToggleBits)
+    private void SetWatchBits(
+        WatchItemViewModel item,
+        DeviceFamilyDefinition family,
+        string wordAddress,
+        uint value,
+        int bitCount,
+        bool canToggleBits)
     {
         if (item.Bits.Count == bitCount)
         {
@@ -1094,8 +1105,9 @@ public partial class MainWindowViewModel : ObservableObject
             for (var index = 0; index < bitCount; index++)
             {
                 var expectedBit = bitCount - 1 - index;
+                var expectedAddress = ResolveWatchWordDeviceBitTarget(family, wordAddress, expectedBit).BitAddress;
                 if (item.Bits[index].BitIndex != expectedBit
-                    || !string.Equals(item.Bits[index].Address, $"{wordAddress}.{expectedBit}", StringComparison.Ordinal))
+                    || !string.Equals(item.Bits[index].Address, expectedAddress, StringComparison.Ordinal))
                 {
                     canReuse = false;
                     break;
@@ -1118,13 +1130,32 @@ public partial class MainWindowViewModel : ObservableObject
         for (var bit = bitCount - 1; bit >= 0; bit--)
         {
             var bitIndex = bit;
+            var target = ResolveWatchWordDeviceBitTarget(family, wordAddress, bitIndex);
             item.Bits.Add(new BitCellViewModel(
                 bitIndex,
                 ((value >> bitIndex) & 0x1) != 0,
-                $"{wordAddress}.{bitIndex}",
+                target.BitAddress,
                 canToggleBits,
-                canToggleBits ? next => WriteWatchBitAsync(item, wordAddress, bitIndex, next) : null));
+                canToggleBits ? next => WriteWatchBitAsync(item, target.WordAddress, target.BitIndex, next) : null));
         }
+    }
+
+    private WatchWordDeviceBitTarget ResolveWatchWordDeviceBitTarget(
+        DeviceFamilyDefinition family,
+        string wordAddress,
+        int bitIndex)
+    {
+        if (bitIndex is >= 0 and <= 15
+            || MonitorRangePlanner.IsDWordOnlyFamily(SelectedProtocol.Kind, family)
+            || !DeviceAddressRangeProvider.TryParseAddress(wordAddress, family, out var address))
+        {
+            return new WatchWordDeviceBitTarget(wordAddress, bitIndex, $"{wordAddress}.{bitIndex}");
+        }
+
+        var wordOffset = bitIndex / 16;
+        var localBitIndex = bitIndex % 16;
+        var targetWordAddress = address.FormatOffset(wordOffset);
+        return new WatchWordDeviceBitTarget(targetWordAddress, localBitIndex, $"{targetWordAddress}.{localBitIndex}");
     }
 
     private void SetWatchBits(
