@@ -1,8 +1,6 @@
-namespace PlcScope.App.ViewModels;
+namespace PlcScope.Core.Services;
 
-using PlcScope.Core.Services;
-
-internal static class PlcProfileDisplayFormatter
+public static class PlcProfileDisplayFormatter
 {
     public static string FormatSlmpPlcProfile(string profileName) =>
         profileName switch

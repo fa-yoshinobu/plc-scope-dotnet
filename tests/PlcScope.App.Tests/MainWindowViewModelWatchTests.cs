@@ -1,4 +1,4 @@
-namespace PlcScope.App.UiTests;
+namespace PlcScope.App.Tests;
 
 using System.Reflection;
 using PlcScope.App.ViewModels;
@@ -148,6 +148,63 @@ public sealed class MainWindowViewModelWatchTests
     }
 
     [Fact]
+    public void ReplaceRows_UpdatesMatchingWordRowInPlaceAndKeepsSelection()
+    {
+        var viewModel = new MainWindowViewModel(
+            new CapturingSessionFactory(new CapturingSession()),
+            new NullProjectStore(),
+            new InMemorySettingsStore(),
+            new NullLogStore());
+        var snapshot = new BlockSnapshot(
+            new BlockQuery(),
+            [new WordMonitorRow("D0", 1, [new BitCellState(0, false, "D0.0")], "old")],
+            DateTimeOffset.UtcNow,
+            1,
+            null);
+        RebuildRows(viewModel, snapshot);
+        var row = Assert.IsType<WordRowViewModel>(viewModel.Rows[0]);
+        viewModel.SelectedRow = row;
+
+        ReplaceRows(viewModel, 0, [new WordMonitorRow("D0", 2, [new BitCellState(0, true, "D0.0")], "new")]);
+
+        Assert.Same(row, viewModel.Rows[0]);
+        Assert.Same(row, viewModel.SelectedRow);
+        Assert.Equal((ushort)2, row.Value);
+        Assert.Equal("2", row.EditableValueText);
+        Assert.Equal("0x0002", row.HexText);
+        Assert.Equal("new", row.Comment);
+        Assert.True(row.Bits.Single().IsOn);
+    }
+
+    [Fact]
+    public void ReplaceRows_DoesNotUpdatePendingInlineEdit()
+    {
+        var viewModel = new MainWindowViewModel(
+            new CapturingSessionFactory(new CapturingSession()),
+            new NullProjectStore(),
+            new InMemorySettingsStore(),
+            new NullLogStore());
+        var snapshot = new BlockSnapshot(
+            new BlockQuery(),
+            [new WordMonitorRow("D0", 1, [new BitCellState(0, false, "D0.0")], "old")],
+            DateTimeOffset.UtcNow,
+            1,
+            null);
+        RebuildRows(viewModel, snapshot);
+        var row = Assert.IsType<WordRowViewModel>(viewModel.Rows[0]);
+        row.EditableValueText = "pending";
+        SetInlineEditing(viewModel, true);
+
+        ReplaceRows(viewModel, 0, [new WordMonitorRow("D0", 2, [new BitCellState(0, true, "D0.0")], "new")]);
+
+        Assert.Same(row, viewModel.Rows[0]);
+        Assert.Equal((ushort)1, row.Value);
+        Assert.Equal("pending", row.EditableValueText);
+        Assert.Equal("old", row.Comment);
+        Assert.False(row.Bits.Single().IsOn);
+    }
+
+    [Fact]
     public async Task RefreshWatchItemAsync_BitDeviceWord_ReadsMonitorSizedBitRange()
     {
         var session = new CapturingSession();
@@ -259,6 +316,127 @@ public sealed class MainWindowViewModelWatchTests
         Assert.Equal(("D0", 3, true), session.LastWordBitWrite);
     }
 
+    [Fact]
+    public async Task WriteWatchItemAsync_RefreshesOnlyWrittenItem()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var first = new WatchItemViewModel(new WatchItem { Address = "D0" });
+        var second = new WatchItemViewModel(new WatchItem { Address = "D1" });
+        viewModel.WatchItems.Add(first);
+        viewModel.WatchItems.Add(second);
+
+        await viewModel.WriteWatchItemAsync(first, "5");
+
+        var query = Assert.Single(session.ReadQueries);
+        Assert.Equal("D0", query.StartAddress);
+        Assert.Equal(1, query.ItemCount);
+    }
+
+    [Fact]
+    public async Task WatchBitToggle_RefreshesOnlyOwningItem()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "M0",
+            DataType = ValueDataType.UInt16,
+        });
+
+        await viewModel.RefreshWatchItemAsync(item);
+        session.ClearReadQueries();
+
+        await item.Bits[0].ToggleCommand.ExecuteAsync(null);
+
+        Assert.NotNull(session.LastWriteRequest);
+        Assert.Equal(item.Bits[0].Address, session.LastWriteRequest.Address);
+        var query = Assert.Single(session.ReadQueries);
+        Assert.Equal("M0", query.StartAddress);
+        Assert.Equal(16, query.ItemCount);
+    }
+
+    [Fact]
+    public async Task WatchDWordBitToggle_MapsHighBitToNextWord()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "D0",
+            DataType = ValueDataType.UInt32,
+        });
+
+        await viewModel.RefreshWatchItemAsync(item);
+        session.ClearReadQueries();
+
+        var highBit = item.Bits[0];
+        await highBit.ToggleCommand.ExecuteAsync(null);
+
+        Assert.Equal(31, highBit.BitIndex);
+        Assert.Equal("D1.15", highBit.Address);
+        Assert.Equal(("D1", 15, true), session.LastWordBitWrite);
+        var query = Assert.Single(session.ReadQueries);
+        Assert.Equal("D0", query.StartAddress);
+    }
+
+    [Fact]
+    public async Task WatchDWordOnlyDeviceBits_AreReadOnlyAndUseDWordBitAddresses()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        var item = new WatchItemViewModel(new WatchItem
+        {
+            Address = "LZ0",
+            DataType = ValueDataType.UInt32,
+        });
+
+        await viewModel.RefreshWatchItemAsync(item);
+
+        Assert.Equal(32, item.Bits.Count);
+        Assert.Equal("LZ0.31", item.Bits[0].Address);
+        Assert.Equal("LZ0.0", item.Bits[^1].Address);
+        Assert.All(item.Bits, bit => Assert.False(bit.CanToggle));
+        Assert.Null(session.LastWordBitWrite);
+    }
+
+    [Fact]
+    public async Task ReadOnceAsync_WatchTabUsesBatchReadForVisibleItems()
+    {
+        var session = new CapturingSession();
+        var viewModel = CreateConnectedViewModel(session);
+        viewModel.SelectedMainTabIndex = 1;
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D2" }) { IsValueEditing = true });
+
+        await viewModel.ReadOnceCommand.ExecuteAsync(null);
+
+        var batch = Assert.Single(session.BatchReadQueries);
+        Assert.Equal(["D0", "D1"], batch.Select(static query => query.StartAddress).ToArray());
+        Assert.Empty(session.ReadQueries);
+        Assert.Equal("1", viewModel.WatchItems[0].ValueText);
+        Assert.Equal("1", viewModel.WatchItems[1].ValueText);
+        Assert.Equal(string.Empty, viewModel.WatchItems[2].ValueText);
+    }
+
+    [Fact]
+    public async Task ReadOnceAsync_WatchBatchKeepsRowErrorsIsolated()
+    {
+        var session = new CapturingSession { FailingBatchAddress = "D1" };
+        var viewModel = CreateConnectedViewModel(session);
+        viewModel.SelectedMainTabIndex = 1;
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
+        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
+
+        await viewModel.ReadOnceCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.WatchItems[0].HasError);
+        Assert.Equal("1", viewModel.WatchItems[0].ValueText);
+        Assert.True(viewModel.WatchItems[1].HasError);
+        Assert.Equal("Batch read failed.", viewModel.WatchItems[1].ErrorText);
+    }
+
     private static MainWindowViewModel CreateConnectedViewModel(CapturingSession session)
     {
         var viewModel = new MainWindowViewModel(
@@ -286,6 +464,20 @@ public sealed class MainWindowViewModelWatchTests
         method.Invoke(viewModel, [snapshot]);
     }
 
+    private static void ReplaceRows(MainWindowViewModel viewModel, int startIndex, IReadOnlyList<MonitorRow> rows)
+    {
+        var method = typeof(MainWindowViewModel).GetMethod("ReplaceRows", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method.Invoke(viewModel, [startIndex, rows]);
+    }
+
+    private static void SetInlineEditing(MainWindowViewModel viewModel, bool value)
+    {
+        var field = typeof(MainWindowViewModel).GetField("_isInlineEditing", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        field.SetValue(viewModel, value);
+    }
+
     private sealed class CapturingSessionFactory(CapturingSession session) : IPlcSessionFactory
     {
         public Task<IPlcSession> CreateAsync(ConnectionSettings settings, CancellationToken cancellationToken = default) =>
@@ -298,8 +490,12 @@ public sealed class MainWindowViewModelWatchTests
         public ProtocolDefinition Definition { get; } = ProtocolCatalog.Get(ProtocolKind.Slmp);
         public bool IsConnected { get; private set; }
         public BlockQuery? LastQuery { get; private set; }
+        public List<BlockQuery> ReadQueries { get; } = [];
+        public List<IReadOnlyList<BlockQuery>> BatchReadQueries { get; } = [];
+        public WriteRequest? LastWriteRequest { get; private set; }
         public (string WordAddress, int BitIndex, bool Value)? LastWordBitWrite { get; private set; }
         public CpuCommand? LastCpuCommand { get; private set; }
+        public string? FailingBatchAddress { get; init; }
 
         public event EventHandler<TraceEntry>? TraceReceived
         {
@@ -330,20 +526,57 @@ public sealed class MainWindowViewModelWatchTests
         public Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
         {
             LastQuery = query;
-            if (query.DeviceKind == DeviceKind.Bit)
-            {
-                var addresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => $"M{index}").ToArray();
-                var bits = Enumerable.Range(0, query.EffectiveItemCount).Select(index => index % 2 == 1).ToArray();
-                return Task.FromResult(new BlockReadResult(query, addresses, [], bits, new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null));
-            }
-
-            var wordAddresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => $"D{index}").ToArray();
-            var words = Enumerable.Range(0, query.EffectiveItemCount).Select(static _ => (ushort)1).ToArray();
-            return Task.FromResult(new BlockReadResult(query, wordAddresses, words, [], new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null));
+            ReadQueries.Add(query);
+            return Task.FromResult(CreateReadResult(query));
         }
 
-        public Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new WriteResult(request.Address, "OK", DateTimeOffset.UtcNow));
+        public Task<IReadOnlyList<BlockReadBatchItemResult>> ReadBatchAsync(
+            IReadOnlyList<BlockQuery> queries,
+            CancellationToken cancellationToken = default)
+        {
+            BatchReadQueries.Add(queries.ToArray());
+            return Task.FromResult<IReadOnlyList<BlockReadBatchItemResult>>(queries
+                .Select(query => string.Equals(query.StartAddress, FailingBatchAddress, StringComparison.Ordinal)
+                    ? BlockReadBatchItemResult.FromError(query, new InvalidOperationException("Batch read failed."))
+                    : BlockReadBatchItemResult.FromResult(CreateReadResult(query)))
+                .ToArray());
+        }
+
+        private static BlockReadResult CreateReadResult(BlockQuery query)
+        {
+            if (query.DeviceKind == DeviceKind.Bit)
+            {
+                var addresses = Enumerable.Range(0, query.EffectiveItemCount).Select(index => FormatAddress(query.StartAddress, index)).ToArray();
+                var bits = Enumerable.Range(0, query.EffectiveItemCount).Select(index => index % 2 == 1).ToArray();
+                return new BlockReadResult(query, addresses, [], bits, new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null);
+            }
+
+            var wordCount = query.DeviceFamilyCode == "LZ"
+                ? query.EffectiveItemCount * 2
+                : query.EffectiveItemCount;
+            var wordAddresses = Enumerable.Range(0, wordCount)
+                .Select(index => query.DeviceFamilyCode == "LZ"
+                    ? query.StartAddress
+                    : FormatAddress(query.StartAddress, index))
+                .ToArray();
+            var words = Enumerable.Range(0, wordCount).Select(static _ => (ushort)1).ToArray();
+            return new BlockReadResult(query, wordAddresses, words, [], new Dictionary<string, string>(), DateTimeOffset.UtcNow, 1, null);
+        }
+
+        private static string FormatAddress(string startAddress, int offset)
+        {
+            var prefix = new string(startAddress.TakeWhile(char.IsLetter).ToArray());
+            var numberText = startAddress[prefix.Length..];
+            return int.TryParse(numberText, out var number)
+                ? $"{prefix}{number + offset}"
+                : startAddress;
+        }
+
+        public Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default)
+        {
+            LastWriteRequest = request;
+            return Task.FromResult(new WriteResult(request.Address, "OK", DateTimeOffset.UtcNow));
+        }
 
         public Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default)
         {
@@ -365,6 +598,8 @@ public sealed class MainWindowViewModelWatchTests
 
         public void ClearLastCpuCommand() => LastCpuCommand = null;
 
+        public void ClearReadQueries() => ReadQueries.Clear();
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -377,33 +612,4 @@ public sealed class MainWindowViewModelWatchTests
             Task.CompletedTask;
     }
 
-    private sealed class InMemorySettingsStore : ISettingsStore
-    {
-        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AppSettings());
-
-        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-    }
-
-    private sealed class NullLogStore : ILogStore
-    {
-        public Task AppendTraceAsync(TraceEntry traceEntry, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public Task AppendErrorAsync(ErrorEntry errorEntry, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public Task<IReadOnlyList<TraceEntry>> LoadRecentTraceAsync(int maxCount, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TraceEntry>>([]);
-
-        public Task<IReadOnlyList<ErrorEntry>> LoadRecentErrorsAsync(int maxCount, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<ErrorEntry>>([]);
-
-        public Task ClearTraceAsync(CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public Task ClearErrorsAsync(CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-    }
 }

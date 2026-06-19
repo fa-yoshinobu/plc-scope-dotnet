@@ -1,5 +1,6 @@
-namespace PlcScope.App.UiTests;
+namespace PlcScope.App.Tests;
 
+using System.Reflection;
 using PlcScope.App.ViewModels;
 using PlcScope.Core.Abstractions;
 using PlcScope.Core.Models;
@@ -61,6 +62,58 @@ public sealed class MainWindowViewModelCommentCsvTests
         }
     }
 
+    [Fact]
+    public async Task ApplyCsvComments_InvalidatesResolvedCommentCacheWhenProtocolChanges()
+    {
+        var csvPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-comments.csv");
+        var viewModel = new MainWindowViewModel(
+            new ThrowingSessionFactory(),
+            new CapturingProjectStore(),
+            new InMemorySettingsStore(),
+            new NullLogStore());
+        var result = new BlockReadResult(
+            new BlockQuery(),
+            ["TN12"],
+            [1],
+            [],
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            DateTimeOffset.UtcNow,
+            1,
+            null);
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                csvPath,
+                """
+                header 1,,
+                header 2,,
+                T12,Timer comment,,
+                """);
+            await viewModel.ImportCommentCsvAsync(csvPath);
+
+            var slmpResult = ApplyCsvComments(viewModel, result);
+            Assert.Equal("Timer comment", slmpResult.Comments["TN12"]);
+
+            viewModel.SelectedProtocol = ProtocolCatalog.Get(ProtocolKind.HostLink);
+
+            var hostLinkResult = ApplyCsvComments(viewModel, result);
+            Assert.False(hostLinkResult.Comments.ContainsKey("TN12"));
+        }
+        finally
+        {
+            if (File.Exists(csvPath))
+                File.Delete(csvPath);
+        }
+    }
+
+    private static BlockReadResult ApplyCsvComments(MainWindowViewModel viewModel, BlockReadResult result)
+    {
+        var method = typeof(MainWindowViewModel).GetMethod("ApplyCsvComments", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        return Assert.IsType<BlockReadResult>(method.Invoke(viewModel, [result]));
+    }
+
     private sealed class ThrowingSessionFactory : IPlcSessionFactory
     {
         public Task<IPlcSession> CreateAsync(ConnectionSettings settings, CancellationToken cancellationToken = default) =>
@@ -81,38 +134,4 @@ public sealed class MainWindowViewModelCommentCsvTests
         }
     }
 
-    private sealed class InMemorySettingsStore : ISettingsStore
-    {
-        private AppSettings _settings = new();
-
-        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(_settings);
-
-        public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
-        {
-            _settings = settings;
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class NullLogStore : ILogStore
-    {
-        public Task AppendTraceAsync(TraceEntry traceEntry, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public Task AppendErrorAsync(ErrorEntry errorEntry, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public Task<IReadOnlyList<TraceEntry>> LoadRecentTraceAsync(int maxCount, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TraceEntry>>([]);
-
-        public Task<IReadOnlyList<ErrorEntry>> LoadRecentErrorsAsync(int maxCount, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<ErrorEntry>>([]);
-
-        public Task ClearTraceAsync(CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-
-        public Task ClearErrorsAsync(CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-    }
 }

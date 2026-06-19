@@ -1,9 +1,8 @@
-namespace PlcScope.App.ViewModels;
+namespace PlcScope.Core.Services;
 
 using PlcScope.Core.Models;
-using PlcScope.Core.Services;
 
-internal static class CommentAddressKeyProvider
+public static class CommentAddressKeyProvider
 {
     private static readonly (string DerivedPrefix, string BasePrefix)[] MelsecTimerCounterAliases =
     [

@@ -30,7 +30,7 @@ public sealed class FileLogStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task AppendErrorAsync_KeepsLatestFiveHundredRecords()
+    public async Task AppendErrorAsync_DoesNotTrimUntilHysteresisThreshold()
     {
         using var store = CreateStore();
 
@@ -43,12 +43,34 @@ public sealed class FileLogStoreTests : IDisposable
         }
 
         var lines = await File.ReadAllLinesAsync(_errorLogFile);
+        var errors = await store.LoadRecentErrorsAsync(500);
+
+        Assert.Equal(505, lines.Length);
+        Assert.Equal(500, errors.Count);
+        Assert.Equal("error-504", errors[0].Message);
+        Assert.Equal("error-5", errors[^1].Message);
+    }
+
+    [Fact]
+    public async Task AppendErrorAsync_TrimsToLatestFiveHundredAfterHysteresisThreshold()
+    {
+        using var store = CreateStore();
+
+        for (var index = 0; index < 601; index++)
+        {
+            await store.AppendErrorAsync(new ErrorEntry(
+                DateTimeOffset.UtcNow.AddSeconds(index),
+                "Read",
+                $"error-{index}"));
+        }
+
+        var lines = await File.ReadAllLinesAsync(_errorLogFile);
         var errors = await store.LoadRecentErrorsAsync(600);
 
         Assert.Equal(500, lines.Length);
         Assert.Equal(500, errors.Count);
-        Assert.Equal("error-504", errors[0].Message);
-        Assert.Equal("error-5", errors[^1].Message);
+        Assert.Equal("error-600", errors[0].Message);
+        Assert.Equal("error-101", errors[^1].Message);
     }
 
     [Fact]
