@@ -4,11 +4,7 @@ This directory is the workspace for improvement plans, investigation notes, and 
 
 ## Current Status
 
-Active investigation:
-
-- [Host Link / TOYOPUC batch feasibility](hostlink-toyopuc-batch-feasibility.md): Host Link conservative batching is implemented; TOYOPUC batch feasibility remains open.
-
-Completed items are archived under [`close/`](close/).
+No active improvement memo is currently open. Completed items are archived under [`close/`](close/).
 
 ## Closed Items
 
@@ -16,6 +12,7 @@ Completed items are archived under [`close/`](close/).
 - [Performance batch I/O instructions](close/perf-batch-io-instructions.md): completed implementation plan for watch-list batch reads and SLMP bit batch writes.
 - [Performance batch I/O report](close/perf-batch-io-report.md): completed implementation and real PLC validation report.
 - [Improvement findings 2026-06-18](close/improvement-findings-2026-06-18.md): completed improvement checklist; remaining small fixes were closed on 2026-06-19.
+- [Host Link / TOYOPUC batch feasibility](close/hostlink-toyopuc-batch-feasibility.md): conservative batching is implemented for both Host Link and TOYOPUC.
 
 ## Reading Order
 
@@ -23,7 +20,7 @@ For the current state of the project, start with:
 
 1. [`../../README.md`](../../README.md)
 2. [`../DEVELOPMENT_HISTORY.md`](../DEVELOPMENT_HISTORY.md)
-3. [`hostlink-toyopuc-batch-feasibility.md`](hostlink-toyopuc-batch-feasibility.md)
+3. [`close/hostlink-toyopuc-batch-feasibility.md`](close/hostlink-toyopuc-batch-feasibility.md)
 4. [`close/perf-batch-io-report.md`](close/perf-batch-io-report.md)
 5. [`../../TODO.md`](../../TODO.md)
 

@@ -1,107 +1,168 @@
 # PLC Scope
 
 [![Release](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml)
-[![Version](https://img.shields.io/badge/version-0.5.0-blue)](src/PlcScope.App/PlcScope.App.csproj)
+[![Version](https://img.shields.io/badge/version-0.5.1-blue)](src/PlcScope.App/PlcScope.App.csproj)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/language-C%23-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)](https://learn.microsoft.com/windows/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-PLC Scope is a Windows desktop tool for monitoring and writing PLC device values.
+PLC Scope is a Windows desktop tool for live PLC I/O checks. It can connect to a PLC, monitor device ranges, keep important devices in a watch list, write values, import comments, and save the setup as a project file.
 
-It is intended for live I/O checks: select a protocol, connect to a PLC, monitor a device range, and keep frequently used devices in a watch list.
+Use this README as the operator guide. Build, test, release, and maintainer notes live in [docs/development.md](docs/development.md).
+
+## Safety
+
+PLC Scope can write live PLC devices and issue CPU commands. Before writing or changing CPU state, confirm that the selected address range is safe for the connected equipment.
+
+Project files can store connection settings, including an SLMP remote password when one is entered. Treat project files as sensitive when a password is configured.
 
 ## Requirements
 
 - Windows
-- .NET 9 Runtime for framework-dependent builds
-- A PLC reachable by one of the supported protocols
+- A PLC reachable over the selected protocol
+- .NET 9 Runtime when using a framework-dependent build
+
+For development or local builds, see [Development notes](docs/development.md).
 
 ## Supported Protocols
 
-- MELSEC `SLMP`
-- KEYENCE KV `Host Link`
-- JTEKT TOYOPUC `Computer Link`
+| Protocol | Main Use | Notes |
+| --- | --- | --- |
+| MELSEC `SLMP` | MELSEC Ethernet device monitoring and writing | Supports remote password, CPU RUN / STOP / PAUSE, device range discovery, visible watch batching, and direct bit-device batch writes. |
+| KEYENCE KV `Host Link` | KEYENCE KV Ethernet Host Link access | Supports monitor reads, writes, comments, CPU RUN / STOP, visible watch named reads, and consecutive direct bit writes where safe. |
+| JTEKT TOYOPUC `Computer Link` | TOYOPUC Computer Link access | Supports selectable PLC profiles, relay hops, monitor reads, writes, CPU RUN / STOP, visible watch read-many batching, and direct bit write-many batching. |
 
-## Main Features
-
-- Monitor PLC device ranges with periodic refresh.
-- Read only visible monitor rows to reduce PLC and UI load.
-- Add monitor rows to the watch list from the right-click menu.
-- Keep monitor and watch list views in separate tabs.
-- Read only visible watch list rows.
-- Batch visible watch-list reads where supported, with sequential fallback and row-isolated errors.
-- Reorder watch list rows by drag and drop.
-- Import and export the watch list as CSV.
-- Import comments from one or more external comment CSV files.
-- Display values as `Dec` or `Hex`.
-- Display word bits as clickable bit cells.
-- Batch SLMP direct bit-device writes and Host Link consecutive bit-device writes where supported.
-- Edit values inline and write with `Enter`.
-- Pause refresh while a value is being edited so input is not overwritten.
-- Clamp out-of-range integer input to the target type range before writing.
-- Save and load project files as JSON.
-- Switch light and dark themes.
-- View recent error history and optional protocol trace logs.
-
-## Basic Use
+## Quick Start
 
 1. Open `Connection settings`.
-2. Select the protocol and PLC connection settings.
-3. Click `Connect`.
-4. On the `Monitor` tab, choose `Device`, `Start address`, `Type`, and `Format`.
-5. Use the `Watch list` tab for devices you want to keep visible.
+2. Select `Protocol`.
+3. Set `Transport`, `Host`, `Port`, `Timeout (s)`, and `Refresh interval ms`.
+4. Set the protocol-specific options.
+5. Click `OK`, then click `Connect`.
+6. On the `Monitor` tab, select the device, start address, display type, and format.
+7. Add important rows to the `Watch list` from the monitor row right-click menu.
+8. Save the setup with `File` -> `Save project`.
 
-## Address Syntax
+## Connection Settings
 
-PLC Scope follows the shared high-level address convention used by the
-underlying PLC helper libraries:
+### Common
 
-- `:` is for data types and special views, such as `D100:D`, `DM100:F`,
-  `P1-D0100:F`, or protocol-specific comment/string views
-- `.` is only for bit-in-word access, such as `D50.3`, `DM100.A`, or
-  `P1-D0100.D`
-- a dotted hex digit is a bit index: `D50.D`, `DM100.D`, and `P1-D0100.D`
-  mean bit `0xD` / bit 13, not a 32-bit data type request
-- choose the row `Type` or use the colon form when you want a 32-bit or float
-  value
+| Field | Meaning |
+| --- | --- |
+| `Protocol` | Selects SLMP, Host Link, or TOYOPUC. |
+| `Transport` | Selects TCP or UDP when supported by the protocol adapter. |
+| `Host` | PLC IP address or host name. |
+| `Port` | PLC communication port. |
+| `Timeout (s)` | Read/write timeout in seconds. |
+| `Refresh interval ms` | Periodic monitor/watch refresh interval. |
 
-## Monitor
+Typical ports:
 
-The Monitor tab shows a device range starting at `Start address`.
+- SLMP: `1025`
+- KEYENCE Host Link: `8501`
+- TOYOPUC Computer Link: `1025`
 
-Columns:
+### SLMP
 
-- `Address`: PLC device address.
-- `Value`: editable value for writable numeric and bit rows.
-- `Hex`: raw hexadecimal value where applicable.
-- `Bits`: bit cells for word and packed bit displays.
-- `Comment`: imported comment text.
+SLMP settings include PLC profile, routing fields, monitoring timer, and optional remote password.
 
-For word bit expansion, child addresses such as `D0.0` are indented in the `Address` column. The other columns stay aligned with the parent word row.
+Routing defaults are suitable for common direct Ethernet connections:
+
+- Network: `0`
+- Station: `255`
+- Module I/O: `0x03FF`
+- Multidrop: `0x00`
+
+If a remote password is entered, PLC Scope unlocks the session after connecting and locks it before disconnecting.
+
+### Host Link
+
+Host Link settings mainly select the KEYENCE PLC profile. The selected profile controls device notation and comment/address behavior.
+
+### TOYOPUC
+
+TOYOPUC settings select the PLC profile, relay hops, local port, retry count, and retry delay.
+
+Relay hop example:
+
+```text
+P1-L1:N2
+```
+
+Use the profile that matches the target PLC or compatibility mode. Unsupported devices are hidden when profile range information is available.
+
+## Monitor Tab
+
+The Monitor tab shows a generated device range.
+
+Main controls:
+
+- `Device`: device family such as `D`, `DM`, or `P1-D`
+- `Start address`: first address to show
+- `Type`: display/write interpretation, such as word, DWord, Float32, or bit mode
+- `Format`: `Dec` or `Hex`
+
+PLC Scope reads only visible monitor rows during periodic refresh. This keeps communication and UI work bounded by what is on screen instead of the full generated range.
+
+Right-click a row to add it to the watch list.
 
 ## Watch List
 
-Add an item from the Monitor tab by right-clicking a monitor row and selecting `Add to watch list`.
+The Watch list is for addresses you want to keep together while debugging.
 
-The Watch list supports:
+The table contains:
 
-- address, type, format, value, raw hex, bit cells, and comment columns
-- `Dec` and `Hex` formats
-- word bit addresses such as `D0.0`
-- batch reads for visible rows when the selected protocol and devices support it
-- duplicate address prevention
-- invalid address highlighting
-- row removal from the right-click menu or the `Delete` key
-- drag-and-drop row ordering
-- CSV import and export
-- immediate refresh when `Type` or `Format` changes
+- `Address`
+- `Type`
+- `Format`
+- `Value`
+- raw hexadecimal text where applicable
+- bit cells where applicable
+- `Comment`
 
-When the address is a normal word address such as `D0`, `Bit` is not offered as a type. Use a word bit address such as `D0.0` when you want to monitor a single bit inside a word.
+Supported actions:
+
+- add rows from the Monitor tab
+- edit address/type/format
+- remove rows from the right-click menu or `Delete`
+- reorder rows by drag and drop
+- import/export watch CSV
+- refresh only visible rows
+- isolate invalid rows so one bad address does not stop other visible rows from updating
+
+When using a word address such as `D100`, select `UInt16`, `Int16`, `UInt32`, `Int32`, or `Float32`. For a single bit inside a word, use a word-bit address such as `D100.3`.
+
+## Address Syntax
+
+PLC Scope follows the shared high-level address convention used by the PLC communication libraries.
+
+| Syntax | Meaning | Examples |
+| --- | --- | --- |
+| Plain device address | Normal word or bit device | `D100`, `DM100`, `P1-D0100`, `M1000`, `MR000` |
+| `.` | Bit inside a word | `D100.3`, `DM100.A`, `P1-D0100.D` |
+| `:` | Type/special view suffix used by lower-level libraries | `D100:D`, `DM100:F`, `P1-D0100:F` |
+
+A dotted hex digit is a bit index. For example, `D100.D` means bit `0xD` / bit 13, not a DWord request.
+
+## Value Types
+
+| Type | Size | Notes |
+| --- | --- | --- |
+| `UInt16` | 1 word | Unsigned 16-bit value. |
+| `Int16` | 1 word | Signed 16-bit value. |
+| `UInt32` | 2 words | Unsigned 32-bit value. Use on word devices. |
+| `Int32` | 2 words | Signed 32-bit value. Use on word devices. |
+| `Float32` | 2 words | IEEE 754 single-precision value. Use on word devices. |
+| `Bit` | 1 bit | Direct bit device or word-bit address. |
+
+Some protocols and devices cannot represent every type. If a type is not valid for the selected address, the row shows an error or the type list excludes that option.
 
 ## Writing Values
 
-Inline editing is available in the Monitor and Watch list views.
+Inline editing is available in Monitor and Watch list value cells when the selected protocol and device support writing.
+
+Keyboard behavior:
 
 - `Enter`: write the edited value
 - `Esc`: cancel monitor inline edit
@@ -109,114 +170,102 @@ Inline editing is available in the Monitor and Watch list views.
 
 Periodic refresh pauses while a value cell is being edited.
 
-Integer input outside the target range is clamped before writing. Examples:
+Integer input outside the target range is clamped before writing:
 
 - `Bit`: values less than `1` become `0`; values `1` or greater become `1`
-- `UInt16`: range `0` to `65535`
-- `Int16`: range `-32768` to `32767`
-- `UInt32`: range `0` to `4294967295`
-- `Int32`: range `-2147483648` to `2147483647`
+- `UInt16`: `0` to `65535`
+- `Int16`: `-32768` to `32767`
+- `UInt32`: `0` to `4294967295`
+- `Int32`: `-2147483648` to `2147483647`
 
-For bit cells, click the bit button to toggle the value when writing is supported by the selected protocol and device.
+Bit cells can be clicked to toggle the value when writing is supported.
+
+## CPU Control
+
+Use the `CPU` menu to issue supported CPU commands.
+
+| Protocol | Commands |
+| --- | --- |
+| SLMP | `CPU RUN`, `CPU STOP`, `CPU PAUSE` |
+| Host Link | `CPU RUN`, `CPU STOP` where supported by the target PLC |
+| TOYOPUC | `CPU RUN`, `CPU STOP` mapped to TOYOPUC scan commands |
+
+For SLMP, `CPU RUN` sends Remote RUN with `clearMode = 0`, so device memory is not cleared when switching the CPU to RUN.
+
+The status bar shows the latest known CPU state when the protocol supports reading it.
 
 ## Comments
 
 Use `File` -> `Import comment CSV` to load comment text.
 
-The application can read comments from multiple CSV files. If multiple comments match the same device, `Comment1` has priority when it is present.
+PLC Scope can load multiple comment CSV files. If multiple comments match the same device, `Comment1` has priority when present.
 
-Comment CSV files stay external to the project file. Project JSON stores the comment CSV paths, not the CSV contents.
+Comment CSV files stay external to the project file. Project JSON stores the CSV paths, not the CSV contents.
 
-## Projects And Settings
+## Project Files
 
 Projects are saved as JSON and include:
 
 - connection settings
 - monitor block settings
 - watch list entries
-- display settings used by the project
+- selected display settings
 - optional comment CSV paths
 
-Application settings are stored under `%LOCALAPPDATA%\PlcScope\settings.json`.
+Application settings are stored under:
 
-SLMP remote password is part of the connection settings. If it is entered, treat saved project files as sensitive.
+```text
+%LOCALAPPDATA%\PlcScope\settings.json
+```
 
-## TOYOPUC Notes
+## Debug Sample Projects
 
-TOYOPUC support uses the Computer Link library through the application protocol adapter.
+Sample projects are available under [docs/samples](docs/samples/). They are useful for watch-list layout, mixed-type display, batch-read behavior, and scroll testing.
 
-- Device profiles are selectable in the connection settings.
-- Unsupported devices for the selected PLC profile are hidden from the device list when range information is available.
-- Prefixed TOYOPUC addresses such as `P1-D`, `P1-P`, `P1-S`, `P1-X`, and `P1-Y` are normalized by the application before reading.
-- Bit device block monitoring uses packed word reads where appropriate, then expands the bits in the UI.
-- CPU `RUN` / `STOP` is supported for TOYOPUC scan resume, scan stop release, and scan stop commands.
+| Sample | Purpose |
+| --- | --- |
+| [SLMP iQ-R 100-row watch](docs/samples/slmp-iqr-100-watch.json) | Mixed SLMP watch list with word, DWord, Float32, word-bit, and direct bit rows. |
+| [KEYENCE Host Link 100-row mixed debug watch](docs/samples/keyence-hostlink-100-watch.json) | Mixed Host Link watch list with DM word values and MR direct bits. |
+| [TOYOPUC 100-row mixed debug watch](docs/samples/toyopuc-100-watch.json) | Mixed TOYOPUC watch list with `P1-D` word values and `P1-M` direct bits. |
 
-## CPU Control
+Review and adjust the addresses before writing values on real equipment.
 
-Use the `CPU` menu to issue `CPU RUN` or `CPU STOP`.
-
-For SLMP connections, `CPU RUN` sends Remote RUN with `clearMode = 0`, so device memory is not cleared when switching the CPU to RUN.
-SLMP connections also show `CPU PAUSE`; other protocols only expose `CPU RUN` and `CPU STOP`.
-
-When an SLMP remote password is set in `Connection settings`, the application unlocks the SLMP session after connecting and locks it before disconnecting. The same unlocked session is used for monitor reads, writes, and CPU commands.
-
-Unsupported protocols disable CPU control. The status bar shows the latest CPU state when the protocol can read it.
-
-## Logs
+## Logs And Troubleshooting
 
 Open logs from the `Tools` menu.
 
-- `Error history`: recent user-visible communication and validation errors
-- `Trace log`: optional frame log for protocol troubleshooting
+| Tool | Use |
+| --- | --- |
+| `Error history` | Recent user-visible communication and validation errors. |
+| `Trace log` | Optional protocol frame log for troubleshooting. |
 
-Logs are stored next to the executable when write permission is available:
+Log files are stored next to the executable when write permission is available:
 
 - `trace.log.jsonl`
 - `error.log.jsonl`
 
 Each log keeps the latest 500 entries.
 
-## Development
+Common checks:
 
-Build:
-
-```powershell
-dotnet build .\PlcScopeDotNet.sln
-```
-
-Test:
-
-```powershell
-dotnet test .\PlcScopeDotNet.sln -m:1
-```
-
-The solution includes FlaUI-based UI automation tests. Use `-m:1` for the
-full solution test run so the UI test project runs in a stable serialized
-desktop session.
-
-Publish a Windows x64 single-file build:
-
-```cmd
-build.bat Release
-```
-
-Typical output:
-
-```text
-src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.exe
-```
+- Confirm protocol, transport, host, and port.
+- Confirm PLC-side Ethernet / Host Link / Computer Link settings.
+- Confirm the selected PLC profile matches the connected PLC.
+- For SLMP routing issues, try the routing defaults first.
+- For TOYOPUC relay routing, confirm the relay hop string, such as `P1-L1:N2`.
+- If a watch row is red, check that address and type combination first; other rows may still be updating normally.
+- If values change while editing, confirm the value cell is actually in edit mode; refresh pauses only during inline edit.
 
 ## Documentation
 
+- [Documentation index](docs/README.md)
 - [Specification](docs/specification.md)
-- [Development notes](docs/development.md)
+- [Development and maintainer notes](docs/development.md)
 - [Development history](docs/DEVELOPMENT_HISTORY.md)
 - [Security notes](SECURITY.md)
 - [Improvement plans and archive](docs/improvements/README.md)
 - [Batch I/O report](docs/improvements/close/perf-batch-io-report.md)
-- [TOYOPUC relay validation](docs/toyopuc-relay-hop-validation-2026-06-12.md)
-- [SLMP iQ-R 100-row watch sample project](docs/slmp-iqr-100-watch.json)
-- [SLMP QnUDV 100-row watch sample project](docs/slmp-iqr-100-watcha.json)
+- [TOYOPUC relay validation](docs/validation/toyopuc-relay-hop-validation-2026-06-12.md)
 - [Validation checklist](TODO.md)
 
 ## License

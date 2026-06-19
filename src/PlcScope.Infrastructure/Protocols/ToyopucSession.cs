@@ -1,5 +1,6 @@
 namespace PlcScope.Infrastructure.Protocols;
 
+using System.Globalization;
 using PlcComm.Toyopuc;
 using PlcScope.Core.Models;
 using PlcScope.Core.Services;
@@ -118,6 +119,60 @@ internal sealed class ToyopucSession : PlcSessionBase
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    public override async Task<IReadOnlyList<BlockReadBatchItemResult>> ReadBatchAsync(
+        IReadOnlyList<BlockQuery> queries,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        if (queries.Count == 0)
+            return [];
+
+        var results = new BlockReadBatchItemResult?[queries.Count];
+        var readManyPlans = new List<ToyopucBatchReadPlan>();
+
+        for (var index = 0; index < queries.Count; index++)
+        {
+            if (TryCreateReadManyPlan(queries[index], index, out var plan, out var errorResult))
+            {
+                if (errorResult is not null)
+                    results[index] = errorResult;
+                else if (plan is not null)
+                    readManyPlans.Add(plan);
+            }
+        }
+
+        if (readManyPlans.Count > 0)
+        {
+            try
+            {
+                var readManyResults = await ReadManyPlansAsync(readManyPlans, cancellationToken).ConfigureAwait(false);
+                foreach (var (index, result) in readManyResults)
+                {
+                    results[index] = BlockReadBatchItemResult.FromResult(result);
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                EmitError(new ErrorEntry(
+                    DateTimeOffset.UtcNow,
+                    "TOYOPUC batch read",
+                    "TOYOPUC read-many failed. Falling back to sequential reads.",
+                    exception.Message));
+
+                foreach (var plan in readManyPlans)
+                {
+                    results[plan.QueryIndex] = await ReadSequentialBatchItemAsync(plan.OriginalQuery, cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+
+        return results
+            .Select((result, index) => result ?? BlockReadBatchItemResult.FromError(
+                queries[index],
+                new InvalidOperationException("PLC batch read did not produce a result.")))
+            .ToArray();
+    }
+
     public override async Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
@@ -136,6 +191,38 @@ internal sealed class ToyopucSession : PlcSessionBase
         }, cancellationToken).ConfigureAwait(false);
 
         return new WriteResult(address, "Write completed.", DateTimeOffset.UtcNow);
+    }
+
+    public override async Task<IReadOnlyList<WriteResult>> WriteBitBatchAsync(
+        IReadOnlyList<WriteRequest> requests,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        if (requests.Count == 0)
+            return [];
+
+        if (!TryCreateBitWriteManyPlan(requests, out var plan))
+            return await base.WriteBitBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await ExecuteSerializedAsync(
+                () => WriteManyDevicesAsync(plan.Items, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            EmitError(new ErrorEntry(
+                DateTimeOffset.UtcNow,
+                "TOYOPUC bit batch write",
+                "TOYOPUC write-many failed. Falling back to sequential writes.",
+                exception.Message));
+            return await base.WriteBitBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+        }
+
+        return plan.NormalizedAddresses
+            .Select(static address => new WriteResult(address, "Write completed.", DateTimeOffset.UtcNow))
+            .ToArray();
     }
 
     public override async Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default)
@@ -256,6 +343,182 @@ internal sealed class ToyopucSession : PlcSessionBase
         return ToyopucAddress.Format(start, index, profile);
     }
 
+    private bool TryCreateReadManyPlan(
+        BlockQuery query,
+        int queryIndex,
+        out ToyopucBatchReadPlan? plan,
+        out BlockReadBatchItemResult? errorResult)
+    {
+        plan = null;
+        errorResult = null;
+
+        try
+        {
+            var normalizedStart = NormalizeAddress(query.StartAddress, ResolveFamily(Definition, query.DeviceFamilyCode));
+            var effectiveQuery = query with { StartAddress = normalizedStart };
+            var readsBits = query.DeviceKind == DeviceKind.Bit;
+            var readCount = readsBits
+                ? query.EffectiveItemCount
+                : query.DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32
+                    ? checked(query.EffectiveItemCount * 2)
+                    : query.EffectiveItemCount;
+            var elementAddresses = BuildAddresses(normalizedStart, readCount);
+
+            plan = new ToyopucBatchReadPlan(
+                queryIndex,
+                query,
+                effectiveQuery,
+                elementAddresses,
+                elementAddresses,
+                readsBits);
+            return true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorResult = BlockReadBatchItemResult.FromError(query, exception);
+            return true;
+        }
+    }
+
+    private async Task<BlockReadBatchItemResult> ReadSequentialBatchItemAsync(
+        BlockQuery query,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await ReadBlockAsync(query, cancellationToken).ConfigureAwait(false);
+            return BlockReadBatchItemResult.FromResult(result);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return BlockReadBatchItemResult.FromError(query, exception);
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<int, BlockReadResult>> ReadManyPlansAsync(
+        IReadOnlyList<ToyopucBatchReadPlan> plans,
+        CancellationToken cancellationToken)
+    {
+        var addresses = plans
+            .SelectMany(static plan => plan.ReadAddresses)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var snapshot = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        CpuState? cpuState = null;
+        var elapsedMilliseconds = 0d;
+        var timestamp = DateTimeOffset.UtcNow;
+
+        await ExecuteSerializedAsync(async () =>
+        {
+            var timer = StartTimer();
+            var values = await ReadManyDevicesAsync(addresses, cancellationToken).ConfigureAwait(false);
+            for (var index = 0; index < addresses.Length; index++)
+            {
+                snapshot[addresses[index]] = values[index];
+            }
+
+            try
+            {
+                cpuState = await ReadCpuStateForBlockAsync(ReadCpuStateInternalAsync, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                cpuState = null;
+            }
+
+            timer.Stop();
+            elapsedMilliseconds = timer.Elapsed.TotalMilliseconds;
+            timestamp = DateTimeOffset.UtcNow;
+        }, cancellationToken).ConfigureAwait(false);
+
+        var results = new Dictionary<int, BlockReadResult>();
+        foreach (var plan in plans)
+        {
+            if (plan.ReadsBits)
+            {
+                results[plan.QueryIndex] = new BlockReadResult(
+                    plan.EffectiveQuery,
+                    plan.ElementAddresses,
+                    [],
+                    plan.ReadAddresses.Select(address => ToBoolean(GetReadManyValue(snapshot, address))).ToArray(),
+                    new Dictionary<string, string>(),
+                    timestamp,
+                    elapsedMilliseconds,
+                    cpuState);
+                continue;
+            }
+
+            results[plan.QueryIndex] = new BlockReadResult(
+                plan.EffectiveQuery,
+                plan.ElementAddresses,
+                plan.ReadAddresses.Select(address => ToRawWord(GetReadManyValue(snapshot, address))).ToArray(),
+                [],
+                new Dictionary<string, string>(),
+                timestamp,
+                elapsedMilliseconds,
+                cpuState);
+        }
+
+        return results;
+    }
+
+    private Task<object[]> ReadManyDevicesAsync(IReadOnlyList<string> addresses, CancellationToken cancellationToken) =>
+        _client!.UsesRelay
+            ? _client.ExecuteAsync(
+                inner => inner.RelayReadManyAsync(_client.RelayHops!, addresses.Cast<object>().ToArray(), cancellationToken),
+                cancellationToken)
+            : _client.ExecuteAsync(
+                inner => inner.ReadManyAsync(addresses.Cast<object>().ToArray(), cancellationToken),
+                cancellationToken);
+
+    private Task WriteManyDevicesAsync(
+        IReadOnlyList<KeyValuePair<object, object>> items,
+        CancellationToken cancellationToken) =>
+        _client!.UsesRelay
+            ? _client.ExecuteAsync(inner => inner.RelayWriteManyAsync(_client.RelayHops!, items, cancellationToken), cancellationToken)
+            : _client.ExecuteAsync(inner => inner.WriteManyAsync(items, cancellationToken), cancellationToken);
+
+    private bool TryCreateBitWriteManyPlan(
+        IReadOnlyList<WriteRequest> requests,
+        out ToyopucBitWriteManyPlan plan)
+    {
+        plan = default!;
+        var normalizedAddresses = new List<string>(requests.Count);
+        var items = new List<KeyValuePair<object, object>>(requests.Count);
+
+        foreach (var request in requests)
+        {
+            if (request.DataType != ValueDataType.Bit)
+                return false;
+
+            string normalizedAddress;
+            ResolvedDevice resolvedDevice;
+            try
+            {
+                normalizedAddress = NormalizeAddress(request.Address);
+                resolvedDevice = _client!.InnerClient.ResolveDevice(normalizedAddress);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                EmitError(new ErrorEntry(
+                    DateTimeOffset.UtcNow,
+                    "TOYOPUC bit batch write",
+                    exception.Message,
+                    exception.Message));
+                return false;
+            }
+
+            if (!string.Equals(resolvedDevice.Unit, "bit", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            normalizedAddresses.Add(normalizedAddress);
+            items.Add(new KeyValuePair<object, object>(normalizedAddress, ToBoolean(request.Value)));
+        }
+
+        plan = new ToyopucBitWriteManyPlan(normalizedAddresses, items);
+        return true;
+    }
+
     private async Task<bool[]> ReadBitDevicesAsync(string normalizedStart, int bitCount, CancellationToken cancellationToken)
     {
         var start = _client!.InnerClient.ResolveDevice(normalizedStart);
@@ -294,6 +557,34 @@ internal sealed class ToyopucSession : PlcSessionBase
         result is object[] values
             ? values.Select(ToBoolean).ToArray()
             : [ToBoolean(result)];
+
+    private static object GetReadManyValue(IReadOnlyDictionary<string, object> snapshot, string address)
+    {
+        if (snapshot.TryGetValue(address, out var value))
+            return value;
+
+        var match = snapshot.FirstOrDefault(pair => string.Equals(pair.Key, address, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(match.Key))
+            return match.Value;
+
+        throw new KeyNotFoundException($"TOYOPUC read-many response did not contain address '{address}'.");
+    }
+
+    private static ushort ToRawWord(object value) =>
+        value switch
+        {
+            bool bit => bit ? (ushort)1 : (ushort)0,
+            byte b => b,
+            sbyte sb => unchecked((ushort)sb),
+            short s => unchecked((ushort)s),
+            ushort us => us,
+            int i => unchecked((ushort)i),
+            uint ui => unchecked((ushort)ui),
+            long l => unchecked((ushort)l),
+            ulong ul => unchecked((ushort)ul),
+            string text when int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) => unchecked((ushort)parsed),
+            _ => unchecked((ushort)Convert.ToInt64(value, CultureInfo.InvariantCulture)),
+        };
 
     private static string FormatPackedWordAddress(ResolvedDevice bitAddress, int packedIndex, string profile)
     {
@@ -365,6 +656,18 @@ internal sealed class ToyopucSession : PlcSessionBase
             ? (familyCode[(separator + 1)..], true)
             : (familyCode, false);
     }
+
+    private sealed record ToyopucBatchReadPlan(
+        int QueryIndex,
+        BlockQuery OriginalQuery,
+        BlockQuery EffectiveQuery,
+        IReadOnlyList<string> ElementAddresses,
+        IReadOnlyList<string> ReadAddresses,
+        bool ReadsBits);
+
+    private sealed record ToyopucBitWriteManyPlan(
+        IReadOnlyList<string> NormalizedAddresses,
+        IReadOnlyList<KeyValuePair<object, object>> Items);
 
 }
 

@@ -1,0 +1,630 @@
+{
+  "projectVersion": "1.0",
+  "connection": {
+    "protocol": "Toyopuc",
+    "host": "192.168.250.100",
+    "port": 1025,
+    "timeoutSeconds": 3,
+    "transport": "Tcp",
+    "autoRefreshIntervalMs": 500,
+    "toyopucPlcProfileName": "toyopuc:nano-10gx:compatible",
+    "toyopucRelayHops": "P1-L1:N2",
+    "toyopucLocalPort": 0,
+    "toyopucRetries": 0,
+    "toyopucRetryDelayMs": 200
+  },
+  "blocks": [
+    {
+      "title": "P1-D0000 mixed debug monitor",
+      "protocol": "Toyopuc",
+      "deviceFamilyCode": "P1-D",
+      "deviceKind": "Word",
+      "startAddress": "P1-D0000",
+      "itemCount": 128,
+      "displayMode": "Word",
+      "displayRadix": "Dec"
+    }
+  ],
+  "watchItems": [
+    {
+      "address": "P1-D0000",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 001 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0001",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 002 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0002",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 003 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0003",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 004 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0004",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 005 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0005",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 006 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0006",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 007 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0007",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 008 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0008",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 009 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0009",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 010 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D000A",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 011 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D000B",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 012 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D000C",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 013 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D000D",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 014 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D000E",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 015 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D000F",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 016 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0010",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 017 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0011",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 018 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0012",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 019 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0013",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 020 UInt16 P1-D word"
+    },
+    {
+      "address": "P1-D0020",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 021 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0021",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 022 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0022",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 023 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0023",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 024 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0024",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 025 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0025",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 026 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0026",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 027 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0027",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 028 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0028",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 029 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0029",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 030 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D002A",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 031 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D002B",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 032 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D002C",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 033 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D002D",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 034 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D002E",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 035 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D002F",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 036 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0030",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 037 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0031",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 038 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0032",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 039 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0033",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 040 Int16 P1-D word"
+    },
+    {
+      "address": "P1-D0040",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 041 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0042",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 042 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0044",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 043 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0046",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 044 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0048",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 045 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D004A",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 046 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D004C",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 047 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D004E",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 048 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0050",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 049 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0052",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 050 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0054",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 051 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0056",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 052 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0058",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 053 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D005A",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 054 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D005C",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "TOYOPUC debug 055 UInt32 P1-D dword"
+    },
+    {
+      "address": "P1-D0060",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 056 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0062",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 057 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0064",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 058 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0066",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 059 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0068",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 060 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D006A",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 061 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D006C",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 062 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D006E",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 063 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0070",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 064 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0072",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 065 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0074",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 066 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0076",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 067 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0078",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 068 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D007A",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 069 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D007C",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 070 Float32 P1-D float"
+    },
+    {
+      "address": "P1-D0080.0",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 071 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.1",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 072 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.2",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 073 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.3",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 074 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.4",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 075 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.5",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 076 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.6",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 077 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.7",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 078 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.8",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 079 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.9",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 080 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.10",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 081 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.11",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 082 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.12",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 083 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.13",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 084 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-D0080.14",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 085 Bit P1-D word-bit"
+    },
+    {
+      "address": "P1-M07F0",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 086 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F1",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 087 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F2",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 088 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F3",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 089 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F4",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 090 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F5",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 091 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F6",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 092 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F7",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 093 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F8",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 094 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07F9",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 095 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07FA",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 096 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07FB",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 097 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07FC",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 098 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07FD",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 099 Bit P1-M direct bit"
+    },
+    {
+      "address": "P1-M07FE",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "TOYOPUC debug 100 Bit P1-M direct bit"
+    }
+  ]
+}

@@ -20,7 +20,7 @@
     </StackPanel>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <StackPanel>
+      <StackPanel Margin="0,0,16,0">
         <GroupBox Header="Common" Margin="0,0,0,12">
           <Grid Margin="8">
             <Grid.ColumnDefinitions>
@@ -28,6 +28,7 @@
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
@@ -43,29 +44,28 @@
                       DisplayMemberPath="DisplayName"
                       SelectedItem="{Binding SelectedProtocol}" />
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Host" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ConnectionHostTextBox" Margin="0,0,0,8" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" />
-
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Port" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionPortTextBox" Margin="0,0,0,8" Text="{Binding Port}" />
-
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="Timeout (s)" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionTimeoutSecondsTextBox" Width="120" Margin="0,0,0,8" Text="{Binding TimeoutSeconds}" />
-
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Refresh interval ms" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionRefreshIntervalTextBox" Width="120" Text="{Binding AutoRefreshIntervalMs}" />
-          </Grid>
-        </GroupBox>
-
-        <GroupBox Header="Transport" Margin="0,0,0,12">
-          <StackPanel Orientation="Horizontal" Margin="8">
-            <TextBlock Text="Mode" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <ComboBox Width="160"
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Transport" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <ComboBox Grid.Row="1" Grid.Column="1"
                       AutomationProperties.AutomationId="ConnectionTransportComboBox"
+                      Width="160"
+                      HorizontalAlignment="Left"
+                      Margin="0,0,0,8"
                       ItemsSource="{Binding TransportModes}"
                       DisplayMemberPath="Label"
                       SelectedItem="{Binding SelectedTransportMode}" />
-          </StackPanel>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Host" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionHostTextBox" Margin="0,0,0,8" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Port" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionPortTextBox" Margin="0,0,0,8" Text="{Binding Port}" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Timeout (s)" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionTimeoutSecondsTextBox" Width="120" Margin="0,0,0,8" Text="{Binding TimeoutSeconds}" />
+
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Refresh interval ms" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Row="5" Grid.Column="1" AutomationProperties.AutomationId="ConnectionRefreshIntervalTextBox" Width="120" Text="{Binding AutoRefreshIntervalMs}" />
+          </Grid>
         </GroupBox>
 
         <GroupBox Header="SLMP" Visibility="{Binding IsSlmpSelected, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,0,0,12">
@@ -161,7 +161,14 @@
                       DisplayMemberPath="Label"
                       SelectedItem="{Binding SelectedToyopucPlcProfile}" />
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Relay hops" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucRelayHops}" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
+              <TextBox Text="{Binding ToyopucRelayHops}"
+                       ToolTip="Example: P1-L1:N2" />
+              <TextBlock Text="Example: P1-L1:N2"
+                         Foreground="{DynamicResource AppForegroundMutedBrush}"
+                         FontSize="12"
+                         Margin="0,4,0,0" />
+            </StackPanel>
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Local port" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ToyopucLocalPort}" />
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Retries / delay ms" VerticalAlignment="Center" Margin="0,0,8,0" />

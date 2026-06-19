@@ -1,5 +1,7 @@
 # Development Notes
 
+This file is for maintainers and contributors. The repository root [README](../README.md) is the operator-facing manual; build, test, release, dependency, and maintenance details should live here instead of in the user guide.
+
 ## Requirements
 
 - Windows
@@ -119,3 +121,24 @@ Recommended checks before publishing:
 - verify SLMP remote password unlock on connect and lock on disconnect when configured
 - verify dark theme readability
 - verify error history and optional communication log behavior
+
+## Maintainer Documentation Rules
+
+- Keep the root `README.md` focused on installation, connection setup, operation, troubleshooting, and sample projects.
+- Put build/test/release commands in this file.
+- Put expected application behavior and protocol contracts in [specification.md](specification.md).
+- Put completed investigation notes and implementation reports under [improvements/close](improvements/close/).
+- Put hardware validation notes under [validation](validation/).
+- Put reusable project JSON files under [samples](samples/).
+
+## Release Checklist
+
+Before publishing a release build:
+
+1. Update the version fields in [PlcScope.App.csproj](../src/PlcScope.App/PlcScope.App.csproj).
+2. Build the full solution.
+3. Run the full test suite with `-m:1`.
+4. Run the manual validation checklist that matches the changed protocols or UI areas.
+5. Build the Windows x64 single-file package with `build.bat Release`.
+6. Confirm the published `PlcScope.exe` starts and opens the connection dialog.
+7. Update [DEVELOPMENT_HISTORY.md](DEVELOPMENT_HISTORY.md) with the user-visible changes and validation summary.

@@ -1,0 +1,626 @@
+{
+  "projectVersion": "1.0",
+  "connection": {
+    "protocol": "HostLink",
+    "host": "192.168.250.100",
+    "port": 8501,
+    "timeoutSeconds": 3,
+    "transport": "Tcp",
+    "autoRefreshIntervalMs": 500,
+    "hostLinkPlcProfileName": "keyence:kv-8000"
+  },
+  "blocks": [
+    {
+      "title": "DM1000 mixed debug monitor",
+      "protocol": "HostLink",
+      "deviceFamilyCode": "DM",
+      "deviceKind": "Word",
+      "startAddress": "DM1000",
+      "itemCount": 128,
+      "displayMode": "Word",
+      "displayRadix": "Dec"
+    }
+  ],
+  "watchItems": [
+    {
+      "address": "DM1000",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 001 UInt16 DM word"
+    },
+    {
+      "address": "DM1001",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 002 UInt16 DM word"
+    },
+    {
+      "address": "DM1002",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 003 UInt16 DM word"
+    },
+    {
+      "address": "DM1003",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 004 UInt16 DM word"
+    },
+    {
+      "address": "DM1004",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 005 UInt16 DM word"
+    },
+    {
+      "address": "DM1005",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 006 UInt16 DM word"
+    },
+    {
+      "address": "DM1006",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 007 UInt16 DM word"
+    },
+    {
+      "address": "DM1007",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 008 UInt16 DM word"
+    },
+    {
+      "address": "DM1008",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 009 UInt16 DM word"
+    },
+    {
+      "address": "DM1009",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 010 UInt16 DM word"
+    },
+    {
+      "address": "DM1010",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 011 UInt16 DM word"
+    },
+    {
+      "address": "DM1011",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 012 UInt16 DM word"
+    },
+    {
+      "address": "DM1012",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 013 UInt16 DM word"
+    },
+    {
+      "address": "DM1013",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 014 UInt16 DM word"
+    },
+    {
+      "address": "DM1014",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 015 UInt16 DM word"
+    },
+    {
+      "address": "DM1015",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 016 UInt16 DM word"
+    },
+    {
+      "address": "DM1016",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 017 UInt16 DM word"
+    },
+    {
+      "address": "DM1017",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 018 UInt16 DM word"
+    },
+    {
+      "address": "DM1018",
+      "dataType": "UInt16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 019 UInt16 DM word"
+    },
+    {
+      "address": "DM1019",
+      "dataType": "UInt16",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 020 UInt16 DM word"
+    },
+    {
+      "address": "DM1020",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 021 Int16 DM word"
+    },
+    {
+      "address": "DM1021",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 022 Int16 DM word"
+    },
+    {
+      "address": "DM1022",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 023 Int16 DM word"
+    },
+    {
+      "address": "DM1023",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 024 Int16 DM word"
+    },
+    {
+      "address": "DM1024",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 025 Int16 DM word"
+    },
+    {
+      "address": "DM1025",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 026 Int16 DM word"
+    },
+    {
+      "address": "DM1026",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 027 Int16 DM word"
+    },
+    {
+      "address": "DM1027",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 028 Int16 DM word"
+    },
+    {
+      "address": "DM1028",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 029 Int16 DM word"
+    },
+    {
+      "address": "DM1029",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 030 Int16 DM word"
+    },
+    {
+      "address": "DM1030",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 031 Int16 DM word"
+    },
+    {
+      "address": "DM1031",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 032 Int16 DM word"
+    },
+    {
+      "address": "DM1032",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 033 Int16 DM word"
+    },
+    {
+      "address": "DM1033",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 034 Int16 DM word"
+    },
+    {
+      "address": "DM1034",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 035 Int16 DM word"
+    },
+    {
+      "address": "DM1035",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 036 Int16 DM word"
+    },
+    {
+      "address": "DM1036",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 037 Int16 DM word"
+    },
+    {
+      "address": "DM1037",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 038 Int16 DM word"
+    },
+    {
+      "address": "DM1038",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 039 Int16 DM word"
+    },
+    {
+      "address": "DM1039",
+      "dataType": "Int16",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 040 Int16 DM word"
+    },
+    {
+      "address": "DM1040",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 041 UInt32 DM dword"
+    },
+    {
+      "address": "DM1042",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 042 UInt32 DM dword"
+    },
+    {
+      "address": "DM1044",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 043 UInt32 DM dword"
+    },
+    {
+      "address": "DM1046",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 044 UInt32 DM dword"
+    },
+    {
+      "address": "DM1048",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 045 UInt32 DM dword"
+    },
+    {
+      "address": "DM1050",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 046 UInt32 DM dword"
+    },
+    {
+      "address": "DM1052",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 047 UInt32 DM dword"
+    },
+    {
+      "address": "DM1054",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 048 UInt32 DM dword"
+    },
+    {
+      "address": "DM1056",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 049 UInt32 DM dword"
+    },
+    {
+      "address": "DM1058",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 050 UInt32 DM dword"
+    },
+    {
+      "address": "DM1060",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 051 UInt32 DM dword"
+    },
+    {
+      "address": "DM1062",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 052 UInt32 DM dword"
+    },
+    {
+      "address": "DM1064",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 053 UInt32 DM dword"
+    },
+    {
+      "address": "DM1066",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 054 UInt32 DM dword"
+    },
+    {
+      "address": "DM1068",
+      "dataType": "UInt32",
+      "displayRadix": "Hex",
+      "comment": "KEYENCE debug 055 UInt32 DM dword"
+    },
+    {
+      "address": "DM1070",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 056 Float32 DM float"
+    },
+    {
+      "address": "DM1072",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 057 Float32 DM float"
+    },
+    {
+      "address": "DM1074",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 058 Float32 DM float"
+    },
+    {
+      "address": "DM1076",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 059 Float32 DM float"
+    },
+    {
+      "address": "DM1078",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 060 Float32 DM float"
+    },
+    {
+      "address": "DM1080",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 061 Float32 DM float"
+    },
+    {
+      "address": "DM1082",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 062 Float32 DM float"
+    },
+    {
+      "address": "DM1084",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 063 Float32 DM float"
+    },
+    {
+      "address": "DM1086",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 064 Float32 DM float"
+    },
+    {
+      "address": "DM1088",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 065 Float32 DM float"
+    },
+    {
+      "address": "DM1090",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 066 Float32 DM float"
+    },
+    {
+      "address": "DM1092",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 067 Float32 DM float"
+    },
+    {
+      "address": "DM1094",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 068 Float32 DM float"
+    },
+    {
+      "address": "DM1096",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 069 Float32 DM float"
+    },
+    {
+      "address": "DM1098",
+      "dataType": "Float32",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 070 Float32 DM float"
+    },
+    {
+      "address": "DM1100.0",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 071 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.1",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 072 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.2",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 073 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.3",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 074 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.4",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 075 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.5",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 076 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.6",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 077 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.7",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 078 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.8",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 079 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.9",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 080 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.10",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 081 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.11",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 082 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.12",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 083 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.13",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 084 Bit DM word-bit"
+    },
+    {
+      "address": "DM1100.14",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 085 Bit DM word-bit"
+    },
+    {
+      "address": "MR399900",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 086 Bit MR direct bit"
+    },
+    {
+      "address": "MR399901",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 087 Bit MR direct bit"
+    },
+    {
+      "address": "MR399902",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 088 Bit MR direct bit"
+    },
+    {
+      "address": "MR399903",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 089 Bit MR direct bit"
+    },
+    {
+      "address": "MR399904",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 090 Bit MR direct bit"
+    },
+    {
+      "address": "MR399905",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 091 Bit MR direct bit"
+    },
+    {
+      "address": "MR399906",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 092 Bit MR direct bit"
+    },
+    {
+      "address": "MR399907",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 093 Bit MR direct bit"
+    },
+    {
+      "address": "MR399908",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 094 Bit MR direct bit"
+    },
+    {
+      "address": "MR399909",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 095 Bit MR direct bit"
+    },
+    {
+      "address": "MR399910",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 096 Bit MR direct bit"
+    },
+    {
+      "address": "MR399911",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 097 Bit MR direct bit"
+    },
+    {
+      "address": "MR399912",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 098 Bit MR direct bit"
+    },
+    {
+      "address": "MR399913",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 099 Bit MR direct bit"
+    },
+    {
+      "address": "MR399914",
+      "dataType": "Bit",
+      "displayRadix": "Dec",
+      "comment": "KEYENCE debug 100 Bit MR direct bit"
+    }
+  ]
+}

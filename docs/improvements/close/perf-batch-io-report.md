@@ -117,7 +117,7 @@ Result:
 Notes:
 
 - Session-level `>50` row batch behavior is covered by the 70-query checks above.
-- App-level 100-row watch UI scrolling was checked with `docs/slmp-iqr-100-watch.json`.
+- App-level 100-row watch UI scrolling was checked with `docs/samples/slmp-iqr-100-watch.json`.
 - Live random-read rejection fallback is still not reproduced on this iQ-R because random-read frames are accepted.
 
 ### Light QnUDV Live PLC Smoke Check (2026-06-19)

@@ -80,6 +80,10 @@ Prefixed addresses such as `P1-D`, `P1-P`, `P1-S`, `P1-X`, and `P1-Y` are normal
 
 Packed bit reads are used for TOYOPUC bit block monitoring where that matches the protocol library. The application expands the packed word data into visible bit cells.
 
+Visible watch-list reads use TOYOPUC read-many batching where possible. Invalid local planning failures remain isolated to the affected row; batch request failures fall back to the existing per-row read path.
+
+Direct bit-device writes can be grouped through TOYOPUC write-many batching. Word-bit writes and non-bit writes use the existing typed or bit-in-word write paths.
+
 CPU control maps to TOYOPUC scan commands:
 
 - `CPU STOP`: scan stop

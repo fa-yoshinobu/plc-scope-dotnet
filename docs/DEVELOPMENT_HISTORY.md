@@ -1,5 +1,22 @@
 # Development History
 
+## 2026-06-19 TOYOPUC Batch I/O Follow-Up
+
+TOYOPUC watch-list batching was added after the Host Link follow-up.
+
+### Scope
+
+- Added `ToyopucSession.ReadBatchAsync` using `ReadManyAsync` / `RelayReadManyAsync` for visible watch rows.
+- Preserved row-level behavior by isolating local planning errors and falling back to sequential reads when read-many requests fail.
+- Added `ToyopucSession.WriteBitBatchAsync` using `WriteManyAsync` / `RelayWriteManyAsync` for direct bit-device writes.
+- Kept word-bit writes, non-bit writes, and typed word writes on the existing write paths.
+
+### Verification
+
+- Fake TOYOPUC session tests cover read-many frame generation, invalid-row isolation, and write-many bit writes.
+- Relay-hop live validation passed on `192.168.250.100:1025`, profile `toyopuc:nano-10gx:compatible`, relay hops `P1-L1:N2`.
+- Live checks covered mixed word/DWord/bit batch reads, invalid-row isolation, packed-bit comparison against the previous block-read path, direct bit write-many safety, and restore of `P1-M07F0-P1-M07F7`.
+
 ## 2026-06-19 Host Link Batch I/O Follow-Up
 
 Host Link watch-list batching was added after the SLMP batch I/O work.
@@ -10,7 +27,7 @@ Host Link watch-list batching was added after the SLMP batch I/O work.
 - Preserved row-level behavior by falling back to the existing sequential read path when named reads fail.
 - Added `HostLinkSession.WriteBitBatchAsync` for same-family consecutive direct bit-device writes through `WriteConsecutiveAsync`.
 - Kept non-consecutive bit writes, word-bit writes, and unproven Keyence bit-bank boundary cases on the existing sequential write path.
-- Left TOYOPUC cross-watch batching as an open investigation.
+- TOYOPUC cross-watch batching was left to the follow-up completed later on 2026-06-19.
 
 ### Verification
 
@@ -39,7 +56,7 @@ The SLMP batch I/O work and the open improvement findings were completed and mer
 - SLMP iQ-R hardware validation passed at `192.168.250.100:1025` using `D`, `W`, `M`, `L`, and `B` scratch ranges while avoiding `X`, `Y`, and `G`.
 - A 1-hour extended iQ-R pattern check completed with 10,546 iterations, 1,728,038 trace events, 0 error events, and all original scratch values restored.
 - SLMP QnUDV smoke validation passed at `192.168.250.100:1025` for word, DWord, word-bit, random bit batch, and mixed batch reads.
-- App-level 100-row watch UI scrolling was checked with `docs/slmp-iqr-100-watch.json`.
+- App-level 100-row watch UI scrolling was checked with `docs/samples/slmp-iqr-100-watch.json`.
 
 ### Notes
 

@@ -1,6 +1,6 @@
 # Host Link / TOYOPUC Batch Feasibility
 
-Status: Host Link implemented; TOYOPUC remains open investigation
+Status: Host Link and TOYOPUC conservative batching implemented
 
 Created: 2026-06-19
 
@@ -8,9 +8,9 @@ Created: 2026-06-19
 
 Determine whether watch-list cross-row batching can be safely extended beyond the completed SLMP batch I/O scope.
 
-The current application already batches visible watch-list reads through `IPlcSession.ReadBatchAsync`, but only `SlmpSession` overrides it with protocol-specific random-read batching. Host Link and TOYOPUC currently use the default sequential cross-watch behavior.
+The application batches visible watch-list reads through `IPlcSession.ReadBatchAsync`. SLMP, Host Link, and TOYOPUC now provide protocol-specific batch implementations with sequential fallback.
 
-This document is a feasibility task, not an implementation instruction. Do not add Host Link or TOYOPUC cross-watch batching until the API limits and failure behavior below are confirmed.
+This document records the feasibility investigation, conservative implementation scope, and validation results.
 
 ## Current Baseline
 
@@ -35,7 +35,7 @@ The missing optimization is not range/block reads. It is cross-watch batching fo
 - bit ranges use direct reads or packed-word reads depending on the resolved device;
 - relay hops are applied through `QueuedToyopucDeviceClient`.
 
-The missing optimization is cross-watch batching for scattered visible watch rows, including relay-hop scenarios.
+The original missing optimization was cross-watch batching for scattered visible watch rows, including relay-hop scenarios. The conservative implementation now uses `ReadManyAsync` / `RelayReadManyAsync` for visible watch rows.
 
 ## Public API Inventory
 
@@ -57,21 +57,21 @@ Risk: there is no obvious direct equivalent of SLMP random read/write for arbitr
 ### TOYOPUC Candidates
 
 - `ToyopucDeviceClient.ReadManyAsync(IEnumerable<object> devices, CancellationToken)`
-- `ToyopucDeviceClient.WriteManyAsync(IEnumerable<object> items, CancellationToken)`
+- `ToyopucDeviceClient.WriteManyAsync(IEnumerable<KeyValuePair<object, object>> items, CancellationToken)`
 - `ToyopucDeviceClient.RelayReadManyAsync(object hops, IEnumerable<object> devices, CancellationToken)`
-- `ToyopucDeviceClient.RelayWriteManyAsync(object hops, IEnumerable<object> items, CancellationToken)`
+- `ToyopucDeviceClient.RelayWriteManyAsync(object hops, IEnumerable<KeyValuePair<object, object>> items, CancellationToken)`
 - lower-level `ReadWordsMultiAsync`, `ReadBytesMultiAsync`, `ReadExtMultiAsync`
 - lower-level `WriteWordsMultiAsync`, `WriteBytesMultiAsync`, `WriteExtMultiAsync`
 - typed consecutive APIs such as `ReadDWordsAsync`, `ReadFloat32sAsync`, `WriteDWordsAsync`, and `WriteFloat32sAsync`
 
-Risk: TOYOPUC has profile, unit, packed-bit, relay-hop, and PC10/Plus differences. `ReadManyAsync` / `WriteManyAsync` may be usable, but the accepted item shapes and error behavior need to be characterized before application use.
+Risk: TOYOPUC has profile, unit, packed-bit, relay-hop, and PC10/Plus differences. The implemented scope uses string device addresses for read-many and `KeyValuePair<object, object>` address/value items for write-many, with fallback to the previous sequential paths.
 
 ## Feasibility Matrix
 
 | Protocol | Cross-watch batch read | Direct bit batch write | Initial judgment |
 | --- | --- | --- | --- |
 | Host Link | Implemented through `HostLinkSession.ReadBatchAsync` using `ReadNamedAsync`, with fallback to sequential reads on named-read failure. | Implemented for same-family consecutive direct bit-device runs through `WriteConsecutiveAsync`. Arbitrary scattered bit batch writes remain sequential. | Complete for the conservative scope. |
-| TOYOPUC | Promising because `ReadManyAsync` and `RelayReadManyAsync` exist. | Promising but risky because `WriteManyAsync` item shape and bit safety must be proven. | Investigate with fake server and then real hardware. |
+| TOYOPUC | Implemented through `ToyopucSession.ReadBatchAsync` using `ReadManyAsync` / `RelayReadManyAsync`, with fallback to sequential reads on request failure. | Implemented for direct bit-device writes through `WriteManyAsync` / `RelayWriteManyAsync`. | Complete for the conservative scope. |
 
 ## Host Link Implementation (2026-06-19)
 
@@ -206,6 +206,62 @@ Interpretation:
 - The app should not try to batch arbitrary scattered bit writes unless a separate safe API is proven. A conservative implementation can group only adjacent direct bit-device write requests with the same Host Link device family and consecutive logical addresses, then fall back to sequential writes for everything else.
 - Fake-server tests now cover the implemented command behavior. Source inspection may still be useful before broadening beyond the conservative consecutive-run scope.
 
+## TOYOPUC Implementation (2026-06-19)
+
+Implemented in `ToyopucSession`:
+
+- `ReadBatchAsync` creates TOYOPUC read-many plans for visible watch queries.
+- Word-device watch rows are read as raw word addresses so existing `BlockReadResult` interpretation remains unchanged.
+- Bit-device watch rows are read as direct bit addresses and returned as `BitValues`.
+- Local planning errors, such as out-of-range addresses, are isolated to the affected row.
+- Read-many request failures emit an error event and fall back to existing sequential per-row reads.
+- `WriteBitBatchAsync` batches direct bit-device write requests through `WriteManyAsync` / `RelayWriteManyAsync`.
+- Word-bit writes, non-bit writes, and typed word writes remain on the existing write paths.
+
+Fake-server/API characterization:
+
+- PASS: `ReadManyAsync` accepts string device addresses through `IEnumerable<object>`.
+- PASS: `WriteManyAsync` accepts `KeyValuePair<object, object>` address/value items.
+- PASS: Relay variants use the same item shapes through `RelayReadManyAsync` and `RelayWriteManyAsync`.
+- PASS: Fake TOYOPUC session tests cover read-many frame generation, invalid-row isolation, and write-many bit writes.
+
+Observed fake frames:
+
+```text
+ReadMany ["P1-D0000","P1-D0001"] => 00000600940100100200
+WriteMany P1-M0000=True, P1-M0001=False => 00000C00990200000100030111000300
+RelayReadMany ["P1-D0000","P1-D0001"] => 00000E006011020005060094010010020000
+RelayWriteMany P1-M0000=True, P1-M0001=False => 0000140060110200050C0099020000010003011100030000
+```
+
+Live relay-hop validation:
+
+- Date: 2026-06-19
+- Endpoint: `192.168.250.100:1025` over TCP
+- Profile: `toyopuc:nano-10gx:compatible`
+- Relay hops: `P1-L1:N2`
+- Scratch bits: `P1-M07F0-P1-M07F7`
+- PASS: `RelayReadManyAsync(["P1-D0000","P1-D0001"])` returned `9999,9999`.
+- PASS: Mixed `RelayReadManyAsync(["P1-D0000","P1-M07F0"])` returned a word value and a Boolean bit value.
+- PASS: `ToyopucSession.ReadBatchAsync` returned successful mixed rows for `P1-D0000` Word, `P1-D0000` DWord, and `P1-M07F0-P1-M07F7` bits.
+- PASS: Invalid `P1-DFFFF` was isolated to the invalid row while valid `P1-D0000` continued to read.
+- PASS: Batch bit reads matched the previous packed-bit `ReadBlockAsync` path for `P1-M07F0-P1-M07F7`.
+- PASS: `ToyopucSession.WriteBitBatchAsync` changed only `P1-M07F0` and `P1-M07F2`; adjacent bits stayed unchanged.
+- PASS: Original `P1-M07F0-P1-M07F7` values were restored to `00000000`.
+- PASS: No `ErrorReceived` events were logged during the session-level validation.
+
+Observed live samples:
+
+```text
+CPU Run raw=81 00 00 00 00 00 00 0F
+MIXED word=9999 dwordWords=9999,9999 bits=00000000
+INVALID isolation PASS validWord=9999 invalidError=ArgumentException
+PACKED bit match 00000000
+WRITE changed=10100000 targetOk=True adjacentOk=True
+WRITE restored=00000000 restoreOk=True
+PASS traces=22 errors=0
+```
+
 ## Required Questions
 
 Host Link:
@@ -218,13 +274,13 @@ Host Link:
 
 TOYOPUC:
 
-- What exact object types does `ReadManyAsync` accept?
-- What exact item types does `WriteManyAsync` accept?
-- Can read-many mix word, bit, DWord, Float32, prefixed, and packed devices?
-- Does relay-hop read-many use the same item behavior as direct read-many?
-- What are the point count and payload limits?
-- What happens when one address is invalid?
-- Can direct bit writes be batched without changing non-target bits or devices?
+- What exact object types does `ReadManyAsync` accept? String device addresses through `IEnumerable<object>`.
+- What exact item types does `WriteManyAsync` accept? `KeyValuePair<object, object>` address/value items.
+- Can read-many mix word, bit, DWord, Float32, prefixed, and packed devices? Live relay-hop probe confirmed mixed word and direct bit rows; DWord rows work by reading two raw word addresses. Float32 uses the same two-word raw path.
+- Does relay-hop read-many use the same item behavior as direct read-many? Fake probe and live validation: yes.
+- What are the point count and payload limits? The conservative app implementation uses visible watch rows and falls back to sequential reads on request failure; no broad maximum-point claim is made yet.
+- What happens when one address is invalid? Local out-of-range planning errors are isolated to the affected row. If a planned read-many request fails at protocol level, the implementation falls back to sequential per-row reads.
+- Can direct bit writes be batched without changing non-target bits or devices? Live relay-hop validation confirmed target-only changes for `P1-M07F0` and `P1-M07F2`, adjacent bits unchanged, and full restore.
 
 ## Investigation Plan
 
@@ -273,19 +329,19 @@ Any bit batch write may proceed only if:
 
 ## Stop And Ask
 
-Stop before broadening the implemented Host Link scope, or before implementing
-TOYOPUC batching, if any of these remain unknown:
+Stop before broadening the implemented Host Link or TOYOPUC scope if any of
+these remain unknown:
 
 - point count or payload limit;
 - mixed-device behavior outside the currently validated Host Link named-read path;
 - invalid-address failure behavior outside the current row-isolated fallback path;
-- TOYOPUC read-many/write-many item shape;
-- relay-hop behavior;
-- bit-write safety outside same-family consecutive direct Host Link bit devices.
+- TOYOPUC behavior outside string-address read-many and direct bit-device write-many;
+- relay-hop behavior outside the validated `P1-L1:N2` path;
+- bit-write safety outside Host Link consecutive direct bit devices or TOYOPUC direct bit devices.
 
 If those cannot be resolved from public DLL metadata and fake-server tests, the
 next step is to inspect library source or run a small standalone hardware probe
-before changing `ToyopucSession` or broadening `HostLinkSession` further.
+before broadening `HostLinkSession` or `ToyopucSession` further.
 
 ## Non-Goals
 

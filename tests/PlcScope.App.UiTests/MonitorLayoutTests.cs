@@ -297,6 +297,62 @@ public sealed class MonitorLayoutTests
     }
 
     [Fact]
+    public void ConnectionDialog_PlacesTransportInsideCommonGroup()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "ConnectionDialog.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+        var commonGroup = document
+            .Descendants(presentation + "GroupBox")
+            .Single(element => string.Equals((string?)element.Attribute("Header"), "Common", StringComparison.Ordinal));
+        var transportComboBox = document
+            .Descendants()
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "ConnectionTransportComboBox", StringComparison.Ordinal)));
+
+        Assert.Contains(commonGroup, transportComboBox.Ancestors());
+        Assert.Equal("1", (string?)transportComboBox.Attribute("Grid.Row"));
+        Assert.DoesNotContain(
+            document.Descendants(presentation + "GroupBox"),
+            element => string.Equals((string?)element.Attribute("Header"), "Transport", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ConnectionDialog_LeavesSpaceForVerticalScrollBar()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "ConnectionDialog.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+        var scrollViewer = document.Descendants(presentation + "ScrollViewer").Single();
+        var contentPanel = scrollViewer.Elements(presentation + "StackPanel").Single();
+
+        Assert.Equal("Auto", (string?)scrollViewer.Attribute("VerticalScrollBarVisibility"));
+        Assert.Equal("0,0,16,0", (string?)contentPanel.Attribute("Margin"));
+    }
+
+    [Fact]
+    public void ConnectionDialog_ShowsToyopucRelayHopExample()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "ConnectionDialog.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+        var toyopucGroup = document
+            .Descendants(presentation + "GroupBox")
+            .Single(element => string.Equals((string?)element.Attribute("Header"), "TOYOPUC", StringComparison.Ordinal));
+
+        Assert.NotNull(toyopucGroup
+            .Descendants(presentation + "TextBlock")
+            .SingleOrDefault(element => string.Equals((string?)element.Attribute("Text"), "Example: P1-L1:N2", StringComparison.Ordinal)));
+        Assert.NotNull(toyopucGroup
+            .Descendants(presentation + "TextBox")
+            .SingleOrDefault(element => string.Equals((string?)element.Attribute("ToolTip"), "Example: P1-L1:N2", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void ViewMenu_ContainsAlwaysOnTopSelection()
     {
         var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");

@@ -117,6 +117,122 @@ public sealed class ToyopucSessionTests
     }
 
     [Fact]
+    public async Task ReadBatchAsync_UsesReadManyForWordQueries()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        byte[]? readManyFrame = null;
+        var serverTask = Task.Run(async () =>
+        {
+            using var serverClient = await listener.AcceptTcpClientAsync();
+            await using var stream = serverClient.GetStream();
+            readManyFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x94, new byte[] { 0x34, 0x12, 0x78, 0x56 }));
+        });
+
+        await using var session = await CreateConnectedToyopucSessionAsync(port);
+        var results = await session.ReadBatchAsync(
+        [
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.Toyopuc,
+                DeviceFamilyCode = "P1-D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "P1-D0000",
+                ItemCount = 1,
+            },
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.Toyopuc,
+                DeviceFamilyCode = "P1-D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "P1-D0001",
+                ItemCount = 1,
+            },
+        ]);
+        await serverTask;
+
+        Assert.All(results, static result => Assert.True(result.Success, result.Error?.Message));
+        Assert.Equal((ushort)0x1234, Assert.Single(results[0].Result!.WordValues));
+        Assert.Equal((ushort)0x5678, Assert.Single(results[1].Result!.WordValues));
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x06, 0x00, 0x94, 0x01, 0x00, 0x10, 0x02, 0x00 }, readManyFrame);
+    }
+
+    [Fact]
+    public async Task WriteBitBatchAsync_UsesWriteManyForBitDevices()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        byte[]? writeManyFrame = null;
+        var serverTask = Task.Run(async () =>
+        {
+            using var serverClient = await listener.AcceptTcpClientAsync();
+            await using var stream = serverClient.GetStream();
+            writeManyFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x99, new byte[] { 0x01 }));
+        });
+
+        await using var session = await CreateConnectedToyopucSessionAsync(port);
+        var results = await session.WriteBitBatchAsync(
+        [
+            new WriteRequest("P1-M0000", ValueDataType.Bit, true),
+            new WriteRequest("P1-M0001", ValueDataType.Bit, false),
+        ]);
+        await serverTask;
+
+        Assert.Equal(["P1-M0000", "P1-M0001"], results.Select(static result => result.Address).ToArray());
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x0C, 0x00, 0x99, 0x02, 0x00, 0x00, 0x01, 0x00, 0x03, 0x01, 0x11, 0x00, 0x03, 0x00 }, writeManyFrame);
+    }
+
+    [Fact]
+    public async Task ReadBatchAsync_IsolatesInvalidToyopucWatchRow()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        byte[]? readManyFrame = null;
+        var serverTask = Task.Run(async () =>
+        {
+            using var serverClient = await listener.AcceptTcpClientAsync();
+            await using var stream = serverClient.GetStream();
+            readManyFrame = await ReadFrameAsync(stream);
+            await stream.WriteAsync(BuildResponse(0x94, new byte[] { 0x34, 0x12 }));
+        });
+
+        await using var session = await CreateConnectedToyopucSessionAsync(port);
+        var results = await session.ReadBatchAsync(
+        [
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.Toyopuc,
+                DeviceFamilyCode = "P1-D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "P1-DFFFF",
+                ItemCount = 1,
+            },
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.Toyopuc,
+                DeviceFamilyCode = "P1-D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "P1-D0000",
+                ItemCount = 1,
+            },
+        ]);
+        await serverTask;
+
+        Assert.False(results[0].Success);
+        Assert.True(results[1].Success, results[1].Error?.Message);
+        Assert.Equal((ushort)0x1234, Assert.Single(results[1].Result!.WordValues));
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x06, 0x00, 0x94, 0x01, 0x00, 0x10, 0x01, 0x00 }, readManyFrame);
+    }
+
+    [Fact]
     public async Task ReadDeviceRangeCatalogAsync_UsesSelectedToyopucProfile()
     {
         await using var session = await CreateToyopucSessionAsync("toyopuc:plus:extended");

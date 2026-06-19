@@ -273,7 +273,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
   - `melsec:qnudv` profile でも `192.168.250.100:1025` に対して軽量 smoke を実施済み。
     `D1000-D1003` と `M1000-M1015` を使用し、Word / DWord / word-bit /
     random bit batch / mixed batch read を確認、全 scratch 値の復元確認済み。
-  - `docs/slmp-iqr-100-watch.json` による 100 行 watch UI の app-level scroll read は確認済み。
+  - `docs/samples/slmp-iqr-100-watch.json` による 100 行 watch UI の app-level scroll read は確認済み。
   - random read 拒否時の逐次 fallback は live では再現不可。
     対象 iQ-R が random-read frame を受け入れたため、拒否 scenario を自動再現できなかった。
     fallback path 自体は fake-SLMP 自動テストで確認済み。
