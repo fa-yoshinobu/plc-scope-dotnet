@@ -66,6 +66,10 @@ SLMP CPU control exposes `CPU RUN`, `CPU STOP`, and `CPU PAUSE`. `CPU PAUSE` is 
 
 Host Link supports monitor reads, writes, and CPU mode operations where the library and PLC model allow them.
 
+Visible watch-list reads use Host Link named reads where possible. Invalid batch requests fall back to the existing per-row read path so valid rows can continue updating.
+
+Consecutive direct bit-device writes can be grouped into one Host Link consecutive write when all requested bits are in the same device family and safe contiguous range. Non-consecutive bit writes, word-bit writes, and unproven bank-boundary cases use the existing sequential write path.
+
 ### TOYOPUC
 
 TOYOPUC uses the Computer Link protocol adapter.

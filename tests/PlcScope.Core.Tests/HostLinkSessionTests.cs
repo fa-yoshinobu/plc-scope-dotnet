@@ -11,6 +11,148 @@ using PlcScope.Infrastructure.Protocols;
 public sealed class HostLinkSessionTests
 {
     [Fact]
+    public async Task ReadBatchAsync_UsesNamedReadForMixedWatchQueries()
+    {
+        await using var server = new ScriptedHostLinkServer(command =>
+        {
+            if (command == "RDS D1000.U 1")
+                return "10";
+            if (command == "RDS D1002.U 2")
+                return "20 21";
+            if (command == "RDS MR000 1")
+                return "1";
+            if (command == "RDS B0 1")
+                return "0";
+            if (command == "?M")
+                return "1";
+
+            return "E1";
+        });
+        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port);
+
+        var results = await session.ReadBatchAsync(
+        [
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.HostLink,
+                DeviceFamilyCode = "D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "D1000",
+                ItemCount = 1,
+                DisplayMode = BlockDisplayMode.Word,
+            },
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.HostLink,
+                DeviceFamilyCode = "D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "D1002",
+                ItemCount = 1,
+                DisplayMode = BlockDisplayMode.DWord,
+            },
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.HostLink,
+                DeviceFamilyCode = "MR",
+                DeviceKind = DeviceKind.Bit,
+                StartAddress = "MR000",
+                ItemCount = 1,
+                DisplayMode = BlockDisplayMode.BitExpand,
+            },
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.HostLink,
+                DeviceFamilyCode = "B",
+                DeviceKind = DeviceKind.Bit,
+                StartAddress = "B0",
+                ItemCount = 1,
+                DisplayMode = BlockDisplayMode.BitExpand,
+            },
+        ]);
+
+        Assert.All(results, static result => Assert.True(result.Success, result.Error?.Message));
+        Assert.Equal([10], results[0].Result!.WordValues);
+        Assert.Equal([20, 21], results[1].Result!.WordValues);
+        Assert.Equal([true], results[2].Result!.BitValues);
+        Assert.Equal([false], results[3].Result!.BitValues);
+        Assert.Contains("RDS D1000.U 1", server.ReceivedCommands);
+        Assert.Contains("RDS D1002.U 2", server.ReceivedCommands);
+        Assert.Contains("RDS MR000 1", server.ReceivedCommands);
+        Assert.Contains("RDS B0 1", server.ReceivedCommands);
+    }
+
+    [Fact]
+    public async Task ReadBatchAsync_FallsBackToSequentialWhenNamedReadPlanningFails()
+    {
+        await using var server = new ScriptedHostLinkServer(command => command switch
+        {
+            "RDS D1000.U 1" => "7",
+            "?M" => "1",
+            _ => "E1",
+        });
+        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port);
+
+        var results = await session.ReadBatchAsync(
+        [
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.HostLink,
+                DeviceFamilyCode = "D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "D99999",
+                ItemCount = 1,
+            },
+            new BlockQuery
+            {
+                Protocol = ProtocolKind.HostLink,
+                DeviceFamilyCode = "D",
+                DeviceKind = DeviceKind.Word,
+                StartAddress = "D1000",
+                ItemCount = 1,
+            },
+        ]);
+
+        Assert.False(results[0].Success);
+        Assert.True(results[1].Success, results[1].Error?.Message);
+        Assert.Equal([7], results[1].Result!.WordValues);
+        Assert.DoesNotContain(server.ReceivedCommands, command => command.Contains("D99999", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task WriteBitBatchAsync_UsesConsecutiveWriteForContiguousBitDevices()
+    {
+        await using var server = new ScriptedHostLinkServer(command => command.StartsWith("WRS ", StringComparison.Ordinal) ? "OK" : "E1");
+        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port);
+
+        var results = await session.WriteBitBatchAsync(
+        [
+            new WriteRequest("MR000", ValueDataType.Bit, true),
+            new WriteRequest("MR001", ValueDataType.Bit, false),
+            new WriteRequest("MR002", ValueDataType.Bit, true),
+        ]);
+
+        Assert.Equal(["MR000", "MR001", "MR002"], results.Select(static result => result.Address).ToArray());
+        Assert.Equal(["WRS MR000 3 1 0 1"], server.ReceivedCommands.ToArray());
+    }
+
+    [Fact]
+    public async Task WriteBitBatchAsync_FallsBackForKeyenceBitBankBoundary()
+    {
+        await using var server = new ScriptedHostLinkServer(_ => "OK");
+        await using var session = await CreateConnectedHostLinkSessionAsync(server.Port);
+
+        var results = await session.WriteBitBatchAsync(
+        [
+            new WriteRequest("MR015", ValueDataType.Bit, true),
+            new WriteRequest("MR100", ValueDataType.Bit, false),
+        ]);
+
+        Assert.Equal(["MR015", "MR100"], results.Select(static result => result.Address).ToArray());
+        Assert.DoesNotContain(server.ReceivedCommands, command => command.StartsWith("WRS ", StringComparison.Ordinal));
+        Assert.Equal(2, server.ReceivedCommands.Count);
+    }
+
+    [Fact]
     public async Task ReadBlockAsync_MrBitDeviceUsesMonitorWordBlockRead()
     {
         await using var server = new ScriptedHostLinkServer(command => command switch

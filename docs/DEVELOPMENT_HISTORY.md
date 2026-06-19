@@ -1,5 +1,24 @@
 # Development History
 
+## 2026-06-19 Host Link Batch I/O Follow-Up
+
+Host Link watch-list batching was added after the SLMP batch I/O work.
+
+### Scope
+
+- Added `HostLinkSession.ReadBatchAsync` using `ReadNamedAsync` for visible watch rows.
+- Preserved row-level behavior by falling back to the existing sequential read path when named reads fail.
+- Added `HostLinkSession.WriteBitBatchAsync` for same-family consecutive direct bit-device writes through `WriteConsecutiveAsync`.
+- Kept non-consecutive bit writes, word-bit writes, and unproven Keyence bit-bank boundary cases on the existing sequential write path.
+- Left TOYOPUC cross-watch batching as an open investigation.
+
+### Verification
+
+- Host Link live read-only probe passed on `192.168.250.100:8501`.
+- Host Link live bit-write probe passed on `MR399900-MR399915`; original values were restored.
+- Implemented `HostLinkSession` smoke check passed on `192.168.250.100:8501` for mixed batch read and `MR399900-MR399903` batch write/restore.
+- Fake Host Link session tests cover mixed watch read batching, fallback behavior, consecutive bit writes, and bit-bank boundary fallback.
+
 ## 2026-06-19 Batch I/O And Improvement Closure
 
 The SLMP batch I/O work and the open improvement findings were completed and merged to `main`.
@@ -10,7 +29,7 @@ The SLMP batch I/O work and the open improvement findings were completed and mer
 - Added SLMP random-read batching for supported word-device watch queries.
 - Added SLMP direct bit-device batch writes through `WriteBitBatchAsync`.
 - Preserved row-level watch errors so an invalid watch address does not stop other visible rows from updating.
-- Kept Host Link and TOYOPUC cross-watch batching out of scope until library/source or protocol-limit details are available.
+- Kept Host Link and TOYOPUC cross-watch batching out of the initial SLMP batch I/O merge until library/source or protocol-limit details were available.
 - Closed the remaining improvement findings; the bit-device data-type policy item was kept as the intended packed-read/write behavior.
 - Moved completed improvement plans and reports into `docs/improvements/close/`.
 

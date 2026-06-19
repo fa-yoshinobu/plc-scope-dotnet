@@ -131,6 +131,67 @@ internal sealed class HostLinkSession : PlcSessionBase
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    public override async Task<IReadOnlyList<BlockReadBatchItemResult>> ReadBatchAsync(
+        IReadOnlyList<BlockQuery> queries,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        if (queries.Count == 0)
+            return [];
+
+        var results = new BlockReadBatchItemResult?[queries.Count];
+        var namedPlans = new List<HostLinkBatchReadPlan>();
+        var sequentialQueries = new List<(int Index, BlockQuery Query)>();
+
+        for (var index = 0; index < queries.Count; index++)
+        {
+            if (TryCreateNamedReadPlan(queries[index], index, out var plan, out var errorResult))
+            {
+                if (errorResult is not null)
+                    results[index] = errorResult;
+                else if (plan is not null)
+                    namedPlans.Add(plan);
+
+                continue;
+            }
+
+            sequentialQueries.Add((index, queries[index]));
+        }
+
+        if (namedPlans.Count > 0)
+        {
+            try
+            {
+                var namedResults = await ReadNamedPlansAsync(namedPlans, cancellationToken).ConfigureAwait(false);
+                foreach (var (index, result) in namedResults)
+                {
+                    results[index] = BlockReadBatchItemResult.FromResult(result);
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                EmitError(new ErrorEntry(
+                    DateTimeOffset.UtcNow,
+                    "Host Link batch read",
+                    "Host Link named read failed. Falling back to sequential reads.",
+                    exception.Message));
+
+                sequentialQueries.AddRange(namedPlans.Select(static plan => (plan.QueryIndex, plan.OriginalQuery)));
+            }
+        }
+
+        foreach (var (index, query) in sequentialQueries.OrderBy(static item => item.Index))
+        {
+            results[index] = await ReadSequentialBatchItemAsync(query, cancellationToken).ConfigureAwait(false);
+        }
+
+        return results
+            .Select((result, index) => result ?? BlockReadBatchItemResult.FromError(
+                queries[index],
+                new InvalidOperationException("PLC batch read did not produce a result.")))
+            .ToArray();
+    }
+
     public override async Task<WriteResult> WriteAsync(WriteRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfNotConnected(_client is not null);
@@ -149,6 +210,38 @@ internal sealed class HostLinkSession : PlcSessionBase
         }, cancellationToken).ConfigureAwait(false);
 
         return new WriteResult(address, "Write completed.", DateTimeOffset.UtcNow);
+    }
+
+    public override async Task<IReadOnlyList<WriteResult>> WriteBitBatchAsync(
+        IReadOnlyList<WriteRequest> requests,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotConnected(_client is not null);
+        if (requests.Count == 0)
+            return [];
+
+        if (!TryCreateConsecutiveBitWritePlan(requests, out var plan))
+            return await base.WriteBitBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await ExecuteSerializedAsync(
+                () => _client!.WriteConsecutiveAsync(plan.StartAddress, plan.Values, dataFormat: null, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            EmitError(new ErrorEntry(
+                DateTimeOffset.UtcNow,
+                "Host Link bit batch write",
+                "Host Link consecutive bit write failed. Falling back to sequential writes.",
+                exception.Message));
+            return await base.WriteBitBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+        }
+
+        return plan.NormalizedAddresses
+            .Select(static address => new WriteResult(address, "Write completed.", DateTimeOffset.UtcNow))
+            .ToArray();
     }
 
     public override async Task<WriteResult> WriteBitInWordAsync(string wordAddress, int bitIndex, bool value, CancellationToken cancellationToken = default)
@@ -199,6 +292,192 @@ internal sealed class HostLinkSession : PlcSessionBase
     {
         await DisconnectAsync().ConfigureAwait(false);
         DisposeSynchronization();
+    }
+
+    private bool TryCreateNamedReadPlan(
+        BlockQuery query,
+        int queryIndex,
+        out HostLinkBatchReadPlan? plan,
+        out BlockReadBatchItemResult? errorResult)
+    {
+        plan = null;
+        errorResult = null;
+
+        try
+        {
+            var normalizedStart = NormalizeAddress(query.StartAddress, ResolveFamily(Definition, query.DeviceFamilyCode));
+            var effectiveQuery = query with { StartAddress = normalizedStart };
+            IReadOnlyList<string> elementAddresses;
+            bool readsBits;
+
+            if (query.DeviceKind == DeviceKind.Word)
+            {
+                var wordCount = query.DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32
+                    ? checked(query.EffectiveItemCount * 2)
+                    : query.EffectiveItemCount;
+                elementAddresses = BuildWordAddresses(normalizedStart, wordCount);
+                readsBits = false;
+            }
+            else
+            {
+                elementAddresses = BuildWordAddresses(normalizedStart, query.EffectiveItemCount);
+                readsBits = true;
+            }
+
+            plan = new HostLinkBatchReadPlan(
+                queryIndex,
+                query,
+                effectiveQuery,
+                elementAddresses,
+                elementAddresses,
+                readsBits);
+            return true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorResult = BlockReadBatchItemResult.FromError(query, exception);
+            return true;
+        }
+    }
+
+    private async Task<BlockReadBatchItemResult> ReadSequentialBatchItemAsync(
+        BlockQuery query,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await ReadBlockAsync(query, cancellationToken).ConfigureAwait(false);
+            return BlockReadBatchItemResult.FromResult(result);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return BlockReadBatchItemResult.FromError(query, exception);
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<int, BlockReadResult>> ReadNamedPlansAsync(
+        IReadOnlyList<HostLinkBatchReadPlan> plans,
+        CancellationToken cancellationToken)
+    {
+        var addresses = plans
+            .SelectMany(static plan => plan.NamedAddresses)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        IReadOnlyDictionary<string, object> snapshot = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        CpuState? cpuState = null;
+        var elapsedMilliseconds = 0d;
+        var timestamp = DateTimeOffset.UtcNow;
+
+        await ExecuteSerializedAsync(async () =>
+        {
+            var timer = StartTimer();
+            snapshot = await _client!.ReadNamedAsync(addresses, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                cpuState = await ReadCpuStateForBlockAsync(ReadCpuStateInternalAsync, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                cpuState = null;
+            }
+
+            timer.Stop();
+            elapsedMilliseconds = timer.Elapsed.TotalMilliseconds;
+            timestamp = DateTimeOffset.UtcNow;
+        }, cancellationToken).ConfigureAwait(false);
+
+        var results = new Dictionary<int, BlockReadResult>();
+        foreach (var plan in plans)
+        {
+            if (plan.ReadsBits)
+            {
+                results[plan.QueryIndex] = new BlockReadResult(
+                    plan.EffectiveQuery,
+                    plan.ElementAddresses,
+                    [],
+                    plan.NamedAddresses.Select(address => ToBoolean(GetNamedValue(snapshot, address))).ToArray(),
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                    timestamp,
+                    elapsedMilliseconds,
+                    cpuState);
+                continue;
+            }
+
+            results[plan.QueryIndex] = new BlockReadResult(
+                plan.EffectiveQuery,
+                plan.ElementAddresses,
+                plan.NamedAddresses.Select(address => ToRawWord(GetNamedValue(snapshot, address))).ToArray(),
+                [],
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                timestamp,
+                elapsedMilliseconds,
+                cpuState);
+        }
+
+        return results;
+    }
+
+    private bool TryCreateConsecutiveBitWritePlan(
+        IReadOnlyList<WriteRequest> requests,
+        out HostLinkBitWritePlan plan)
+    {
+        plan = default!;
+        var normalizedAddresses = new List<string>(requests.Count);
+        var values = new int[requests.Count];
+        string? startAddress = null;
+        string? deviceType = null;
+        KvDeviceAddress? previousAddress = null;
+
+        for (var index = 0; index < requests.Count; index++)
+        {
+            var request = requests[index];
+            if (request.DataType != ValueDataType.Bit)
+                return false;
+
+            KvDeviceAddress address;
+            string normalizedAddress;
+            try
+            {
+                normalizedAddress = NormalizeAddress(request.Address);
+                address = KvHostLinkDevice.ParseDevice(normalizedAddress, allowOmittedType: false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                EmitError(new ErrorEntry(
+                    DateTimeOffset.UtcNow,
+                    "Host Link bit batch write",
+                    exception.Message,
+                    exception.Message));
+                return false;
+            }
+
+            var family = Definition.FindFamily(address.DeviceType);
+            if (family?.Kind != DeviceKind.Bit || !string.IsNullOrEmpty(address.Suffix))
+                return false;
+
+            if (index == 0)
+            {
+                startAddress = normalizedAddress;
+                deviceType = address.DeviceType;
+            }
+            else if (!string.Equals(deviceType, address.DeviceType, StringComparison.OrdinalIgnoreCase)
+                || previousAddress is null
+                || !AreConsecutiveBitWriteAddresses(previousAddress, address))
+            {
+                return false;
+            }
+
+            previousAddress = address;
+            normalizedAddresses.Add(normalizedAddress);
+            values[index] = ToBoolean(request.Value) ? 1 : 0;
+        }
+
+        if (startAddress is null)
+            return false;
+
+        plan = new HostLinkBitWritePlan(startAddress, normalizedAddresses, values);
+        return true;
     }
 
     private static IReadOnlyList<string> BuildWordAddresses(string startAddress, int count)
@@ -524,6 +803,20 @@ internal sealed class HostLinkSession : PlcSessionBase
             ? checked((address.Number / 100 * 16) + (address.Number % 100))
             : address.Number;
 
+    private static bool AreConsecutiveBitWriteAddresses(KvDeviceAddress previous, KvDeviceAddress current)
+    {
+        if (!string.Equals(previous.DeviceType, current.DeviceType, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!UsesKeyenceBitBankAddress(previous.DeviceType))
+            return current.Number == previous.Number + 1;
+
+        ValidateKeyenceBitBankNumber(previous.DeviceType, previous.Number);
+        ValidateKeyenceBitBankNumber(current.DeviceType, current.Number);
+        return previous.Number / 100 == current.Number / 100
+            && current.Number == previous.Number + 1;
+    }
+
     private static void ValidateKeyenceBitBankNumber(string deviceType, int number)
     {
         if (number < 0 || number % 100 > 15)
@@ -595,4 +888,45 @@ internal sealed class HostLinkSession : PlcSessionBase
             ValueDataType.Float32 => _client!.WriteTypedAsync(address, "F", Convert.ToSingle(value), cancellationToken),
             _ => _client!.WriteTypedAsync(address, "U", Convert.ToUInt16(value), cancellationToken),
         };
+
+    private static object GetNamedValue(IReadOnlyDictionary<string, object> snapshot, string address)
+    {
+        if (snapshot.TryGetValue(address, out var value))
+            return value;
+
+        var match = snapshot.FirstOrDefault(pair => string.Equals(pair.Key, address, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(match.Key))
+            return match.Value;
+
+        throw new KeyNotFoundException($"Host Link named read response did not contain address '{address}'.");
+    }
+
+    private static ushort ToRawWord(object value) =>
+        value switch
+        {
+            bool bit => bit ? (ushort)1 : (ushort)0,
+            byte b => b,
+            sbyte sb => unchecked((ushort)sb),
+            short s => unchecked((ushort)s),
+            ushort us => us,
+            int i => unchecked((ushort)i),
+            uint ui => unchecked((ushort)ui),
+            long l => unchecked((ushort)l),
+            ulong ul => unchecked((ushort)ul),
+            string text when int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) => unchecked((ushort)parsed),
+            _ => unchecked((ushort)Convert.ToInt64(value, CultureInfo.InvariantCulture)),
+        };
+
+    private sealed record HostLinkBatchReadPlan(
+        int QueryIndex,
+        BlockQuery OriginalQuery,
+        BlockQuery EffectiveQuery,
+        IReadOnlyList<string> ElementAddresses,
+        IReadOnlyList<string> NamedAddresses,
+        bool ReadsBits);
+
+    private sealed record HostLinkBitWritePlan(
+        string StartAddress,
+        IReadOnlyList<string> NormalizedAddresses,
+        IReadOnlyList<int> Values);
 }

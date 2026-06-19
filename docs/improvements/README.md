@@ -6,7 +6,7 @@ This directory is the workspace for improvement plans, investigation notes, and 
 
 Active investigation:
 
-- [Host Link / TOYOPUC batch feasibility](hostlink-toyopuc-batch-feasibility.md): determine whether cross-watch batch reads and bit batch writes can be safely added beyond the completed SLMP batch I/O scope.
+- [Host Link / TOYOPUC batch feasibility](hostlink-toyopuc-batch-feasibility.md): Host Link conservative batching is implemented; TOYOPUC batch feasibility remains open.
 
 Completed items are archived under [`close/`](close/).
 

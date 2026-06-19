@@ -30,13 +30,13 @@ It is intended for live I/O checks: select a protocol, connect to a PLC, monitor
 - Add monitor rows to the watch list from the right-click menu.
 - Keep monitor and watch list views in separate tabs.
 - Read only visible watch list rows.
-- Batch SLMP visible watch-list reads where supported, with sequential fallback and row-isolated errors.
+- Batch visible watch-list reads where supported, with sequential fallback and row-isolated errors.
 - Reorder watch list rows by drag and drop.
 - Import and export the watch list as CSV.
 - Import comments from one or more external comment CSV files.
 - Display values as `Dec` or `Hex`.
 - Display word bits as clickable bit cells.
-- Batch SLMP direct bit-device writes where supported.
+- Batch SLMP direct bit-device writes and Host Link consecutive bit-device writes where supported.
 - Edit values inline and write with `Enter`.
 - Pause refresh while a value is being edited so input is not overwritten.
 - Clamp out-of-range integer input to the target type range before writing.
@@ -89,7 +89,7 @@ The Watch list supports:
 - address, type, format, value, raw hex, bit cells, and comment columns
 - `Dec` and `Hex` formats
 - word bit addresses such as `D0.0`
-- SLMP batch reads for visible rows when the selected devices can be read by random read
+- batch reads for visible rows when the selected protocol and devices support it
 - duplicate address prevention
 - invalid address highlighting
 - row removal from the right-click menu or the `Delete` key
