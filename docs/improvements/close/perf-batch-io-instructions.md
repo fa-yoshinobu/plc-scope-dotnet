@@ -123,7 +123,7 @@ dotnet test .\PlcScopeDotNet.sln -m:1
 
 1. `git status` 確認、Baseline Commands 実行・記録
 2. `refactor-instructions.md` 第2サイクルが完了済みであることを確認
-   (`docs/DEVELOPMENT_HISTORY.md` または git log)。未完了なら停止・報告
+   (`CHANGELOG.md` または git log)。未完了なら停止・報告
 
 ### Phase 1: ライブラリ API 調査(変更なし・報告必須)
 

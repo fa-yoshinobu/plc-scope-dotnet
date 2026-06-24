@@ -19,7 +19,7 @@ No active improvement memo is currently open. Completed items are archived under
 For the current state of the project, start with:
 
 1. [`../../README.md`](../../README.md)
-2. [`../DEVELOPMENT_HISTORY.md`](../DEVELOPMENT_HISTORY.md)
+2. [`../../CHANGELOG.md`](../../CHANGELOG.md)
 3. [`close/hostlink-toyopuc-batch-feasibility.md`](close/hostlink-toyopuc-batch-feasibility.md)
 4. [`close/perf-batch-io-report.md`](close/perf-batch-io-report.md)
 5. [`../../TODO.md`](../../TODO.md)

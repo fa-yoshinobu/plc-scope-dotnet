@@ -8,7 +8,7 @@ The repository root [README](../README.md) is the operator-facing manual. The fi
 
 - [Specification](specification.md)
 - [Development and maintainer notes](development.md)
-- [Development history](DEVELOPMENT_HISTORY.md)
+- [Changelog](../CHANGELOG.md)
 
 ## Improvements
 

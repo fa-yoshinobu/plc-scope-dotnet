@@ -1,7 +1,7 @@
 # PLC Scope
 
 [![Release](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml)
-[![Version](https://img.shields.io/badge/version-0.5.1-blue)](src/PlcScope.App/PlcScope.App.csproj)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](src/PlcScope.App/PlcScope.App.csproj)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/language-C%23-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)](https://learn.microsoft.com/windows/)
@@ -261,12 +261,12 @@ Common checks:
 - [Documentation index](docs/README.md)
 - [Specification](docs/specification.md)
 - [Development and maintainer notes](docs/development.md)
-- [Development history](docs/DEVELOPMENT_HISTORY.md)
+- [Changelog](CHANGELOG.md)
 - [Security notes](SECURITY.md)
 - [Improvement plans and archive](docs/improvements/README.md)
 - [Batch I/O report](docs/improvements/close/perf-batch-io-report.md)
 - [TOYOPUC relay validation](docs/validation/toyopuc-relay-hop-validation-2026-06-12.md)
-- [Validation checklist](TODO.md)
+- [TODO](TODO.md)
 
 ## License
 

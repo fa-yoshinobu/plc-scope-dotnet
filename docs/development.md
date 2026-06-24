@@ -141,4 +141,4 @@ Before publishing a release build:
 4. Run the manual validation checklist that matches the changed protocols or UI areas.
 5. Build the Windows x64 single-file package with `build.bat Release`.
 6. Confirm the published `PlcScope.exe` starts and opens the connection dialog.
-7. Update [DEVELOPMENT_HISTORY.md](DEVELOPMENT_HISTORY.md) with the user-visible changes and validation summary.
+7. Update [CHANGELOG.md](../CHANGELOG.md) with the user-visible changes and validation summary.

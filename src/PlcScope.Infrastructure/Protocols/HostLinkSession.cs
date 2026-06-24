@@ -31,6 +31,7 @@ internal sealed class HostLinkSession : PlcSessionBase
 
         _client = new KvHostLinkClient(
             Settings.Host,
+            Settings.HostLinkPlcProfileName,
             Settings.Port,
             Settings.Transport == TransportMode.Tcp ? HostLinkTransportMode.Tcp : HostLinkTransportMode.Udp)
         {

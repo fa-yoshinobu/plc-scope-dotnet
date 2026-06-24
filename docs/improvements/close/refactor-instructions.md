@@ -3,8 +3,8 @@
 plc-scope-dotnet のリファクタリング指示書。実装担当モデル向けの完結した作業指示である。
 実装前に本書全体と **ルートの `AGENTS.md`** を読むこと(本書は AGENTS.md の規則を引き継ぐ)。
 
-> **前提**: これは第2サイクルである。第1サイクルの指示書は `docs/DEVELOPMENT_HISTORY.md`
-> (2026-06-11 Archived Refactor Plan)にアーカイブ済みで、計画 4 候補のうち
+> **前提**: これは第2サイクルである。第1サイクルの指示書は `CHANGELOG.md`
+> (2026-06-11 refactor plan entry)にアーカイブ済みで、計画 4 候補のうち
 > 「ウォッチリストの型候補規則」のみが `Core/Services/WatchDataTypePolicy.cs` として
 > 抽出完了している(commit `fb6c4c8`)。本書は残りの負債を、調査済みの証拠付きで
 > より小さく安全な単位に分解したものである。

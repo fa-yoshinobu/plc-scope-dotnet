@@ -8,9 +8,9 @@
     <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
-    <PackageVersion Include="PlcComm.KvHostLink" Version="0.8.0" />
-    <PackageVersion Include="PlcComm.Slmp" Version="0.8.0" />
-    <PackageVersion Include="PlcComm.Toyopuc" Version="0.8.0" />
+    <PackageVersion Include="PlcComm.KvHostLink" Version="1.0.0" />
+    <PackageVersion Include="PlcComm.Slmp" Version="1.0.0" />
+    <PackageVersion Include="PlcComm.Toyopuc" Version="1.0.0" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="10.0.9" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
