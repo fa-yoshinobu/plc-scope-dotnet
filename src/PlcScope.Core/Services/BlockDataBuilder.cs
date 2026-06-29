@@ -42,7 +42,7 @@ public static class BlockDataBuilder
         var rows = new List<MonitorRow>(result.WordValues.Count);
         for (var i = 0; i < result.WordValues.Count; i++)
         {
-            var address = result.ElementAddresses[i];
+            var address = ToDisplayAddress(result.ElementAddresses[i]);
             var value = result.WordValues[i];
             rows.Add(new WordMonitorRow(
                 address,
@@ -63,11 +63,11 @@ public static class BlockDataBuilder
             BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(0, 2), result.WordValues[i]);
             BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(2, 2), result.WordValues[i + 1]);
             var dword = BinaryPrimitives.ReadUInt32LittleEndian(buffer);
-            var address = result.ElementAddresses[i];
+            var address = ToDisplayAddress(result.ElementAddresses[i]);
             rows.Add(new DWordMonitorRow(
                 address,
                 dword,
-                BuildDWordBits(address, result.ElementAddresses[i + 1], dword),
+                BuildDWordBits(address, ToDisplayAddress(result.ElementAddresses[i + 1]), dword),
                 result.Comments.GetValueOrDefault(address)));
         }
 
@@ -84,8 +84,8 @@ public static class BlockDataBuilder
             BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(2, 2), result.WordValues[i + 1]);
             var rawBits = BinaryPrimitives.ReadUInt32LittleEndian(buffer);
             var value = NumericFormatter.RawBitsToFloat(rawBits);
-            var address = result.ElementAddresses[i];
-            rows.Add(new FloatMonitorRow(address, value, rawBits, BuildDWordBits(address, result.ElementAddresses[i + 1], rawBits), result.Comments.GetValueOrDefault(address)));
+            var address = ToDisplayAddress(result.ElementAddresses[i]);
+            rows.Add(new FloatMonitorRow(address, value, rawBits, BuildDWordBits(address, ToDisplayAddress(result.ElementAddresses[i + 1]), rawBits), result.Comments.GetValueOrDefault(address)));
         }
 
         return rows;
@@ -96,7 +96,7 @@ public static class BlockDataBuilder
         var rows = new List<MonitorRow>(result.WordValues.Count * 17);
         for (var i = 0; i < result.WordValues.Count; i++)
         {
-            var address = result.ElementAddresses[i];
+            var address = ToDisplayAddress(result.ElementAddresses[i]);
             var value = result.WordValues[i];
             var bits = BuildBits(address, value, 16);
             rows.Add(new ExpandedWordHeaderMonitorRow(address, value, bits, result.Comments.GetValueOrDefault(address)));
@@ -112,7 +112,7 @@ public static class BlockDataBuilder
         result.BitValues
             .Select((value, index) =>
             {
-                var address = result.ElementAddresses[index];
+                var address = ToDisplayAddress(result.ElementAddresses[index]);
                 return (MonitorRow)new SingleBitMonitorRow(address, value, result.Comments.GetValueOrDefault(address));
             })
             .ToArray();
@@ -133,10 +133,10 @@ public static class BlockDataBuilder
                 if (value)
                     wordValue |= (ushort)(1 << bitIndex);
 
-                bits.Add(new BitCellState(bitIndex, value, result.ElementAddresses[index]));
+                bits.Add(new BitCellState(bitIndex, value, ToDisplayAddress(result.ElementAddresses[index])));
             }
 
-            var address = result.ElementAddresses[offset];
+            var address = ToDisplayAddress(result.ElementAddresses[offset]);
             rows.Add(new WordMonitorRow(
                 address,
                 wordValue,
@@ -169,10 +169,10 @@ public static class BlockDataBuilder
                 if (value)
                     dwordValue |= 1u << bitIndex;
 
-                bits.Add(new BitCellState(bitIndex, value, result.ElementAddresses[index]));
+                bits.Add(new BitCellState(bitIndex, value, ToDisplayAddress(result.ElementAddresses[index])));
             }
 
-            var address = result.ElementAddresses[offset];
+            var address = ToDisplayAddress(result.ElementAddresses[offset]);
             rows.Add(new DWordMonitorRow(
                 address,
                 dwordValue,
@@ -199,6 +199,7 @@ public static class BlockDataBuilder
 
     private static IReadOnlyList<BitCellState> BuildBits(string address, ushort value, int bitCount)
     {
+        address = ToDisplayAddress(address);
         var bits = new List<BitCellState>(bitCount);
         for (var bitIndex = bitCount - 1; bitIndex >= 0; bitIndex--)
         {
@@ -211,6 +212,7 @@ public static class BlockDataBuilder
 
     private static IReadOnlyList<BitCellState> BuildBits(string address, uint value, int bitCount)
     {
+        address = ToDisplayAddress(address);
         var bits = new List<BitCellState>(bitCount);
         for (var bitIndex = bitCount - 1; bitIndex >= 0; bitIndex--)
         {
@@ -238,4 +240,7 @@ public static class BlockDataBuilder
 
         return bits;
     }
+
+    private static string ToDisplayAddress(string address) =>
+        PlcAddressTypeSuffix.Strip(address);
 }

@@ -63,10 +63,11 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)
     {
-        var expanded = ExpandAddress(rawAddress, family);
-        return _client is null
-            ? expanded.ToUpperInvariant()
-            : ToyopucAddress.Format(_client.InnerClient.ResolveDevice(expanded), _client.InnerClient.PlcProfile);
+        var typedAddress = PlcAddressTypeSuffix.ParseRequired(ExpandAddress(rawAddress, family));
+        var normalizedBaseAddress = _client is null
+            ? typedAddress.BaseAddress.ToUpperInvariant()
+            : ToyopucAddress.Format(_client.InnerClient.ResolveDevice(typedAddress.BaseAddress), _client.InnerClient.PlcProfile);
+        return $"{normalizedBaseAddress}:{typedAddress.DataType}";
     }
 
     public override async Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
@@ -88,7 +89,7 @@ internal sealed class ToyopucSession : PlcSessionBase
                     : query.EffectiveItemCount;
 
                 elementAddresses = BuildAddresses(normalizedStart, wordCount);
-                words = await _client!.ReadWordsAsync(normalizedStart, wordCount, cancellationToken).ConfigureAwait(false);
+                words = await _client!.ReadWordsAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -182,11 +183,11 @@ internal sealed class ToyopucSession : PlcSessionBase
         {
             if (request.DataType == ValueDataType.Bit)
             {
-                await WriteDeviceAsync(address, ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
+                await WriteDeviceAsync(PlcAddressTypeSuffix.Strip(address), ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await _client!.WriteTypedAsync(address, NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
+                await _client!.WriteTypedAsync(PlcAddressTypeSuffix.Strip(address), NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
             }
         }, cancellationToken).ConfigureAwait(false);
 
@@ -230,7 +231,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(wordAddress);
         await ExecuteSerializedAsync(
-            () => _client!.WriteBitInWordAsync(address, bitIndex, value, cancellationToken),
+            () => _client!.WriteBitInWordAsync(PlcAddressTypeSuffix.Strip(address), bitIndex, value, cancellationToken),
             cancellationToken).ConfigureAwait(false);
         return new WriteResult(address, $"Bit {bitIndex} updated.", DateTimeOffset.UtcNow);
     }
@@ -314,7 +315,7 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private IReadOnlyList<string> BuildAddresses(string startAddress, int count)
     {
-        var start = _client!.InnerClient.ResolveDevice(startAddress);
+        var start = _client!.InnerClient.ResolveDevice(PlcAddressTypeSuffix.Strip(startAddress));
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
@@ -496,7 +497,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             try
             {
                 normalizedAddress = NormalizeAddress(request.Address);
-                resolvedDevice = _client!.InnerClient.ResolveDevice(normalizedAddress);
+                resolvedDevice = _client!.InnerClient.ResolveDevice(PlcAddressTypeSuffix.Strip(normalizedAddress));
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -512,7 +513,7 @@ internal sealed class ToyopucSession : PlcSessionBase
                 return false;
 
             normalizedAddresses.Add(normalizedAddress);
-            items.Add(new KeyValuePair<object, object>(normalizedAddress, ToBoolean(request.Value)));
+            items.Add(new KeyValuePair<object, object>(PlcAddressTypeSuffix.Strip(normalizedAddress), ToBoolean(request.Value)));
         }
 
         plan = new ToyopucBitWriteManyPlan(normalizedAddresses, items);
@@ -521,10 +522,10 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private async Task<bool[]> ReadBitDevicesAsync(string normalizedStart, int bitCount, CancellationToken cancellationToken)
     {
-        var start = _client!.InnerClient.ResolveDevice(normalizedStart);
+        var start = _client!.InnerClient.ResolveDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         if (start.Unit != "bit")
         {
-            var result = await ReadDeviceAsync(normalizedStart, bitCount, cancellationToken).ConfigureAwait(false);
+            var result = await ReadDeviceAsync(PlcAddressTypeSuffix.Strip(normalizedStart), bitCount, cancellationToken).ConfigureAwait(false);
             return ToBooleanArray(result);
         }
 

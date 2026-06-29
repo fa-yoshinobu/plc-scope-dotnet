@@ -6,6 +6,6 @@ release assemblies.
 
 | Assembly | Version source |
 | --- | --- |
-| PlcComm.Slmp.dll | https://www.nuget.org/packages/PlcComm.Slmp/0.8.0 |
-| PlcComm.KvHostLink.dll | https://www.nuget.org/packages/PlcComm.KvHostLink/0.8.0 |
-| PlcComm.Toyopuc.dll | https://www.nuget.org/packages/PlcComm.Toyopuc/0.8.0 |
+| PlcComm.Slmp.dll | https://www.nuget.org/packages/PlcComm.Slmp/1.1.1 |
+| PlcComm.KvHostLink.dll | https://www.nuget.org/packages/PlcComm.KvHostLink/1.1.1 |
+| PlcComm.Toyopuc.dll | https://www.nuget.org/packages/PlcComm.Toyopuc/1.1.0 |

@@ -37,7 +37,7 @@ public sealed class HostLinkSessionTests
                 Protocol = ProtocolKind.HostLink,
                 DeviceFamilyCode = "D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "D1000",
+                StartAddress = "D1000:U",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.Word,
             },
@@ -46,7 +46,7 @@ public sealed class HostLinkSessionTests
                 Protocol = ProtocolKind.HostLink,
                 DeviceFamilyCode = "D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "D1002",
+                StartAddress = "D1002:D",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.DWord,
             },
@@ -55,7 +55,7 @@ public sealed class HostLinkSessionTests
                 Protocol = ProtocolKind.HostLink,
                 DeviceFamilyCode = "MR",
                 DeviceKind = DeviceKind.Bit,
-                StartAddress = "MR000",
+                StartAddress = "MR000:BIT",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.BitExpand,
             },
@@ -64,7 +64,7 @@ public sealed class HostLinkSessionTests
                 Protocol = ProtocolKind.HostLink,
                 DeviceFamilyCode = "B",
                 DeviceKind = DeviceKind.Bit,
-                StartAddress = "B0",
+                StartAddress = "B0:BIT",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.BitExpand,
             },
@@ -99,7 +99,7 @@ public sealed class HostLinkSessionTests
                 Protocol = ProtocolKind.HostLink,
                 DeviceFamilyCode = "D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "D99999",
+                StartAddress = "D99999:U",
                 ItemCount = 1,
             },
             new BlockQuery
@@ -107,7 +107,7 @@ public sealed class HostLinkSessionTests
                 Protocol = ProtocolKind.HostLink,
                 DeviceFamilyCode = "D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "D1000",
+                StartAddress = "D1000:U",
                 ItemCount = 1,
             },
         ]);
@@ -126,12 +126,12 @@ public sealed class HostLinkSessionTests
 
         var results = await session.WriteBitBatchAsync(
         [
-            new WriteRequest("MR000", ValueDataType.Bit, true),
-            new WriteRequest("MR001", ValueDataType.Bit, false),
-            new WriteRequest("MR002", ValueDataType.Bit, true),
+            new WriteRequest("MR000:BIT", ValueDataType.Bit, true),
+            new WriteRequest("MR001:BIT", ValueDataType.Bit, false),
+            new WriteRequest("MR002:BIT", ValueDataType.Bit, true),
         ]);
 
-        Assert.Equal(["MR000", "MR001", "MR002"], results.Select(static result => result.Address).ToArray());
+        Assert.Equal(["MR000:BIT", "MR001:BIT", "MR002:BIT"], results.Select(static result => result.Address).ToArray());
         Assert.Equal(["WRS MR000 3 1 0 1"], server.ReceivedCommands.ToArray());
     }
 
@@ -143,11 +143,11 @@ public sealed class HostLinkSessionTests
 
         var results = await session.WriteBitBatchAsync(
         [
-            new WriteRequest("MR015", ValueDataType.Bit, true),
-            new WriteRequest("MR100", ValueDataType.Bit, false),
+            new WriteRequest("MR015:BIT", ValueDataType.Bit, true),
+            new WriteRequest("MR100:BIT", ValueDataType.Bit, false),
         ]);
 
-        Assert.Equal(["MR015", "MR100"], results.Select(static result => result.Address).ToArray());
+        Assert.Equal(["MR015:BIT", "MR100:BIT"], results.Select(static result => result.Address).ToArray());
         Assert.DoesNotContain(server.ReceivedCommands, command => command.StartsWith("WRS ", StringComparison.Ordinal));
         Assert.Equal(2, server.ReceivedCommands.Count);
     }
@@ -169,7 +169,7 @@ public sealed class HostLinkSessionTests
             Protocol = ProtocolKind.HostLink,
             DeviceFamilyCode = "MR",
             DeviceKind = DeviceKind.Bit,
-            StartAddress = "MR000",
+            StartAddress = "MR000:BIT",
             ItemCount = 32,
             DisplayMode = BlockDisplayMode.Word,
         });
@@ -203,7 +203,7 @@ public sealed class HostLinkSessionTests
             Protocol = ProtocolKind.HostLink,
             DeviceFamilyCode = "B",
             DeviceKind = DeviceKind.Bit,
-            StartAddress = "B0",
+            StartAddress = "B0:BIT",
             ItemCount = 16,
             DisplayMode = BlockDisplayMode.Word,
         };
@@ -241,7 +241,7 @@ public sealed class HostLinkSessionTests
             Protocol = ProtocolKind.HostLink,
             DeviceFamilyCode = "X",
             DeviceKind = DeviceKind.Bit,
-            StartAddress = "X390",
+            StartAddress = "X390:BIT",
             ItemCount = 32,
             DisplayMode = BlockDisplayMode.Word,
         });
@@ -273,7 +273,7 @@ public sealed class HostLinkSessionTests
             Protocol = ProtocolKind.HostLink,
             DeviceFamilyCode = "M",
             DeviceKind = DeviceKind.Bit,
-            StartAddress = "M100",
+            StartAddress = "M100:BIT",
             ItemCount = 2,
             DisplayMode = BlockDisplayMode.BitExpand,
         });
@@ -303,7 +303,7 @@ public sealed class HostLinkSessionTests
             Protocol = ProtocolKind.HostLink,
             DeviceFamilyCode = "B",
             DeviceKind = DeviceKind.Bit,
-            StartAddress = "B0",
+            StartAddress = "B0:BIT",
             ItemCount = 2,
             DisplayMode = BlockDisplayMode.BitExpand,
         };
@@ -349,7 +349,7 @@ public sealed class HostLinkSessionTests
             Protocol = ProtocolKind.HostLink,
             DeviceFamilyCode = "B",
             DeviceKind = DeviceKind.Bit,
-            StartAddress = "B0",
+            StartAddress = "B0:BIT",
             ItemCount = 2,
             DisplayMode = BlockDisplayMode.BitExpand,
         });

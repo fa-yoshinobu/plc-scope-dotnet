@@ -293,7 +293,7 @@ public sealed class MainWindowViewModelWatchTests
         Assert.NotNull(session.LastQuery);
         Assert.Equal(DeviceKind.Word, session.LastQuery.DeviceKind);
         Assert.Equal(BlockDisplayMode.Word, session.LastQuery.DisplayMode);
-        Assert.Equal("D0", session.LastQuery.StartAddress);
+        Assert.Equal("D0:U", session.LastQuery.StartAddress);
         Assert.Equal(1, session.LastQuery.ItemCount);
         Assert.Equal("1", item.ValueText);
         Assert.Equal("0x0001", item.RawText);
@@ -338,7 +338,7 @@ public sealed class MainWindowViewModelWatchTests
 
         await viewModel.WriteWatchItemAsync(item, "ON");
 
-        Assert.Equal(("D0", 3, true), session.LastWordBitWrite);
+        Assert.Equal(("D0:U", 3, true), session.LastWordBitWrite);
     }
 
     [Fact]
@@ -354,7 +354,7 @@ public sealed class MainWindowViewModelWatchTests
         await viewModel.WriteWatchItemAsync(first, "5");
 
         var query = Assert.Single(session.ReadQueries);
-        Assert.Equal("D0", query.StartAddress);
+        Assert.Equal("D0:U", query.StartAddress);
         Assert.Equal(1, query.ItemCount);
     }
 
@@ -375,9 +375,9 @@ public sealed class MainWindowViewModelWatchTests
         await item.Bits[0].ToggleCommand.ExecuteAsync(null);
 
         Assert.NotNull(session.LastWriteRequest);
-        Assert.Equal(item.Bits[0].Address, session.LastWriteRequest.Address);
+        Assert.Equal("M15:BIT", session.LastWriteRequest.Address);
         var query = Assert.Single(session.ReadQueries);
-        Assert.Equal("M0", query.StartAddress);
+        Assert.Equal("M0:U", query.StartAddress);
         Assert.Equal(16, query.ItemCount);
     }
 
@@ -400,9 +400,9 @@ public sealed class MainWindowViewModelWatchTests
 
         Assert.Equal(31, highBit.BitIndex);
         Assert.Equal("D1.15", highBit.Address);
-        Assert.Equal(("D1", 15, true), session.LastWordBitWrite);
+        Assert.Equal(("D1:U", 15, true), session.LastWordBitWrite);
         var query = Assert.Single(session.ReadQueries);
-        Assert.Equal("D0", query.StartAddress);
+        Assert.Equal("D0:D", query.StartAddress);
     }
 
     [Fact]
@@ -438,7 +438,7 @@ public sealed class MainWindowViewModelWatchTests
         await viewModel.ReadOnceCommand.ExecuteAsync(null);
 
         var batch = Assert.Single(session.BatchReadQueries);
-        Assert.Equal(["D0", "D1"], batch.Select(static query => query.StartAddress).ToArray());
+        Assert.Equal(["D0:U", "D1:U"], batch.Select(static query => query.StartAddress).ToArray());
         Assert.Empty(session.ReadQueries);
         Assert.Equal("1", viewModel.WatchItems[0].ValueText);
         Assert.Equal("1", viewModel.WatchItems[1].ValueText);
@@ -448,7 +448,7 @@ public sealed class MainWindowViewModelWatchTests
     [Fact]
     public async Task ReadOnceAsync_WatchBatchKeepsRowErrorsIsolated()
     {
-        var session = new CapturingSession { FailingBatchAddress = "D1" };
+        var session = new CapturingSession { FailingBatchAddress = "D1:U" };
         var viewModel = CreateConnectedViewModel(session);
         viewModel.SelectedMainTabIndex = 1;
         viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
@@ -581,7 +581,7 @@ public sealed class MainWindowViewModelWatchTests
                 : query.EffectiveItemCount;
             var wordAddresses = Enumerable.Range(0, wordCount)
                 .Select(index => query.DeviceFamilyCode == "LZ"
-                    ? query.StartAddress
+                    ? PlcAddressTypeSuffix.Strip(query.StartAddress)
                     : FormatAddress(query.StartAddress, index))
                 .ToArray();
             var words = Enumerable.Range(0, wordCount).Select(static _ => (ushort)1).ToArray();
@@ -590,6 +590,7 @@ public sealed class MainWindowViewModelWatchTests
 
         private static string FormatAddress(string startAddress, int offset)
         {
+            startAddress = PlcAddressTypeSuffix.Strip(startAddress);
             var prefix = new string(startAddress.TakeWhile(char.IsLetter).ToArray());
             var numberText = startAddress[prefix.Length..];
             return int.TryParse(numberText, out var number)

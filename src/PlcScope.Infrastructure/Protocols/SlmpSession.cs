@@ -82,8 +82,9 @@ internal sealed class SlmpSession : PlcSessionBase
 
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)
     {
-        var expanded = ExpandAddress(rawAddress, family);
-        return SlmpAddress.Normalize(expanded, _plcProfile);
+        var typedAddress = PlcAddressTypeSuffix.ParseRequired(ExpandAddress(rawAddress, family));
+        var normalizedBaseAddress = SlmpAddress.Normalize(typedAddress.BaseAddress, _plcProfile);
+        return $"{normalizedBaseAddress}:{typedAddress.DataType}";
     }
 
     public override async Task<BlockReadResult> ReadBlockAsync(BlockQuery query, CancellationToken cancellationToken = default)
@@ -103,7 +104,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
                 if (query.DeviceKind == DeviceKind.Word)
                 {
-                    var start = SlmpAddress.Parse(normalizedStart, _plcProfile);
+                    var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(normalizedStart), _plcProfile);
                     if (IsLongCurrentValueDevice(start.Code) || IsDWordAddressedDevice(start.Code))
                     {
                         ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
@@ -124,7 +125,7 @@ internal sealed class SlmpSession : PlcSessionBase
                 }
                 else
                 {
-                    var start = SlmpAddress.Parse(normalizedStart, _plcProfile);
+                    var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(normalizedStart), _plcProfile);
                     ValidateDeviceRange(start, query.EffectiveItemCount, "Read");
                     elementAddresses = BuildAddresses(normalizedStart, query.EffectiveItemCount, query.DeviceFamilyCode);
                     bits = IsLongTimerBitDevice(start.Code)
@@ -286,7 +287,7 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(request.Address);
-        var parsedAddress = SlmpAddress.Parse(address, _plcProfile);
+        var parsedAddress = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(address), _plcProfile);
         ValidateDeviceRange(parsedAddress, GetWritePointCount(parsedAddress, request), "Write");
 
         try
@@ -329,11 +330,11 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(wordAddress);
-        ValidateDeviceRange(SlmpAddress.Parse(address, _plcProfile), 1, "Bit write");
+        ValidateDeviceRange(SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(address), _plcProfile), 1, "Bit write");
         try
         {
             await ExecuteSerializedAsync(
-                () => _client!.WriteBitInWordAsync(address, bitIndex, value, cancellationToken),
+                () => _client!.WriteBitInWordAsync(PlcAddressTypeSuffix.Strip(address), bitIndex, value, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (SlmpError exception) when (exception.IsRemotePasswordError)
@@ -427,7 +428,7 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             var normalizedStart = NormalizeAddress(query.StartAddress, ResolveFamily(Definition, query.DeviceFamilyCode));
             var effectiveQuery = query with { StartAddress = normalizedStart };
-            var start = SlmpAddress.Parse(normalizedStart, _plcProfile);
+            var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(normalizedStart), _plcProfile);
 
             if (IsLongCurrentValueDevice(start.Code) || IsDWordAddressedDevice(start.Code))
             {
@@ -633,7 +634,7 @@ internal sealed class SlmpSession : PlcSessionBase
         try
         {
             normalizedAddress = NormalizeAddress(request.Address);
-            device = SlmpAddress.Parse(normalizedAddress, _plcProfile);
+            device = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(normalizedAddress), _plcProfile);
             var family = ResolveFamily(Definition, device.Code.ToString());
             if (family?.Kind != DeviceKind.Bit)
                 return false;
@@ -717,7 +718,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private IReadOnlyList<string> BuildAddresses(string startAddress, int count, string deviceFamilyCode)
     {
-        var start = SlmpAddress.Parse(startAddress, _plcProfile);
+        var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(startAddress), _plcProfile);
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
@@ -759,7 +760,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private async Task<ushort[]> ReadWordsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
     {
-        var start = SlmpAddress.Parse(startAddress, _plcProfile);
+        var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(startAddress), _plcProfile);
         var values = new List<ushort>(count);
         var offset = 0;
         while (offset < count)
@@ -776,7 +777,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private async Task<bool[]> ReadBitsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
     {
-        var start = SlmpAddress.Parse(startAddress, _plcProfile);
+        var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(startAddress), _plcProfile);
         var values = new List<bool>(count);
         var offset = 0;
         while (offset < count)
@@ -1056,9 +1057,16 @@ internal sealed class SlmpSession : PlcSessionBase
         return exception.ToString();
     }
 
-    private static string FormatRemotePasswordFailure(SlmpError exception) =>
-        exception.EndCodeMessage
-        ?? string.Create(CultureInfo.InvariantCulture, $"Remote password operation failed. end_code=0x{exception.EndCode:X4}");
+    private static string FormatRemotePasswordFailure(SlmpError exception)
+    {
+        return exception.EndCode switch
+        {
+            0xC810 => "Remote password authentication has failed. Check the configured SLMP remote password.",
+            0xC201 => "Could not read the remote password status of the port. Configure the SLMP remote password and try again.",
+            _ => exception.EndCodeMessage
+                ?? string.Create(CultureInfo.InvariantCulture, $"Remote password operation failed. end_code=0x{exception.EndCode:X4}"),
+        };
+    }
 
     private static string FormatReadFailureMessage(BlockQuery query) =>
         string.Create(

@@ -660,16 +660,17 @@ public partial class MainWindowViewModel : ObservableObject
             foreach (var plan in plans)
             {
                 currentReadQuery = plan.Query;
-                var result = await session.ReadBlockAsync(plan.Query).ConfigureAwait(true);
+                var result = await session.ReadBlockAsync(ToCommunicationQuery(plan.Query)).ConfigureAwait(true);
                 if (_isInlineEditing || !ReferenceEquals(_session, session) || ConnectionState != ConnectionState.Connected)
                     return;
 
-                var resultWithComments = ApplyCsvComments(result);
+                var rawResult = result with { Query = plan.Query };
+                var resultWithComments = ApplyCsvComments(rawResult);
                 _lastSnapshot = BlockDataBuilder.Build(resultWithComments);
                 if (string.Equals(plan.LayoutKey, _rowLayoutKey, StringComparison.Ordinal))
                     ReplaceRows(plan.ReplacementStartIndex, _lastSnapshot.Rows);
 
-                lastResult = result;
+                lastResult = rawResult;
             }
 
             if (lastResult is null)
@@ -970,12 +971,16 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (dataType == ValueDataType.Bit && TryParseWatchWordBitAddress(item.Address, family, out var wordBit))
         {
+            var typedWordBit = wordBit with
+            {
+                WordAddress = PlcAddressTypeSuffix.Ensure(wordBit.WordAddress, ValueDataType.UInt16),
+            };
             return new WatchReadPlan(
                 item,
                 WatchReadQueryBuilder.BuildWordBitQuery(
                 SelectedProtocol.Kind,
                 family,
-                wordBit,
+                typedWordBit,
                 item.DisplayRadix),
                 family,
                 dataType,
@@ -983,12 +988,13 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         var displayMode = WatchReadQueryBuilder.GetDisplayMode(dataType);
+        var typedAddress = PlcAddressTypeSuffix.Ensure(item.Address, dataType);
         return new WatchReadPlan(
             item,
             WatchReadQueryBuilder.Build(
             SelectedProtocol.Kind,
             family,
-            item.Address,
+            typedAddress,
             GetWatchReadPointCount(family, displayMode),
             item.DisplayRadix,
             displayMode),
@@ -1237,7 +1243,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            await _session.WriteAsync(new WriteRequest(address, ValueDataType.Bit, value)).ConfigureAwait(true);
+            await _session.WriteAsync(new WriteRequest(PlcAddressTypeSuffix.Ensure(address, ValueDataType.Bit), ValueDataType.Bit, value)).ConfigureAwait(true);
             await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
         }
         catch (Exception exception)
@@ -1253,7 +1259,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            await _session.WriteBitInWordAsync(wordAddress, bitIndex, value).ConfigureAwait(true);
+            await _session.WriteBitInWordAsync(PlcAddressTypeSuffix.Ensure(wordAddress, ValueDataType.UInt16), bitIndex, value).ConfigureAwait(true);
             await RefreshSingleWatchItemAsync(item).ConfigureAwait(true);
         }
         catch (Exception exception)
@@ -1276,9 +1282,12 @@ public partial class MainWindowViewModel : ObservableObject
 
             var value = NumericFormatter.ParseByType(valueText, dataType, item.DisplayRadix);
             if (dataType == ValueDataType.Bit && TryParseWatchWordBitAddress(item.Address, family, out var wordBit))
-                await _session.WriteBitInWordAsync(wordBit.WordAddress, wordBit.BitIndex, (bool)value).ConfigureAwait(true);
+                await _session.WriteBitInWordAsync(
+                    PlcAddressTypeSuffix.Ensure(wordBit.WordAddress, ValueDataType.UInt16),
+                    wordBit.BitIndex,
+                    (bool)value).ConfigureAwait(true);
             else
-                await _session.WriteAsync(new WriteRequest(item.Address, dataType, value, item.DisplayRadix)).ConfigureAwait(true);
+                await _session.WriteAsync(new WriteRequest(PlcAddressTypeSuffix.Ensure(item.Address, dataType), dataType, value, item.DisplayRadix)).ConfigureAwait(true);
             item.ValueText = valueText;
             item.HasError = false;
             item.ErrorText = string.Empty;
@@ -1405,7 +1414,8 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            await _session.WriteAsync(request).ConfigureAwait(true);
+            var typedRequest = request with { Address = PlcAddressTypeSuffix.Ensure(request.Address, request.DataType) };
+            await _session.WriteAsync(typedRequest).ConfigureAwait(true);
             await ReadOnceAsync().ConfigureAwait(true);
         }
         catch (Exception exception)
@@ -1428,7 +1438,7 @@ public partial class MainWindowViewModel : ObservableObject
                 foreach (var bit in bitList)
                 {
                     var bitValue = ((value >> bit.BitIndex) & 0x1) == 1;
-                    requests.Add(new WriteRequest(bit.Address, ValueDataType.Bit, bitValue));
+                    requests.Add(new WriteRequest(PlcAddressTypeSuffix.Ensure(bit.Address, ValueDataType.Bit), ValueDataType.Bit, bitValue));
                 }
             }
             else
@@ -1442,7 +1452,7 @@ public partial class MainWindowViewModel : ObservableObject
                 for (var bitIndex = 0; bitIndex < bitCount; bitIndex++)
                 {
                     var bitValue = ((value >> bitIndex) & 0x1) == 1;
-                    requests.Add(new WriteRequest(address.FormatOffset(bitIndex), ValueDataType.Bit, bitValue));
+                    requests.Add(new WriteRequest(PlcAddressTypeSuffix.Ensure(address.FormatOffset(bitIndex), ValueDataType.Bit), ValueDataType.Bit, bitValue));
                 }
             }
 
@@ -2215,7 +2225,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            await _session.WriteBitInWordAsync(address, bitIndex, nextValue).ConfigureAwait(true);
+            await _session.WriteBitInWordAsync(PlcAddressTypeSuffix.Ensure(address, ValueDataType.UInt16), bitIndex, nextValue).ConfigureAwait(true);
             await ReadOnceAsync().ConfigureAwait(true);
         }
         catch (Exception exception)
@@ -2350,6 +2360,22 @@ public partial class MainWindowViewModel : ObservableObject
         BitDisplayMode = BitDisplayMode,
         DisplayRadix = DisplayRadix,
     };
+
+    private BlockQuery ToCommunicationQuery(BlockQuery query) =>
+        query with { StartAddress = PlcAddressTypeSuffix.Ensure(query.StartAddress, GetMonitorAddressDataType(query)) };
+
+    private ValueDataType GetMonitorAddressDataType(BlockQuery query)
+    {
+        if (query.DeviceKind == DeviceKind.Bit)
+            return ValueDataType.Bit;
+
+        return query.DisplayMode switch
+        {
+            BlockDisplayMode.DWord => MonitorDataType == ValueDataType.Int32 ? ValueDataType.Int32 : ValueDataType.UInt32,
+            BlockDisplayMode.Float32 => ValueDataType.Float32,
+            _ => MonitorDataType == ValueDataType.Int16 ? ValueDataType.Int16 : ValueDataType.UInt16,
+        };
+    }
 
     private BlockQuery BuildProjectBlockQuery() =>
         BuildBlockQuery(StartAddress, Math.Max(1, ItemCount));
@@ -2549,8 +2575,11 @@ public partial class MainWindowViewModel : ObservableObject
     private string InferDefaultStartAddress()
     {
         var family = ProtocolCatalog.GetDefaultWordFamily(SelectedProtocol, ConnectionSettings.KeyenceDeviceMode);
-        return DeviceAddressRangeProvider.GetDefaultAddress(family);
+        return GetDefaultStartAddress(family);
     }
+
+    private static string GetDefaultStartAddress(DeviceFamilyDefinition family) =>
+        DeviceAddressRangeProvider.GetDefaultAddress(family);
 
     private void RefreshAvailableDeviceFamilies(ProtocolDefinition protocol, DeviceFamilyDefinition? preferredFamily = null)
     {
@@ -2604,7 +2633,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (!string.Equals(previousFamilyCode, selectedFamily.Code, StringComparison.OrdinalIgnoreCase))
         {
-            StartAddress = DeviceAddressRangeProvider.GetDefaultAddress(selectedFamily);
+            StartAddress = GetDefaultStartAddress(selectedFamily);
         }
     }
 
@@ -2711,7 +2740,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         StartAddress = DeviceAddressRangeProvider.TryRebaseAddress(StartAddress, SelectedProtocol, value, out var rebasedAddress)
             ? rebasedAddress
-            : DeviceAddressRangeProvider.GetDefaultAddress(value);
+            : GetDefaultStartAddress(value);
         UpdateAllWatchAvailableDataTypes();
         _lastSnapshot = null;
         RefreshLayoutNow();

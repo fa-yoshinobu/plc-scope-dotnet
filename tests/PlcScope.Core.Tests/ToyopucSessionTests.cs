@@ -84,7 +84,7 @@ public sealed class ToyopucSessionTests
             Protocol = ProtocolKind.Toyopuc,
             DeviceFamilyCode = "P1-D",
             DeviceKind = DeviceKind.Word,
-            StartAddress = "P1-D0000",
+            StartAddress = "P1-D0000:U",
             ItemCount = 1,
         });
         await serverTask;
@@ -110,7 +110,7 @@ public sealed class ToyopucSessionTests
         });
 
         await using var session = await CreateConnectedToyopucSessionAsync(port, relayHops: "P1-L1:N2");
-        await session.WriteAsync(new WriteRequest("P1-D0000", ValueDataType.UInt16, 0x1234));
+        await session.WriteAsync(new WriteRequest("P1-D0000:U", ValueDataType.UInt16, 0x1234));
         await serverTask;
 
         Assert.Equal(new byte[] { 0x00, 0x00, 0x0E, 0x00, 0x60, 0x11, 0x02, 0x00, 0x05, 0x06, 0x00, 0x95, 0x01, 0x00, 0x10, 0x34, 0x12, 0x00 }, writeFrame);
@@ -140,7 +140,7 @@ public sealed class ToyopucSessionTests
                 Protocol = ProtocolKind.Toyopuc,
                 DeviceFamilyCode = "P1-D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "P1-D0000",
+                StartAddress = "P1-D0000:U",
                 ItemCount = 1,
             },
             new BlockQuery
@@ -148,7 +148,7 @@ public sealed class ToyopucSessionTests
                 Protocol = ProtocolKind.Toyopuc,
                 DeviceFamilyCode = "P1-D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "P1-D0001",
+                StartAddress = "P1-D0001:U",
                 ItemCount = 1,
             },
         ]);
@@ -179,12 +179,12 @@ public sealed class ToyopucSessionTests
         await using var session = await CreateConnectedToyopucSessionAsync(port);
         var results = await session.WriteBitBatchAsync(
         [
-            new WriteRequest("P1-M0000", ValueDataType.Bit, true),
-            new WriteRequest("P1-M0001", ValueDataType.Bit, false),
+            new WriteRequest("P1-M0000:BIT", ValueDataType.Bit, true),
+            new WriteRequest("P1-M0001:BIT", ValueDataType.Bit, false),
         ]);
         await serverTask;
 
-        Assert.Equal(["P1-M0000", "P1-M0001"], results.Select(static result => result.Address).ToArray());
+        Assert.Equal(["P1-M0000:BIT", "P1-M0001:BIT"], results.Select(static result => result.Address).ToArray());
         Assert.Equal(new byte[] { 0x00, 0x00, 0x0C, 0x00, 0x99, 0x02, 0x00, 0x00, 0x01, 0x00, 0x03, 0x01, 0x11, 0x00, 0x03, 0x00 }, writeManyFrame);
     }
 
@@ -212,7 +212,7 @@ public sealed class ToyopucSessionTests
                 Protocol = ProtocolKind.Toyopuc,
                 DeviceFamilyCode = "P1-D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "P1-DFFFF",
+                StartAddress = "P1-DFFFF:U",
                 ItemCount = 1,
             },
             new BlockQuery
@@ -220,7 +220,7 @@ public sealed class ToyopucSessionTests
                 Protocol = ProtocolKind.Toyopuc,
                 DeviceFamilyCode = "P1-D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "P1-D0000",
+                StartAddress = "P1-D0000:U",
                 ItemCount = 1,
             },
         ]);

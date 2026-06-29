@@ -49,7 +49,7 @@ public sealed class SlmpSessionTests
             {
                 DeviceFamilyCode = "D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "D0",
+                StartAddress = "D0:U",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.Word,
             },
@@ -57,7 +57,7 @@ public sealed class SlmpSessionTests
             {
                 DeviceFamilyCode = "LZ",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "LZ0",
+                StartAddress = "LZ0:D",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.DWord,
             },
@@ -119,7 +119,7 @@ public sealed class SlmpSessionTests
             {
                 DeviceFamilyCode = "D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = $"D{index}",
+                StartAddress = $"D{index}:U",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.Word,
             })
@@ -178,7 +178,7 @@ public sealed class SlmpSessionTests
             {
                 DeviceFamilyCode = "D",
                 DeviceKind = DeviceKind.Word,
-                StartAddress = "D0",
+                StartAddress = "D0:U",
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.Word,
             },
@@ -223,13 +223,13 @@ public sealed class SlmpSessionTests
 
         var results = await session.WriteBitBatchAsync(
         [
-            new WriteRequest("M0", ValueDataType.Bit, true),
-            new WriteRequest("M1", ValueDataType.Bit, false),
+            new WriteRequest("M0:BIT", ValueDataType.Bit, true),
+            new WriteRequest("M1:BIT", ValueDataType.Bit, false),
         ]);
 
         Assert.NotNull(writeRequest);
         Assert.Equal((ushort)0x1402, ReadCommand(writeRequest));
-        Assert.Equal(["M0", "M1"], results.Select(static result => result.Address).ToArray());
+        Assert.Equal(["M0:BIT", "M1:BIT"], results.Select(static result => result.Address).ToArray());
 
         await serverTask.WaitAsync(TimeSpan.FromSeconds(3));
     }
