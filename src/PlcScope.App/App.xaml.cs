@@ -90,6 +90,8 @@ public partial class App : Application
             },
         };
 
+    internal static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ThemeColorDefinitions => ThemeColors;
+
     private ServiceProvider? _serviceProvider;
 
     public static void ApplyTheme(string? themeKey)

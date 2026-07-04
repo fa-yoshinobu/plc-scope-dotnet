@@ -5,6 +5,32 @@ using System.Xml.Linq;
 public sealed class AppThemeResourceTests
 {
     [Fact]
+    public void DarkThemeDefinitions_MatchInitialAppXamlBrushes()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "App.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var appBrushes = document
+            .Descendants(presentation + "SolidColorBrush")
+            .Select(element => new
+            {
+                Key = (string?)element.Attribute(xaml + "Key"),
+                Color = (string?)element.Attribute("Color"),
+            })
+            .Where(brush => brush.Key?.StartsWith("App", StringComparison.Ordinal) is true)
+            .ToDictionary(
+                brush => brush.Key!,
+                brush => brush.Color!,
+                StringComparer.Ordinal);
+
+        var darkTheme = App.ThemeColorDefinitions["Dark"];
+
+        Assert.Equal(darkTheme.OrderBy(static pair => pair.Key), appBrushes.OrderBy(static pair => pair.Key));
+    }
+
+    [Fact]
     public void SelectionStyles_SetReadableForeground()
     {
         var xamlPath = ResolveRepoPath("src", "PlcScope.App", "App.xaml");
