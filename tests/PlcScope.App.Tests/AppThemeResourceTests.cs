@@ -96,6 +96,72 @@ public sealed class AppThemeResourceTests
                 && string.Equals((string?)setter.Attribute("Value"), "{x:Null}", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void ButtonHoverBackgrounds_UseStylePropertiesSoSpecialButtonsKeepContrast()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "App.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var defaultButtonStyle = document
+            .Descendants(presentation + "Style")
+            .Single(element => string.Equals((string?)element.Attribute("TargetType"), "{x:Type Button}", StringComparison.Ordinal)
+                && element.Attribute(xaml + "Key") is null);
+
+        Assert.Contains(
+            defaultButtonStyle.Elements(presentation + "Style.Triggers").Descendants(presentation + "Setter"),
+            setter => string.Equals((string?)setter.Attribute("Property"), "Background", StringComparison.Ordinal)
+                && string.Equals((string?)setter.Attribute("Value"), "{DynamicResource AppHoverBrush}", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            defaultButtonStyle.Descendants(presentation + "ControlTemplate").Descendants(presentation + "Setter"),
+            setter => string.Equals((string?)setter.Attribute("TargetName"), "ButtonBorder", StringComparison.Ordinal)
+                && string.Equals((string?)setter.Attribute("Property"), "Background", StringComparison.Ordinal)
+                && ((string?)setter.Attribute("Value") is "{DynamicResource AppHoverBrush}" or "{DynamicResource AppPressedBrush}"));
+
+        foreach (var (styleKey, hoverBrush) in new[]
+        {
+            ("AccentButtonStyle", "AppAccentHoverBrush"),
+            ("SuccessButtonStyle", "AppSuccessSoftBrush"),
+            ("WarningButtonStyle", "AppWarningSoftBrush"),
+            ("DangerButtonStyle", "AppDangerSoftBrush"),
+        })
+        {
+            var style = document
+                .Descendants(presentation + "Style")
+                .Single(element => string.Equals((string?)element.Attribute(xaml + "Key"), styleKey, StringComparison.Ordinal));
+
+            Assert.Contains(
+                style.Elements(presentation + "Style.Triggers").Descendants(presentation + "Setter"),
+                setter => string.Equals((string?)setter.Attribute("Property"), "Background", StringComparison.Ordinal)
+                    && string.Equals((string?)setter.Attribute("Value"), $"{{DynamicResource {hoverBrush}}}", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    public void MonitorTextStyles_UseSelectionForegroundWhenListBoxItemIsSelected()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        foreach (var styleKey in new[] { "AddressTextStyle", "ValueTextStyle", "HexTextStyle", "CommentTextStyle" })
+        {
+            var style = document
+                .Descendants(presentation + "Style")
+                .Single(element => string.Equals((string?)element.Attribute(xaml + "Key"), styleKey, StringComparison.Ordinal));
+            var selectionTrigger = style
+                .Descendants(presentation + "DataTrigger")
+                .Single(trigger => ((string?)trigger.Attribute("Binding"))?.Contains("AncestorType={x:Type ListBoxItem}", StringComparison.Ordinal) is true);
+
+            Assert.Contains(
+                selectionTrigger.Descendants(presentation + "Setter"),
+                setter => string.Equals((string?)setter.Attribute("Property"), "Foreground", StringComparison.Ordinal)
+                    && string.Equals((string?)setter.Attribute("Value"), "{DynamicResource AppSelectionForegroundBrush}", StringComparison.Ordinal));
+        }
+    }
+
     [Theory]
     [InlineData("DataGridColumnHeader")]
     [InlineData("GridViewColumnHeader")]
