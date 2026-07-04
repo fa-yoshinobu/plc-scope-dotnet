@@ -136,8 +136,8 @@ public partial class MainWindowViewModel
             IsBusy = true;
             if (SelectedMainTabIndex == 1)
             {
-                if (WatchItems.Any(static item => !string.IsNullOrWhiteSpace(item.Address)))
-                    await ReadWatchListAsync().ConfigureAwait(true);
+                if (WatchList.HasReadableItems)
+                    await WatchList.ReadAsync().ConfigureAwait(true);
 
                 LastReadText = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 StatusText = $"Connected: {SelectedProtocol.DisplayName}";

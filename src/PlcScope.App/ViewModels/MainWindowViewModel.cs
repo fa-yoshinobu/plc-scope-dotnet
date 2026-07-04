@@ -56,8 +56,6 @@ public partial class MainWindowViewModel : ObservableObject
     private int _communicationFrameCount;
     private int _visibleStartIndex;
     private int _visibleRowCount = DefaultVisibleRowCount;
-    private int _visibleWatchStartIndex;
-    private int _visibleWatchRowCount = DefaultVisibleRowCount;
     private int _startAddressRowIndex;
     private SequentialDeviceAddress? _generatedStartAddress;
     private DeviceRangeCatalog? _deviceRangeCatalog;
@@ -97,6 +95,22 @@ public partial class MainWindowViewModel : ObservableObject
         BitDisplayModes = Enum.GetValues<BitDisplayMode>();
         DisplayRadices = Enum.GetValues<DisplayRadix>();
         ValueDataTypes = Enum.GetValues<ValueDataType>();
+        WatchList = new WatchListViewModel(
+            () => _session,
+            () => ConnectionState,
+            () => SelectedMainTabIndex,
+            () => _isScrollReadPaused,
+            () => _isInlineEditing,
+            () => SelectedProtocol,
+            () => DisplayRadix,
+            ResolveDeviceFamilyForAddress,
+            () => CanUseWritePanel,
+            ReadOnceAsync,
+            (operation, exception) => LogErrorAsync(operation, exception),
+            message => ErrorText = message,
+            () => OnPropertyChanged(nameof(UiAutomationStateText)),
+            ValueDataTypes,
+            DisplayRadices);
 
         ConnectionSettings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
         SelectedProtocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
@@ -119,16 +133,14 @@ public partial class MainWindowViewModel : ObservableObject
         CpuRunCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Run));
         CpuStopCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Stop));
         CpuPauseCommand = new AsyncRelayCommand(() => ExecuteCpuCommandAsync(CpuCommand.Pause));
-        RemoveWatchItemCommand = new RelayCommand(RemoveSelectedWatchItem);
-        WatchItems.CollectionChanged += WatchItems_CollectionChanged;
 
         EnsureRowsForCurrentLayout();
     }
 
     public ObservableCollection<ProtocolDefinition> AvailableProtocols { get; }
     public ObservableCollection<DeviceFamilyDefinition> AvailableDeviceFamilies { get; } = [];
-    public ObservableCollection<WatchItemViewModel> WatchItems { get; } = [];
     public IList<MonitorRowViewModel> Rows => _rows;
+    public WatchListViewModel WatchList { get; }
 
     public IReadOnlyList<FontSizeOption> FontSizeOptions { get; }
     public IReadOnlyList<ThemeOption> ThemeOptions { get; }
@@ -145,7 +157,6 @@ public partial class MainWindowViewModel : ObservableObject
     public IAsyncRelayCommand CpuRunCommand { get; }
     public IAsyncRelayCommand CpuStopCommand { get; }
     public IAsyncRelayCommand CpuPauseCommand { get; }
-    public IRelayCommand RemoveWatchItemCommand { get; }
 
     public Func<CpuCommand, Task<bool>>? RequestCpuCommandConfirmationAsync { get; set; }
     public Action<int>? RequestMonitorScrollToRowIndex { get; set; }
@@ -241,9 +252,6 @@ public partial class MainWindowViewModel : ObservableObject
     private MonitorRowViewModel? selectedRow;
 
     [ObservableProperty]
-    private WatchItemViewModel? selectedWatchItem;
-
-    [ObservableProperty]
     private int selectedMainTabIndex;
 
     public bool IsConnected => ConnectionState == ConnectionState.Connected;
@@ -262,7 +270,7 @@ public partial class MainWindowViewModel : ObservableObject
         : "Connect with the selected settings.";
     public string SelectedPlcModelText => $"PLC: {StatusTextFormatter.FormatSelectedPlcModel(ConnectionSettings)}";
     public string UiAutomationStateText =>
-        $"monitorStart={_visibleStartIndex};monitorCount={_visibleRowCount};monitorRows={Rows.Count};watchStart={_visibleWatchStartIndex};watchCount={_visibleWatchRowCount};watchRows={WatchItems.Count};inlineEditing={_isInlineEditing};scrollPaused={_isScrollReadPaused}";
+        $"monitorStart={_visibleStartIndex};monitorCount={_visibleRowCount};monitorRows={Rows.Count};watchStart={WatchList.VisibleStartIndex};watchCount={WatchList.VisibleRowCount};watchRows={WatchList.WatchItems.Count};inlineEditing={_isInlineEditing};scrollPaused={_isScrollReadPaused}";
     public string CpuControlHint
     {
         get
@@ -294,7 +302,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         Connection = ConnectionSettings with { AutoRefreshIntervalMs = AutoRefreshIntervalMs },
         Blocks = [BuildProjectBlockQuery()],
-        WatchItems = WatchItems.Select(static item => item.ToModel()).ToList(),
+        WatchItems = WatchList.ToModels().ToList(),
         CommentCsvPath = _commentCsvPaths.Count == 1 ? _commentCsvPaths[0] : null,
         CommentCsvPaths = _commentCsvPaths.Count > 1 ? _commentCsvPaths.ToList() : null,
     };

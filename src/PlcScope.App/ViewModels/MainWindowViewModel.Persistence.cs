@@ -63,11 +63,7 @@ public partial class MainWindowViewModel
         BitDisplayMode = activeBlock.BitDisplayMode;
         DisplayRadix = activeBlock.DisplayRadix;
         AutoRefreshEnabled = true;
-        WatchItems.Clear();
-        foreach (var item in project.WatchItems)
-        {
-            WatchItems.Add(new WatchItemViewModel(item));
-        }
+        WatchList.SetItems(project.WatchItems);
         OnPropertyChanged(nameof(UiAutomationStateText));
 
         await LoadProjectCommentCsvAsync(ProjectCommentCsvPathPolicy.GetProjectCommentCsvPaths(project)).ConfigureAwait(true);
@@ -97,7 +93,7 @@ public partial class MainWindowViewModel
         WriteValueText = string.Empty;
         SelectedWriteDataType = ValueDataType.UInt16;
         WriteRadix = DisplayRadix.Dec;
-        WatchItems.Clear();
+        WatchList.Clear();
         Rows.Clear();
         _lastSnapshot = null;
         _rowLayoutKey = string.Empty;
@@ -117,36 +113,6 @@ public partial class MainWindowViewModel
 
         if (IsConnected)
             await ReadOnceAsync().ConfigureAwait(true);
-    }
-
-    public async Task ImportWatchListCsvAsync(string path, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        var text = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(true);
-        var items = WatchListCsvSerializer.Parse(text);
-        WatchItems.Clear();
-        foreach (var item in items)
-        {
-            WatchItems.Add(new WatchItemViewModel(item));
-        }
-
-        UpdateWatchCommentsFromCsv();
-        SelectedWatchItem = WatchItems.FirstOrDefault();
-        ErrorText = string.Empty;
-        OnPropertyChanged(nameof(UiAutomationStateText));
-
-        if (IsConnected && SelectedMainTabIndex == 1)
-            await ReadOnceAsync().ConfigureAwait(true);
-    }
-
-    public async Task ExportWatchListCsvAsync(string path, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        var text = WatchListCsvSerializer.Format(WatchItems.Select(static item => item.ToModel()));
-        await File.WriteAllTextAsync(path, text, cancellationToken).ConfigureAwait(true);
-        ErrorText = string.Empty;
     }
 
     public Task<IReadOnlyList<TraceEntry>> LoadTraceEntriesAsync(int maxCount = 500) =>
@@ -203,7 +169,7 @@ public partial class MainWindowViewModel
             }
         }
 
-        UpdateWatchCommentsFromCsv();
+        WatchList.ApplyComments(ResolveCsvCommentForAddress);
 
         if (errors.Count > 0)
         {
@@ -216,7 +182,7 @@ public partial class MainWindowViewModel
         SetCommentCsvPaths(paths);
         _commentCsvComments.Clear();
         AddCommentCsvComments(comments);
-        UpdateWatchCommentsFromCsv();
+        WatchList.ApplyComments(ResolveCsvCommentForAddress);
     }
 
     private void SetCommentCsvPaths(IReadOnlyList<string> paths)
@@ -244,19 +210,6 @@ public partial class MainWindowViewModel
         InvalidateCommentResolutionCache();
     }
 
-    private void UpdateWatchCommentsFromCsv()
-    {
-        foreach (var item in WatchItems)
-        {
-            if (!string.IsNullOrWhiteSpace(item.Comment))
-                continue;
-
-            var comment = ResolveCsvCommentForAddress(item.Address);
-            if (comment is not null)
-                item.Comment = comment;
-        }
-    }
-
     private async Task<IReadOnlyDictionary<string, string>> LoadCommentCsvFilesAsync(IReadOnlyList<string> paths)
     {
         var commentSets = new List<IReadOnlyDictionary<string, string>>(paths.Count);
@@ -277,7 +230,7 @@ public partial class MainWindowViewModel
             ConnectionSettings.KeyenceDeviceMode,
             ResolveCsvCommentForAddress);
 
-    private string? ResolveCsvCommentForAddress(string address)
+    internal string? ResolveCsvCommentForAddress(string address)
     {
         if (!_resolvedCommentCache.TryGetValue(address, out var comment))
         {

@@ -20,14 +20,14 @@ public sealed class MainWindowViewModelWatchTests
         var first = new WatchItemViewModel(new WatchItem { Address = "D0" });
         var second = new WatchItemViewModel(new WatchItem { Address = "D1" });
         var third = new WatchItemViewModel(new WatchItem { Address = "D2" });
-        viewModel.WatchItems.Add(first);
-        viewModel.WatchItems.Add(second);
-        viewModel.WatchItems.Add(third);
+        viewModel.WatchList.WatchItems.Add(first);
+        viewModel.WatchList.WatchItems.Add(second);
+        viewModel.WatchList.WatchItems.Add(third);
 
-        viewModel.MoveWatchItemToIndex(first, 3);
+        viewModel.WatchList.MoveWatchItemToIndex(first, 3);
 
-        Assert.Equal(["D1", "D2", "D0"], viewModel.WatchItems.Select(static item => item.Address).ToArray());
-        Assert.Same(first, viewModel.SelectedWatchItem);
+        Assert.Equal(["D1", "D2", "D0"], viewModel.WatchList.WatchItems.Select(static item => item.Address).ToArray());
+        Assert.Same(first, viewModel.WatchList.SelectedWatchItem);
     }
 
     [Fact]
@@ -74,14 +74,14 @@ public sealed class MainWindowViewModelWatchTests
                 M0,Bit,Dec,Bit comment
                 """);
 
-            await viewModel.ImportWatchListCsvAsync(importPath);
-            await viewModel.ExportWatchListCsvAsync(exportPath);
+            await viewModel.WatchList.ImportCsvAsync(importPath, viewModel.ResolveCsvCommentForAddress);
+            await viewModel.WatchList.ExportCsvAsync(exportPath);
 
-            Assert.Equal(["D10", "M0"], viewModel.WatchItems.Select(static item => item.Address).ToArray());
-            Assert.Equal(ValueDataType.UInt16, viewModel.WatchItems[0].DataType);
-            Assert.Equal(DisplayRadix.Hex, viewModel.WatchItems[0].DisplayRadix);
-            Assert.Equal("Word comment", viewModel.WatchItems[0].Comment);
-            Assert.Same(viewModel.WatchItems[0], viewModel.SelectedWatchItem);
+            Assert.Equal(["D10", "M0"], viewModel.WatchList.WatchItems.Select(static item => item.Address).ToArray());
+            Assert.Equal(ValueDataType.UInt16, viewModel.WatchList.WatchItems[0].DataType);
+            Assert.Equal(DisplayRadix.Hex, viewModel.WatchList.WatchItems[0].DisplayRadix);
+            Assert.Equal("Word comment", viewModel.WatchList.WatchItems[0].Comment);
+            Assert.Same(viewModel.WatchList.WatchItems[0], viewModel.WatchList.SelectedWatchItem);
 
             var exported = await File.ReadAllTextAsync(exportPath);
             Assert.Contains("Address,Type,Format,Comment", exported, StringComparison.Ordinal);
@@ -111,9 +111,9 @@ public sealed class MainWindowViewModelWatchTests
         var wordBitItem = new WatchItemViewModel(new WatchItem { Address = "D0.0", DataType = ValueDataType.Bit });
         var bitDeviceItem = new WatchItemViewModel(new WatchItem { Address = "M0", DataType = ValueDataType.UInt16 });
 
-        viewModel.WatchItems.Add(wordItem);
-        viewModel.WatchItems.Add(wordBitItem);
-        viewModel.WatchItems.Add(bitDeviceItem);
+        viewModel.WatchList.WatchItems.Add(wordItem);
+        viewModel.WatchList.WatchItems.Add(wordBitItem);
+        viewModel.WatchList.WatchItems.Add(bitDeviceItem);
 
         Assert.DoesNotContain(ValueDataType.Bit, wordItem.AvailableDataTypes);
         Assert.Equal(ValueDataType.UInt16, wordItem.DataType);
@@ -131,7 +131,7 @@ public sealed class MainWindowViewModelWatchTests
             new InMemorySettingsStore(),
             new NullLogStore());
         var item = new WatchItemViewModel(new WatchItem { Address = "D0", DataType = ValueDataType.UInt16 });
-        viewModel.WatchItems.Add(item);
+        viewModel.WatchList.WatchItems.Add(item);
         var originalOptions = item.AvailableDataTypes.ToArray();
         var collectionChanges = new List<NotifyCollectionChangedAction>();
         item.AvailableDataTypes.CollectionChanged += (_, args) => collectionChanges.Add(args.Action);
@@ -241,7 +241,7 @@ public sealed class MainWindowViewModelWatchTests
             DisplayRadix = DisplayRadix.Hex,
         });
 
-        await viewModel.RefreshWatchItemAsync(item);
+        await viewModel.WatchList.RefreshWatchItemAsync(item);
 
         Assert.NotNull(session.LastQuery);
         Assert.Equal(DeviceKind.Bit, session.LastQuery.DeviceKind);
@@ -265,7 +265,7 @@ public sealed class MainWindowViewModelWatchTests
             DataType = ValueDataType.Bit,
         });
 
-        await viewModel.RefreshWatchItemAsync(item);
+        await viewModel.WatchList.RefreshWatchItemAsync(item);
 
         Assert.NotNull(session.LastQuery);
         Assert.Equal(DeviceKind.Bit, session.LastQuery.DeviceKind);
@@ -288,7 +288,7 @@ public sealed class MainWindowViewModelWatchTests
             DataType = ValueDataType.Bit,
         });
 
-        await viewModel.RefreshWatchItemAsync(item);
+        await viewModel.WatchList.RefreshWatchItemAsync(item);
 
         Assert.NotNull(session.LastQuery);
         Assert.Equal(DeviceKind.Word, session.LastQuery.DeviceKind);
@@ -318,7 +318,7 @@ public sealed class MainWindowViewModelWatchTests
             IsValueEditing = true,
         };
 
-        await viewModel.RefreshWatchItemAsync(item);
+        await viewModel.WatchList.RefreshWatchItemAsync(item);
 
         Assert.Null(session.LastQuery);
         Assert.Equal("ON", item.ValueText);
@@ -336,7 +336,7 @@ public sealed class MainWindowViewModelWatchTests
             DataType = ValueDataType.Bit,
         });
 
-        await viewModel.WriteWatchItemAsync(item, "ON");
+        await viewModel.WatchList.WriteWatchItemAsync(item, "ON");
 
         Assert.Equal(("D0:U", 3, true), session.LastWordBitWrite);
     }
@@ -348,10 +348,10 @@ public sealed class MainWindowViewModelWatchTests
         var viewModel = CreateConnectedViewModel(session);
         var first = new WatchItemViewModel(new WatchItem { Address = "D0" });
         var second = new WatchItemViewModel(new WatchItem { Address = "D1" });
-        viewModel.WatchItems.Add(first);
-        viewModel.WatchItems.Add(second);
+        viewModel.WatchList.WatchItems.Add(first);
+        viewModel.WatchList.WatchItems.Add(second);
 
-        await viewModel.WriteWatchItemAsync(first, "5");
+        await viewModel.WatchList.WriteWatchItemAsync(first, "5");
 
         var query = Assert.Single(session.ReadQueries);
         Assert.Equal("D0:U", query.StartAddress);
@@ -369,7 +369,7 @@ public sealed class MainWindowViewModelWatchTests
             DataType = ValueDataType.UInt16,
         });
 
-        await viewModel.RefreshWatchItemAsync(item);
+        await viewModel.WatchList.RefreshWatchItemAsync(item);
         session.ClearReadQueries();
 
         await item.Bits[0].ToggleCommand.ExecuteAsync(null);
@@ -392,7 +392,7 @@ public sealed class MainWindowViewModelWatchTests
             DataType = ValueDataType.UInt32,
         });
 
-        await viewModel.RefreshWatchItemAsync(item);
+        await viewModel.WatchList.RefreshWatchItemAsync(item);
         session.ClearReadQueries();
 
         var highBit = item.Bits[0];
@@ -416,7 +416,7 @@ public sealed class MainWindowViewModelWatchTests
             DataType = ValueDataType.UInt32,
         });
 
-        await viewModel.RefreshWatchItemAsync(item);
+        await viewModel.WatchList.RefreshWatchItemAsync(item);
 
         Assert.Equal(32, item.Bits.Count);
         Assert.Equal("LZ0.31", item.Bits[0].Address);
@@ -431,18 +431,18 @@ public sealed class MainWindowViewModelWatchTests
         var session = new CapturingSession();
         var viewModel = CreateConnectedViewModel(session);
         viewModel.SelectedMainTabIndex = 1;
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D2" }) { IsValueEditing = true });
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D2" }) { IsValueEditing = true });
 
         await viewModel.ReadOnceCommand.ExecuteAsync(null);
 
         var batch = Assert.Single(session.BatchReadQueries);
         Assert.Equal(["D0:U", "D1:U"], batch.Select(static query => query.StartAddress).ToArray());
         Assert.Empty(session.ReadQueries);
-        Assert.Equal("1", viewModel.WatchItems[0].ValueText);
-        Assert.Equal("1", viewModel.WatchItems[1].ValueText);
-        Assert.Equal(string.Empty, viewModel.WatchItems[2].ValueText);
+        Assert.Equal("1", viewModel.WatchList.WatchItems[0].ValueText);
+        Assert.Equal("1", viewModel.WatchList.WatchItems[1].ValueText);
+        Assert.Equal(string.Empty, viewModel.WatchList.WatchItems[2].ValueText);
     }
 
     [Fact]
@@ -451,15 +451,15 @@ public sealed class MainWindowViewModelWatchTests
         var session = new CapturingSession { FailingBatchAddress = "D1:U" };
         var viewModel = CreateConnectedViewModel(session);
         viewModel.SelectedMainTabIndex = 1;
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D0" }));
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "D1" }));
 
         await viewModel.ReadOnceCommand.ExecuteAsync(null);
 
-        Assert.False(viewModel.WatchItems[0].HasError);
-        Assert.Equal("1", viewModel.WatchItems[0].ValueText);
-        Assert.True(viewModel.WatchItems[1].HasError);
-        Assert.Equal("Batch read failed.", viewModel.WatchItems[1].ErrorText);
+        Assert.False(viewModel.WatchList.WatchItems[0].HasError);
+        Assert.Equal("1", viewModel.WatchList.WatchItems[0].ValueText);
+        Assert.True(viewModel.WatchList.WatchItems[1].HasError);
+        Assert.Equal("Batch read failed.", viewModel.WatchList.WatchItems[1].ErrorText);
     }
 
     private static MainWindowViewModel CreateConnectedViewModel(CapturingSession session)

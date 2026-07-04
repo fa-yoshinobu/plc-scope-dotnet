@@ -180,7 +180,7 @@ public partial class MainWindowViewModel
         InvalidateCommentResolutionCache();
         InvalidateSortedDeviceFamilyCache();
         OnPropertyChanged(nameof(SelectedPlcModelText));
-        UpdateAllWatchAvailableDataTypes();
+        WatchList.UpdateAllAvailableDataTypes();
     }
 
     partial void OnConnectionStateChanged(ConnectionState value)

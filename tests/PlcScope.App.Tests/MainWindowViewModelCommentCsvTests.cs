@@ -23,9 +23,9 @@ public sealed class MainWindowViewModelCommentCsvTests
             SelectedProtocol = ProtocolCatalog.Get(ProtocolKind.Toyopuc),
         };
 
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "P2-K002" }));
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "P1-K001" }));
-        viewModel.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "P3-K003" }));
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "P2-K002" }));
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "P1-K001" }));
+        viewModel.WatchList.WatchItems.Add(new WatchItemViewModel(new WatchItem { Address = "P3-K003" }));
 
         try
         {
@@ -46,9 +46,9 @@ public sealed class MainWindowViewModelCommentCsvTests
             await viewModel.ImportCommentCsvAsync([firstPath, secondPath]);
             await viewModel.SaveProjectAsync(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.json"));
 
-            Assert.Equal("Toyopuc comment B", viewModel.WatchItems[0].Comment);
-            Assert.Equal("Toyopuc comment A override", viewModel.WatchItems[1].Comment);
-            Assert.Equal("Toyopuc comment C override", viewModel.WatchItems[2].Comment);
+            Assert.Equal("Toyopuc comment B", viewModel.WatchList.WatchItems[0].Comment);
+            Assert.Equal("Toyopuc comment A override", viewModel.WatchList.WatchItems[1].Comment);
+            Assert.Equal("Toyopuc comment C override", viewModel.WatchList.WatchItems[2].Comment);
             Assert.Equal("2 comment CSV files", viewModel.CommentCsvPath);
             Assert.Null(projectStore.SavedProject.CommentCsvPath);
             Assert.Equal([firstPath, secondPath], projectStore.SavedProject.CommentCsvPaths);
