@@ -657,7 +657,7 @@
           </Border>
         </TabItem>
 
-        <TabItem Header="Watch list" AutomationProperties.AutomationId="WatchTab">
+        <TabItem Header="Watch list" AutomationProperties.AutomationId="WatchTab" DataContext="{Binding WatchList}">
           <Border Style="{StaticResource PanelBorderStyle}" Background="{DynamicResource AppInputBrush}" Padding="0">
             <Grid Grid.IsSharedSizeScope="True">
               <Grid.RowDefinitions>

@@ -159,7 +159,7 @@ public partial class MainWindow : Window
 
         try
         {
-            await ViewModel.ImportWatchListCsvAsync(dialog.FileName).ConfigureAwait(true);
+            await ViewModel.WatchList.ImportCsvAsync(dialog.FileName, ViewModel.ResolveCsvCommentForAddress).ConfigureAwait(true);
         }
         catch (Exception exception)
         {
@@ -180,7 +180,7 @@ public partial class MainWindow : Window
 
         try
         {
-            await ViewModel.ExportWatchListCsvAsync(dialog.FileName).ConfigureAwait(true);
+            await ViewModel.WatchList.ExportCsvAsync(dialog.FileName).ConfigureAwait(true);
         }
         catch (Exception exception)
         {
@@ -403,7 +403,7 @@ public partial class MainWindow : Window
 
         var firstIndex = Math.Max(0, (int)Math.Floor(_watchScrollViewer.VerticalOffset));
         var visibleCount = Math.Max(1, (int)Math.Ceiling(_watchScrollViewer.ViewportHeight));
-        ViewModel.UpdateVisibleWatchRange(firstIndex, visibleCount);
+        ViewModel.WatchList.UpdateVisibleRange(firstIndex, visibleCount);
     }
 
     private void DeviceFamilyComboBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -437,7 +437,7 @@ public partial class MainWindow : Window
 
     private void AddMonitorRowToWatchMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.AddMonitorRowToWatch(_contextMenuMonitorRow ?? MonitorListBox.SelectedItem as MonitorRowViewModel);
+        ViewModel.WatchList.AddMonitorRowToWatch(_contextMenuMonitorRow ?? MonitorListBox.SelectedItem as MonitorRowViewModel);
         _contextMenuMonitorRow = null;
     }
 
@@ -493,7 +493,7 @@ public partial class MainWindow : Window
             return;
 
         e.Handled = true;
-        await ViewModel.WriteWatchItemAsync(item, textBox.Text).ConfigureAwait(true);
+        await ViewModel.WatchList.WriteWatchItemAsync(item, textBox.Text).ConfigureAwait(true);
         item.IsValueEditing = false;
     }
 
@@ -516,7 +516,7 @@ public partial class MainWindow : Window
                 return;
         }
 
-        await ViewModel.RefreshWatchItemAsync(item).ConfigureAwait(true);
+        await ViewModel.WatchList.RefreshWatchItemAsync(item).ConfigureAwait(true);
     }
 
     private void WatchListBoxItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -527,7 +527,7 @@ public partial class MainWindow : Window
         item.IsSelected = true;
         item.Focus();
         if (item.DataContext is WatchItemViewModel watchItem)
-            ViewModel.SelectedWatchItem = watchItem;
+            ViewModel.WatchList.SelectedWatchItem = watchItem;
     }
 
     private void WatchListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -572,14 +572,14 @@ public partial class MainWindow : Window
             return;
 
         var insertionIndex = GetWatchDropInsertionIndex(e);
-        ViewModel.MoveWatchItemToIndex(item, insertionIndex);
+        ViewModel.WatchList.MoveWatchItemToIndex(item, insertionIndex);
         e.Handled = true;
     }
 
     private void RemoveWatchItemMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.RemoveWatchItemCommand.CanExecute(null))
-            ViewModel.RemoveWatchItemCommand.Execute(null);
+        if (ViewModel.WatchList.RemoveWatchItemCommand.CanExecute(null))
+            ViewModel.WatchList.RemoveWatchItemCommand.Execute(null);
     }
 
     private void WatchListBox_KeyDown(object sender, KeyEventArgs e)
@@ -587,8 +587,8 @@ public partial class MainWindow : Window
         if (e.Key != Key.Delete)
             return;
 
-        if (ViewModel.RemoveWatchItemCommand.CanExecute(null))
-            ViewModel.RemoveWatchItemCommand.Execute(null);
+        if (ViewModel.WatchList.RemoveWatchItemCommand.CanExecute(null))
+            ViewModel.WatchList.RemoveWatchItemCommand.Execute(null);
 
         e.Handled = true;
     }
@@ -597,13 +597,13 @@ public partial class MainWindow : Window
     {
         var listBoxItem = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject);
         if (listBoxItem?.DataContext is not WatchItemViewModel targetItem)
-            return ViewModel.WatchItems.Count;
+            return ViewModel.WatchList.WatchItems.Count;
 
         var targetIndex = WatchListBox.ItemContainerGenerator.IndexFromContainer(listBoxItem);
         if (targetIndex < 0)
-            targetIndex = ViewModel.WatchItems.IndexOf(targetItem);
+            targetIndex = ViewModel.WatchList.WatchItems.IndexOf(targetItem);
         if (targetIndex < 0)
-            return ViewModel.WatchItems.Count;
+            return ViewModel.WatchList.WatchItems.Count;
 
         var position = e.GetPosition(listBoxItem);
         return position.Y > listBoxItem.ActualHeight / 2

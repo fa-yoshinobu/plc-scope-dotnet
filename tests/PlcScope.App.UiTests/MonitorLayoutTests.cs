@@ -119,6 +119,22 @@ public sealed class MonitorLayoutTests
         Assert.Equal(7, columnCount);
     }
 
+    [Fact]
+    public void WatchTab_BindsToWatchListViewModel()
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+
+        var watchTab = document
+            .Descendants(presentation + "TabItem")
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "WatchTab", StringComparison.Ordinal)));
+
+        Assert.Equal("{Binding WatchList}", (string?)watchTab.Attribute("DataContext"));
+    }
+
     [Theory]
     [InlineData("WatchTypeComboBox")]
     [InlineData("WatchFormatComboBox")]

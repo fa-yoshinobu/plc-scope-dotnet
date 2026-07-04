@@ -414,7 +414,7 @@ public partial class MainWindowViewModel
         OnPropertyChanged(nameof(CanIssueCpuPauseControl));
         OnPropertyChanged(nameof(CpuControlHint));
         OnPropertyChanged(nameof(CpuPauseControlHint));
-        UpdateAllWatchAvailableDataTypes();
+        WatchList.UpdateAllAvailableDataTypes();
 
         _lastSnapshot = null;
         RefreshLayoutNow();
@@ -430,14 +430,14 @@ public partial class MainWindowViewModel
             _lastSnapshot = null;
             _rowLayoutKey = string.Empty;
             EnsureRowsForCurrentLayout();
-            UpdateAllWatchAvailableDataTypes();
+            WatchList.UpdateAllAvailableDataTypes();
             return;
         }
 
         StartAddress = DeviceAddressRangeProvider.TryRebaseAddress(StartAddress, SelectedProtocol, value, out var rebasedAddress)
             ? rebasedAddress
             : GetDefaultStartAddress(value);
-        UpdateAllWatchAvailableDataTypes();
+        WatchList.UpdateAllAvailableDataTypes();
         _lastSnapshot = null;
         RefreshLayoutNow();
     }
