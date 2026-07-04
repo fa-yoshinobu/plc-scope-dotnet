@@ -6,6 +6,57 @@ using PlcScope.Infrastructure.Storage;
 public sealed class JsonStoreTests
 {
     [Fact]
+    public async Task JsonSettingsStore_LoadAsync_InvalidJsonReturnsDefaultSettings()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            var path = Path.Combine(directory.FullName, "settings.json");
+            await File.WriteAllTextAsync(path, "{");
+
+            var settings = await new JsonSettingsStore(path).LoadAsync();
+
+            Assert.Null(settings.LastSelectedProtocol);
+            Assert.Equal(14, settings.UiFontSize);
+            Assert.Equal("Dark", settings.UiTheme);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task JsonSettingsStore_SaveAsync_ReplacesFileAndCleansTemporaryFile()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            var path = Path.Combine(directory.FullName, "settings.json");
+            await File.WriteAllTextAsync(path, "{");
+            var store = new JsonSettingsStore(path);
+
+            await store.SaveAsync(new AppSettings
+            {
+                LastSelectedProtocol = ProtocolKind.HostLink.ToString(),
+                UiFontSize = 18,
+                UiTheme = "Light",
+            });
+
+            var loaded = await store.LoadAsync();
+
+            Assert.Equal(ProtocolKind.HostLink.ToString(), loaded.LastSelectedProtocol);
+            Assert.Equal(18, loaded.UiFontSize);
+            Assert.Equal("Light", loaded.UiTheme);
+            Assert.Empty(directory.EnumerateFiles("*.tmp"));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task JsonProjectStore_RoundTripsProject()
     {
         var store = new JsonProjectStore();

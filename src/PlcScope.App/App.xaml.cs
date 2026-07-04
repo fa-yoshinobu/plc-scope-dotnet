@@ -3,9 +3,11 @@ namespace PlcScope.App;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using PlcScope.App.ViewModels;
 using PlcScope.Core.Abstractions;
+using PlcScope.Core.Models;
 using PlcScope.Infrastructure.Protocols;
 using PlcScope.Infrastructure.Storage;
 
@@ -118,6 +120,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        DispatcherUnhandledException += App_DispatcherUnhandledException;
         ApplyTheme(JsonSettingsStore.TryLoadThemeKey());
         base.OnStartup(e);
 
@@ -145,7 +148,7 @@ public partial class App : Application
                 }
                 catch (Exception exception)
                 {
-                    MessageBox.Show(mainWindow, exception.Message, "Could not open project", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowError(mainWindow, "Could not open project", exception);
                 }
             });
         }
@@ -155,6 +158,62 @@ public partial class App : Application
     {
         _serviceProvider?.Dispose();
         base.OnExit(e);
+    }
+
+    internal static ErrorEntry CreateUnhandledExceptionEntry(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        var message = string.IsNullOrWhiteSpace(exception.Message)
+            ? "Unexpected application error."
+            : exception.Message;
+        return new ErrorEntry(DateTimeOffset.UtcNow, "Unhandled exception", message, exception.ToString());
+    }
+
+    private async void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        e.Handled = true;
+        await ReportUnhandledExceptionAsync(
+            e.Exception,
+            _serviceProvider?.GetService<ILogStore>(),
+            (title, exception) => ShowError(MainWindow, title, exception)).ConfigureAwait(true);
+    }
+
+    internal static async Task ReportUnhandledExceptionAsync(
+        Exception exception,
+        ILogStore? logStore,
+        Action<string, Exception> showError)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        ArgumentNullException.ThrowIfNull(showError);
+        var errorEntry = CreateUnhandledExceptionEntry(exception);
+
+        try
+        {
+            if (logStore is not null)
+                await logStore.AppendErrorAsync(errorEntry).ConfigureAwait(true);
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            showError("Unexpected error", exception);
+        }
+        catch
+        {
+        }
+    }
+
+    private static void ShowError(Window? owner, string title, Exception exception)
+    {
+        if (owner is not null)
+        {
+            MessageBox.Show(owner, exception.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        MessageBox.Show(exception.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     private static void SetBrush(object key, string colorText)

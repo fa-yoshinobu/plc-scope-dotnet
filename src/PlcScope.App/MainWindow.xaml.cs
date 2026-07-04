@@ -66,7 +66,10 @@ public partial class MainWindow : Window
 
         if (dialog.ShowDialog() == true)
         {
-            await ViewModel.ApplyConnectionSettingsAsync(dialog.ResultSettings).ConfigureAwait(true);
+            await TryRunUiOperationAsync(
+                () => ViewModel.ApplyConnectionSettingsAsync(dialog.ResultSettings),
+                ShowError,
+                "Could not apply connection settings").ConfigureAwait(true);
         }
     }
 
@@ -83,8 +86,13 @@ public partial class MainWindow : Window
             Filter = "PLC Scope project (*.json)|*.json|All files (*.*)|*.*",
         };
 
-        if (dialog.ShowDialog(this) == true)
-            await ViewModel.LoadProjectAsync(dialog.FileName).ConfigureAwait(true);
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        await TryRunUiOperationAsync(
+            () => ViewModel.LoadProjectAsync(dialog.FileName),
+            ShowError,
+            "Could not open project").ConfigureAwait(true);
     }
 
     private async void SaveProjectMenuItem_Click(object sender, RoutedEventArgs e)
@@ -95,7 +103,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        await ViewModel.SaveProjectAsync(ViewModel.CurrentProjectPath).ConfigureAwait(true);
+        await TryRunUiOperationAsync(
+            () => ViewModel.SaveProjectAsync(ViewModel.CurrentProjectPath),
+            ShowError,
+            "Could not save project").ConfigureAwait(true);
     }
 
     private async void SaveProjectAsMenuItem_Click(object sender, RoutedEventArgs e)
@@ -106,8 +117,13 @@ public partial class MainWindow : Window
             FileName = string.IsNullOrWhiteSpace(ViewModel.CurrentProjectPath) ? "plc-scope-project.json" : System.IO.Path.GetFileName(ViewModel.CurrentProjectPath),
         };
 
-        if (dialog.ShowDialog(this) == true)
-            await ViewModel.SaveProjectAsync(dialog.FileName).ConfigureAwait(true);
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        await TryRunUiOperationAsync(
+            () => ViewModel.SaveProjectAsync(dialog.FileName),
+            ShowError,
+            "Could not save project").ConfigureAwait(true);
     }
 
     private async void ImportCommentCsvMenuItem_Click(object sender, RoutedEventArgs e)
@@ -127,7 +143,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Could not read comment CSV", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowError("Could not read comment CSV", exception);
         }
     }
 
@@ -147,7 +163,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Could not import watch list CSV", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowError("Could not import watch list CSV", exception);
         }
     }
 
@@ -168,7 +184,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Could not export watch list CSV", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowError("Could not export watch list CSV", exception);
         }
     }
 
@@ -181,7 +197,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Could not open communication log", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowError("Could not open communication log", exception);
         }
     }
 
@@ -194,7 +210,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Could not open error history", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowError("Could not open error history", exception);
         }
     }
 
@@ -207,13 +223,36 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Could not open device ranges", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowError("Could not open device ranges", exception);
         }
     }
 
     private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
     {
         new AboutWindow { Owner = this }.ShowDialog();
+    }
+
+    private void ShowError(string title, Exception exception) =>
+        MessageBox.Show(this, exception.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+
+    internal static async Task<bool> TryRunUiOperationAsync(
+        Func<Task> operation,
+        Action<string, Exception> showError,
+        string errorTitle)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(showError);
+
+        try
+        {
+            await operation().ConfigureAwait(true);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            showError(errorTitle, exception);
+            return false;
+        }
     }
 
     private void AlwaysOnTopMenuItem_Click(object sender, RoutedEventArgs e)
