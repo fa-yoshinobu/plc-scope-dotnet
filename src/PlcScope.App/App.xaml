@@ -10,7 +10,6 @@
     <SolidColorBrush x:Key="AppInputDisabledBrush" Color="#1A2232" />
     <SolidColorBrush x:Key="AppHoverBrush" Color="#334155" />
     <SolidColorBrush x:Key="AppPressedBrush" Color="#0B1120" />
-    <SolidColorBrush x:Key="AppDropdownBrush" Color="#1D4ED8" />
     <SolidColorBrush x:Key="AppBorderBrush" Color="#374151" />
     <SolidColorBrush x:Key="AppBorderSubtleBrush" Color="#263244" />
     <SolidColorBrush x:Key="AppBorderDisabledBrush" Color="#283241" />
@@ -27,14 +26,14 @@
     <SolidColorBrush x:Key="AppSuccessSoftBrush" Color="#12351F" />
     <SolidColorBrush x:Key="AppWarningBrush" Color="#F59E0B" />
     <SolidColorBrush x:Key="AppWarningSoftBrush" Color="#3A2605" />
-    <SolidColorBrush x:Key="AppDangerBrush" Color="#EF4444" />
+    <SolidColorBrush x:Key="AppDangerBrush" Color="#F87171" />
     <SolidColorBrush x:Key="AppDangerSoftBrush" Color="#3B1618" />
     <SolidColorBrush x:Key="AppAddressBrush" Color="#93C5FD" />
     <SolidColorBrush x:Key="AppValueBrush" Color="#FDE68A" />
-    <SolidColorBrush x:Key="AppHexBrush" Color="#F97316" />
+    <SolidColorBrush x:Key="AppHexBrush" Color="#FB923C" />
     <SolidColorBrush x:Key="AppCommentBrush" Color="#86EFAC" />
     <SolidColorBrush x:Key="AppBitOffBrush" Color="#182235" />
-    <SolidColorBrush x:Key="AppBitOffBorderBrush" Color="#475569" />
+    <SolidColorBrush x:Key="AppBitOffBorderBrush" Color="#64748B" />
     <SolidColorBrush x:Key="AppWriteInputBrush" Color="#102A43" />
 
     <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#0F172A" />
@@ -93,9 +92,6 @@
               <Trigger Property="IsKeyboardFocused" Value="True">
                 <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
               </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AppAccentHoverBrush}" />
-              </Trigger>
               <Trigger Property="IsEnabled" Value="False">
                 <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource AppInputDisabledBrush}" />
                 <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AppBorderDisabledBrush}" />
@@ -105,30 +101,79 @@
           </ControlTemplate>
         </Setter.Value>
       </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppPressedBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppAccentHoverBrush}" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style x:Key="AccentButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppAccentForegroundBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppAccentHoverBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppAccentHoverBrush}" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style x:Key="SuccessButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSuccessSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style x:Key="WarningButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Background" Value="{DynamicResource AppWarningSoftBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppWarningBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppWarningBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppWarningSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppWarningBrush}" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppWarningSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppWarningBrush}" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style x:Key="DangerButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Background" Value="{DynamicResource AppDangerSoftBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppDangerSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppDangerSoftBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style TargetType="{x:Type TextBox}">
@@ -486,6 +531,9 @@
                                 TextElement.Foreground="{TemplateBinding Foreground}" />
             </Border>
             <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AppRowHoverBrush}" />
+              </Trigger>
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AppSelectionBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
@@ -508,6 +556,18 @@
       <Setter Property="HeadersVisibility" Value="Column" />
       <Setter Property="CanUserAddRows" Value="False" />
       <Setter Property="CanUserDeleteRows" Value="False" />
+    </Style>
+
+    <Style TargetType="{x:Type DataGridRow}">
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppRowHoverBrush}" />
+        </Trigger>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style TargetType="{x:Type DataGridColumnHeader}">
