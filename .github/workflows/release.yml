@@ -21,10 +21,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout communication libraries
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/fa-yoshinobu/plc-comm-slmp-dotnet.git ..\plc-comm-slmp-dotnet
+          git clone --depth 1 https://github.com/fa-yoshinobu/plc-comm-hostlink-dotnet.git ..\plc-comm-hostlink-dotnet
+          git clone --depth 1 https://github.com/fa-yoshinobu/plc-comm-computerlink-dotnet.git ..\plc-comm-computerlink-dotnet
+
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
 
       - name: Publish single-file app
         run: >

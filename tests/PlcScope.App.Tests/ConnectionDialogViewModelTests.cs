@@ -1,5 +1,7 @@
 namespace PlcScope.App.Tests;
 
+using PlcComm.KvHostLink;
+using PlcComm.Slmp;
 using PlcScope.App.ViewModels;
 using PlcScope.Core.Models;
 
@@ -129,15 +131,55 @@ public sealed class ConnectionDialogViewModelTests
     }
 
     [Fact]
+    public void BuildSettings_UsesCanonicalSlmpPlcProfile()
+    {
+        var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Slmp));
+
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:iq-r:rj71en71" && option.Label == "iQ-R / RJ71EN71");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnudv:qj71e71-100" && option.Label == "QnUDV / QJ71E71-100");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnu:qj71e71-100" && option.Label == "QnU / QJ71E71-100");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu:qj71e71-100" && option.Label == "QCPU / QJ71E71-100");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:lcpu:lj71e71-100" && option.Label == "LCPU / LJ71E71-100");
+        Assert.DoesNotContain(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu");
+        Assert.All(viewModel.SlmpProfiles, option => SlmpPlcProfiles.Parse(option.Value));
+
+        viewModel.SelectedSlmpProfile = viewModel.SlmpProfiles.Single(option => option.Value == "melsec:qcpu:qj71e71-100");
+        var settings = viewModel.BuildSettings();
+
+        Assert.Equal("melsec:qcpu:qj71e71-100", settings.SlmpPlcProfileName);
+    }
+
+    [Fact]
+    public void Constructor_PreservesLegacySlmpPlcProfile()
+    {
+        var viewModel = new ConnectionDialogViewModel(
+            ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
+            {
+                SlmpPlcProfileName = "melsec:qcpu",
+            });
+
+        var option = Assert.Single(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu");
+        Assert.Equal("QCPU", option.Label);
+        Assert.Same(option, viewModel.SelectedSlmpProfile);
+
+        var settings = viewModel.BuildSettings();
+
+        Assert.Equal("melsec:qcpu", settings.SlmpPlcProfileName);
+    }
+
+    [Fact]
     public void BuildSettings_UsesCanonicalHostLinkPlcProfile()
     {
         var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.HostLink));
 
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500" && option.Label == "KV-X500");
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500-xym" && option.Label == "KV-X500 / XYM");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500" && option.Label == "KV-X310 / KV-X500 / KV-X520 / KV-X530 / KV-X550");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500-xym" && option.Label == "KV-X310 / KV-X500 / KV-X520 / KV-X530 / KV-X550 / XYM");
         Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-3000" && option.Label == "KV-3000");
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-5000-xym" && option.Label == "KV-5000 / XYM");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-5000-xym" && option.Label == "KV-5000 / KV-5500 / XYM");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-7000" && option.Label == "KV-7000 / KV-7300 / KV-7500");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-8000" && option.Label == "KV-8000 / KV-8000A");
         Assert.DoesNotContain(viewModel.HostLinkProfiles, option => option.Label == "keyence:kv-x500");
+        Assert.All(viewModel.HostLinkProfiles, option => KvHostLinkDeviceRanges.DeviceRangeCatalogForPlcProfile(option.Value));
 
         viewModel.SelectedHostLinkProfile = viewModel.HostLinkProfiles.Single(option => option.Value == "keyence:kv-x500-xym");
         var settings = viewModel.BuildSettings();

@@ -81,7 +81,7 @@ public sealed class StatusTextFormatterTests
             "iQ-R",
             StatusTextFormatter.FormatSelectedPlcModel(ConnectionSettings.CreateDefault(ProtocolKind.Slmp)));
         Assert.Equal(
-            "KV-X500 / XYM",
+            "KV-X310 / KV-X500 / KV-X520 / KV-X530 / KV-X550 / XYM",
             StatusTextFormatter.FormatSelectedPlcModel(ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with
             {
                 HostLinkPlcProfileName = "keyence:kv-x500-xym",

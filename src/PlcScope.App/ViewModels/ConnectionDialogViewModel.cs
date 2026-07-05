@@ -13,6 +13,23 @@ public sealed record ToyopucPlcProfileOption(string Value, string Label);
 
 public partial class ConnectionDialogViewModel : ObservableObject
 {
+    private static readonly SlmpPlcProfileOption[] DefaultSlmpProfiles =
+    [
+        new("melsec:iq-r", "iQ-R"),
+        new("melsec:iq-r:rj71en71", "iQ-R / RJ71EN71"),
+        new("melsec:iq-f", "iQ-F"),
+        new("melsec:iq-l", "iQ-L"),
+        new("melsec:mx-r", "MX-R"),
+        new("melsec:mx-f", "MX-F"),
+        new("melsec:qnudv", "QnUDV"),
+        new("melsec:qnudv:qj71e71-100", "QnUDV / QJ71E71-100"),
+        new("melsec:qnu", "QnU"),
+        new("melsec:qnu:qj71e71-100", "QnU / QJ71E71-100"),
+        new("melsec:qcpu:qj71e71-100", "QCPU / QJ71E71-100"),
+        new("melsec:lcpu", "LCPU"),
+        new("melsec:lcpu:lj71e71-100", "LCPU / LJ71E71-100"),
+    ];
+
     private static readonly HostLinkPlcProfileOption[] DefaultHostLinkProfiles =
         KvHostLinkDeviceRanges.AvailablePlcProfiles()
             .Select(CreateHostLinkProfileOption)
@@ -32,6 +49,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         Transport = settings.Transport;
         SelectedTransportMode = TransportModes.First(option => option.Mode == settings.Transport);
         AutoRefreshIntervalMs = settings.AutoRefreshIntervalMs;
+        SlmpProfiles = CreateSlmpProfiles(settings.SlmpPlcProfileName);
         SlmpPlcProfileName = settings.SlmpPlcProfileName;
         SelectedSlmpProfile = SlmpProfiles.FirstOrDefault(option => string.Equals(option.Value, settings.SlmpPlcProfileName, StringComparison.OrdinalIgnoreCase))
             ?? SlmpProfiles[0];
@@ -58,18 +76,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     }
 
     public IReadOnlyList<ProtocolDefinition> Protocols { get; } = ProtocolCatalog.All;
-    public IReadOnlyList<SlmpPlcProfileOption> SlmpProfiles { get; } =
-    [
-        new("melsec:iq-r", "iQ-R"),
-        new("melsec:iq-f", "iQ-F"),
-        new("melsec:iq-l", "iQ-L"),
-        new("melsec:mx-r", "MX-R"),
-        new("melsec:mx-f", "MX-F"),
-        new("melsec:qnudv", "QnUDV"),
-        new("melsec:qnu", "QnU"),
-        new("melsec:qcpu", "QCPU"),
-        new("melsec:lcpu", "LCPU"),
-    ];
+    public IReadOnlyList<SlmpPlcProfileOption> SlmpProfiles { get; }
     public IReadOnlyList<HostLinkPlcProfileOption> HostLinkProfiles { get; }
 
     public IReadOnlyList<ToyopucPlcProfileOption> ToyopucPlcProfiles { get; } = DefaultToyopucPlcProfiles;
@@ -286,6 +293,18 @@ public partial class ConnectionDialogViewModel : ObservableObject
 
     private static string FormatPrefixedHex(int value, int width) =>
         $"0x{value.ToString($"X{width}", CultureInfo.InvariantCulture)}";
+
+    private static IReadOnlyList<SlmpPlcProfileOption> CreateSlmpProfiles(string selectedProfileName)
+    {
+        var profiles = DefaultSlmpProfiles.ToList();
+        if (profiles.All(option => !string.Equals(option.Value, selectedProfileName, StringComparison.OrdinalIgnoreCase)))
+            profiles.Add(CreateSlmpProfileOption(selectedProfileName));
+
+        return profiles;
+    }
+
+    private static SlmpPlcProfileOption CreateSlmpProfileOption(string profileName) =>
+        new(profileName, PlcProfileDisplayFormatter.FormatSlmpPlcProfile(profileName));
 
     private static IReadOnlyList<HostLinkPlcProfileOption> CreateHostLinkProfiles(string selectedProfileName)
     {

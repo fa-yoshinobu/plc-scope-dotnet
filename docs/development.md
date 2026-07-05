@@ -5,7 +5,8 @@ This file is for maintainers and contributors. The repository root [README](../R
 ## Requirements
 
 - Windows
-- .NET 9 SDK
+- .NET 9 SDK for the PLC Scope app target
+- .NET 8, 9, and 10 SDKs when building with the sibling PLC communication source repositories
 - Visual Studio 2022 or another editor with WPF support
 
 `PlcScope.App` is a WPF application, so the app project is intended to build and run on Windows.
@@ -23,17 +24,20 @@ This file is for maintainers and contributors. The repository root [README](../R
 
 ## Dependencies
 
-Package versions are centralized in [Directory.Packages.props](../Directory.Packages.props).
+Third-party package versions are centralized in [Directory.Packages.props](../Directory.Packages.props).
 
-Main libraries:
+Main third-party libraries:
 
-- `PlcComm.Slmp`
-- `PlcComm.KvHostLink`
-- `PlcComm.Toyopuc`
 - `CommunityToolkit.Mvvm`
 - `Microsoft.Extensions.DependencyInjection`
 
-PLC communication libraries are consumed from `lib/plc-comm/net9.0/` through direct assembly references. See `lib/plc-comm/README.md` for refresh steps.
+PLC communication libraries are consumed from sibling local source repositories:
+
+- `../plc-comm-slmp-dotnet/src/PlcComm.Slmp/PlcComm.Slmp.csproj`
+- `../plc-comm-hostlink-dotnet/src/PlcComm.KvHostLink/PlcComm.KvHostLink.csproj`
+- `../plc-comm-computerlink-dotnet/src/Toyopuc/PlcComm.Toyopuc.csproj`
+
+The checked-in `lib/plc-comm/net9.0/` DLLs are retained as release snapshots and are not the active project references for local development builds.
 
 ## Build
 

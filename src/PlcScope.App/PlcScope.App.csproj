@@ -24,12 +24,12 @@
   <ItemGroup>
     <ProjectReference Include="..\PlcScope.Core\PlcScope.Core.csproj" />
     <ProjectReference Include="..\PlcScope.Infrastructure\PlcScope.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\plc-comm-hostlink-dotnet\src\PlcComm.KvHostLink\PlcComm.KvHostLink.csproj" SetConfiguration="Configuration=$(Configuration)" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="PlcComm.KvHostLink" />
   </ItemGroup>
 
   <ItemGroup>
