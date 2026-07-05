@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Switched PLC communication libraries to local sibling source project references for `PlcComm.Slmp`, `PlcComm.KvHostLink`, and `PlcComm.Toyopuc`.
+- Updated SLMP, KV Host Link, and TOYOPUC profile selectors and status labels to use canonical communication-library display names while preserving saved canonical profile IDs.
 - Updated SLMP PLC profile choices for the local MELSEC profile set, including RJ71EN71, LJ71E71-100, and QJ71E71-100 unit profiles.
 - Expanded KEYENCE Host Link profile labels to show the model families covered by the selected profile.
+- Added UI tests covering canonical profile values, display labels, legacy/unknown profile preservation, and TOYOPUC profile selection.
 
 ## [1.0.1] - 2026-06-29
 
