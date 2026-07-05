@@ -26,7 +26,7 @@ public sealed class MainWindowUiTests
             var connectionButton = FindFirst(window, condition.ByAutomationId("ConnectionToggleButton")).AsButton();
 
             Assert.Equal("Untitled", projectText.Name);
-            Assert.Equal("PLC: iQ-R", plcText.Name);
+            Assert.Equal("PLC: MELSEC iQ-R (built-in)", plcText.Name);
             Assert.Equal("Connect", connectionButton.Name);
             Assert.Null(window.FindFirstDescendant(condition.ByAutomationId("DisconnectButton")));
         }
