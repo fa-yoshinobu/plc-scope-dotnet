@@ -135,11 +135,11 @@ public sealed class ConnectionDialogViewModelTests
     {
         var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Slmp));
 
-        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:iq-r:rj71en71" && option.Label == "iQ-R / RJ71EN71");
-        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnudv:qj71e71-100" && option.Label == "QnUDV / QJ71E71-100");
-        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnu:qj71e71-100" && option.Label == "QnU / QJ71E71-100");
-        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu:qj71e71-100" && option.Label == "QCPU / QJ71E71-100");
-        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:lcpu:lj71e71-100" && option.Label == "LCPU / LJ71E71-100");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:iq-r:rj71en71" && option.Label == "MELSEC iQ-R (RJ71EN71)");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnudv:qj71e71-100" && option.Label == "MELSEC QnUDV (QJ71E71-100)");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnu:qj71e71-100" && option.Label == "MELSEC QnU (QJ71E71-100)");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu:qj71e71-100" && option.Label == "MELSEC-Q (QJ71E71-100)");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:lcpu:lj71e71-100" && option.Label == "MELSEC-L (LJ71E71-100)");
         Assert.DoesNotContain(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu");
         Assert.All(viewModel.SlmpProfiles, option => SlmpPlcProfiles.Parse(option.Value));
 
@@ -159,7 +159,7 @@ public sealed class ConnectionDialogViewModelTests
             });
 
         var option = Assert.Single(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu");
-        Assert.Equal("QCPU", option.Label);
+        Assert.Equal("MELSEC-Q (base profile)", option.Label);
         Assert.Same(option, viewModel.SelectedSlmpProfile);
 
         var settings = viewModel.BuildSettings();
@@ -172,12 +172,12 @@ public sealed class ConnectionDialogViewModelTests
     {
         var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.HostLink));
 
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500" && option.Label == "KV-X310 / KV-X500 / KV-X520 / KV-X530 / KV-X550");
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500-xym" && option.Label == "KV-X310 / KV-X500 / KV-X520 / KV-X530 / KV-X550 / XYM");
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-3000" && option.Label == "KV-3000");
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-5000-xym" && option.Label == "KV-5000 / KV-5500 / XYM");
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-7000" && option.Label == "KV-7000 / KV-7300 / KV-7500");
-        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-8000" && option.Label == "KV-8000 / KV-8000A");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500" && option.Label == "KEYENCE KV-X500");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-x500-xym" && option.Label == "KEYENCE KV-X500 (XYM)");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-3000" && option.Label == "KEYENCE KV-3000");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-5000-xym" && option.Label == "KEYENCE KV-5000 (XYM)");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-7000" && option.Label == "KEYENCE KV-7000");
+        Assert.Contains(viewModel.HostLinkProfiles, option => option.Value == "keyence:kv-8000" && option.Label == "KEYENCE KV-8000");
         Assert.DoesNotContain(viewModel.HostLinkProfiles, option => option.Label == "keyence:kv-x500");
         Assert.All(viewModel.HostLinkProfiles, option => KvHostLinkDeviceRanges.DeviceRangeCatalogForPlcProfile(option.Value));
 
@@ -213,11 +213,11 @@ public sealed class ConnectionDialogViewModelTests
 
         Assert.NotNull(viewModel.SelectedToyopucPlcProfile);
         Assert.Equal("toyopuc:generic", viewModel.ToyopucPlcProfileName);
-        Assert.Equal("Generic", viewModel.SelectedToyopucPlcProfile.Label);
+        Assert.Equal("TOYOPUC Generic", viewModel.SelectedToyopucPlcProfile.Label);
         Assert.Contains(
             viewModel.ToyopucPlcProfiles,
             option => option.Value == "toyopuc:plus:extended"
-                && option.Label == "TOYOPUC-Plus / Plus Extended mode");
+                && option.Label == "TOYOPUC Plus (extended)");
         Assert.DoesNotContain(viewModel.ToyopucPlcProfiles, option => option.Label.Contains("toyopuc:", StringComparison.Ordinal));
 
         viewModel.SelectedToyopucPlcProfile = viewModel.ToyopucPlcProfiles.Single(option => option.Value == "toyopuc:pc10g:pc10");
@@ -250,7 +250,7 @@ public sealed class ConnectionDialogViewModelTests
 
         Assert.Equal("toyopuc:generic", viewModel.ToyopucPlcProfileName);
         Assert.NotNull(viewModel.SelectedToyopucPlcProfile);
-        Assert.Equal("Generic", viewModel.SelectedToyopucPlcProfile.Label);
+        Assert.Equal("TOYOPUC Generic", viewModel.SelectedToyopucPlcProfile.Label);
     }
 
     [Fact]

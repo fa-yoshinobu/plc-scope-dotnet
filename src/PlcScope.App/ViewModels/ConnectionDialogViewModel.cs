@@ -15,19 +15,19 @@ public partial class ConnectionDialogViewModel : ObservableObject
 {
     private static readonly SlmpPlcProfileOption[] DefaultSlmpProfiles =
     [
-        new("melsec:iq-r", "iQ-R"),
-        new("melsec:iq-r:rj71en71", "iQ-R / RJ71EN71"),
-        new("melsec:iq-f", "iQ-F"),
-        new("melsec:iq-l", "iQ-L"),
-        new("melsec:mx-r", "MX-R"),
-        new("melsec:mx-f", "MX-F"),
-        new("melsec:qnudv", "QnUDV"),
-        new("melsec:qnudv:qj71e71-100", "QnUDV / QJ71E71-100"),
-        new("melsec:qnu", "QnU"),
-        new("melsec:qnu:qj71e71-100", "QnU / QJ71E71-100"),
-        new("melsec:qcpu:qj71e71-100", "QCPU / QJ71E71-100"),
-        new("melsec:lcpu", "LCPU"),
-        new("melsec:lcpu:lj71e71-100", "LCPU / LJ71E71-100"),
+        CreateSlmpProfileOption("melsec:iq-r"),
+        CreateSlmpProfileOption("melsec:iq-r:rj71en71"),
+        CreateSlmpProfileOption("melsec:iq-f"),
+        CreateSlmpProfileOption("melsec:iq-l"),
+        CreateSlmpProfileOption("melsec:mx-r"),
+        CreateSlmpProfileOption("melsec:mx-f"),
+        CreateSlmpProfileOption("melsec:qnudv"),
+        CreateSlmpProfileOption("melsec:qnudv:qj71e71-100"),
+        CreateSlmpProfileOption("melsec:qnu"),
+        CreateSlmpProfileOption("melsec:qnu:qj71e71-100"),
+        CreateSlmpProfileOption("melsec:qcpu:qj71e71-100"),
+        CreateSlmpProfileOption("melsec:lcpu"),
+        CreateSlmpProfileOption("melsec:lcpu:lj71e71-100"),
     ];
 
     private static readonly HostLinkPlcProfileOption[] DefaultHostLinkProfiles =
@@ -111,7 +111,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private string slmpPlcProfileName = "melsec:iq-r";
 
     [ObservableProperty]
-    private SlmpPlcProfileOption selectedSlmpProfile = new("melsec:iq-r", "iQ-R");
+    private SlmpPlcProfileOption selectedSlmpProfile = CreateSlmpProfileOption("melsec:iq-r");
 
     private byte slmpNetwork;
 
@@ -143,7 +143,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     private string hostLinkPlcProfileName = "keyence:kv-8000";
 
     [ObservableProperty]
-    private HostLinkPlcProfileOption selectedHostLinkProfile = new("keyence:kv-8000", "KV-8000");
+    private HostLinkPlcProfileOption selectedHostLinkProfile = CreateHostLinkProfileOption("keyence:kv-8000");
 
     [ObservableProperty]
     private string toyopucPlcProfileName = string.Empty;

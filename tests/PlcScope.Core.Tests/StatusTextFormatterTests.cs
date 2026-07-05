@@ -78,16 +78,16 @@ public sealed class StatusTextFormatterTests
         Assert.Equal("PAUSE", StatusTextFormatter.TranslateCpuCommand(CpuCommand.Pause));
 
         Assert.Equal(
-            "iQ-R",
+            "MELSEC iQ-R (built-in)",
             StatusTextFormatter.FormatSelectedPlcModel(ConnectionSettings.CreateDefault(ProtocolKind.Slmp)));
         Assert.Equal(
-            "KV-X310 / KV-X500 / KV-X520 / KV-X530 / KV-X550 / XYM",
+            "KEYENCE KV-X500 (XYM)",
             StatusTextFormatter.FormatSelectedPlcModel(ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with
             {
                 HostLinkPlcProfileName = "keyence:kv-x500-xym",
             }));
         Assert.Equal(
-            "TOYOPUC-Plus / Plus Extended mode",
+            "TOYOPUC Plus (extended)",
             StatusTextFormatter.FormatSelectedPlcModel(ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc) with
             {
                 ToyopucPlcProfileName = ToyopucProfileNames.PlusExtended,
