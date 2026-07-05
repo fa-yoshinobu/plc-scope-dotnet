@@ -106,7 +106,8 @@ public sealed class MonitorRangePlannerTests
     {
         var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
         var family = protocol.FindFamily(familyCode)!
-            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+            with
+        { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
         Assert.True(DeviceAddressRangeProvider.TryParseAddress($"{familyCode}0000000010", family, out var startAddress));
         var range = new DeviceDisplayRangeBounds(0, 0xFFFF, $"{familyCode}:0:FFFF", AddressWidth: 10);
 
@@ -363,7 +364,8 @@ public sealed class MonitorRangePlannerTests
     {
         var protocol = ProtocolCatalog.Get(ProtocolKind.Slmp);
         var family = protocol.FindFamily(familyCode)!
-            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+            with
+        { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
 
         var rows = MonitorRangePlanner.CalculateDisplayRowCount(
             17,

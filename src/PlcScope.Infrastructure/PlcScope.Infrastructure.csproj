@@ -6,9 +6,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PlcScope.Core\PlcScope.Core.csproj" />
-    <ProjectReference Include="..\..\..\plc-comm-slmp-dotnet\src\PlcComm.Slmp\PlcComm.Slmp.csproj" SetConfiguration="Configuration=$(Configuration)" />
-    <ProjectReference Include="..\..\..\plc-comm-hostlink-dotnet\src\PlcComm.KvHostLink\PlcComm.KvHostLink.csproj" SetConfiguration="Configuration=$(Configuration)" />
-    <ProjectReference Include="..\..\..\plc-comm-computerlink-dotnet\src\Toyopuc\PlcComm.Toyopuc.csproj" SetConfiguration="Configuration=$(Configuration)" />
+    <PackageReference Include="PlcComm.Slmp" />
+    <PackageReference Include="PlcComm.KvHostLink" />
+    <PackageReference Include="PlcComm.Toyopuc" />
   </ItemGroup>
 
 </Project>

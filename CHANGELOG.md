@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-07-05
+
 ### Changed
-- Switched PLC communication libraries to local sibling source project references for `PlcComm.Slmp`, `PlcComm.KvHostLink`, and `PlcComm.Toyopuc`.
+- Bumped the application package metadata and README version badge to `1.0.2`.
+- Switched PLC communication libraries to the latest NuGet packages: `PlcComm.Slmp`, `PlcComm.KvHostLink`, and `PlcComm.Toyopuc` `1.2.0`.
+- Updated `Microsoft.NET.Test.Sdk` to `18.7.0`.
 - Updated SLMP, KV Host Link, and TOYOPUC profile selectors and status labels to use canonical communication-library display names while preserving saved canonical profile IDs.
 - Updated SLMP PLC profile choices for the local MELSEC profile set, including RJ71EN71, LJ71E71-100, and QJ71E71-100 unit profiles.
 - Expanded KEYENCE Host Link profile labels to show the model families covered by the selected profile.

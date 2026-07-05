@@ -151,7 +151,8 @@ public sealed class DeviceAddressRangeProviderTests
         string expectedPlus8)
     {
         var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily(input[0].ToString())!
-            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+            with
+        { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
 
         var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out var address);
 
@@ -167,7 +168,8 @@ public sealed class DeviceAddressRangeProviderTests
     public void TryParseAddress_SlmpOctalXyRejectsNonOctalDigits(string input, string familyCode)
     {
         var family = ProtocolCatalog.Get(ProtocolKind.Slmp).FindFamily(familyCode)!
-            with { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
+            with
+        { UsesHexAddressing = false, AddressDisplayRule = DeviceAddressDisplayRule.OctalNoPadding };
 
         var parsed = DeviceAddressRangeProvider.TryParseAddress(input, family, out _);
 
