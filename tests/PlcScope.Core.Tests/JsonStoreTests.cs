@@ -112,4 +112,33 @@ public sealed class JsonStoreTests
                 File.Delete(path);
         }
     }
+
+    [Fact]
+    public async Task JsonProjectStore_PersistsSlmpModuleIoAsCanonicalName()
+    {
+        var store = new JsonProjectStore();
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.json");
+        try
+        {
+            var project = new ProjectFile
+            {
+                Connection = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
+                {
+                    SlmpModuleIo = SlmpModuleIoTarget.MultipleCpu2,
+                },
+            };
+
+            await store.SaveAsync(path, project);
+            var loaded = await store.LoadAsync(path);
+            var json = await File.ReadAllTextAsync(path);
+
+            Assert.Contains("\"slmpModuleIo\": \"MultipleCpu2\"", json, StringComparison.Ordinal);
+            Assert.Equal(SlmpModuleIoTarget.MultipleCpu2, loaded.Connection.SlmpModuleIo);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
 }

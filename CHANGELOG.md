@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+- Replaced the SLMP Module I/O hex-number setting with the canonical 13-name module I/O target vocabulary. Project/settings JSON now stores `slmpModuleIo` as the canonical name (e.g. `"OwnStation"`) instead of a number, and the connection dialog uses a fixed-choice selector instead of a hex text box. Older project files with a numeric `slmpModuleIo` are not migrated.
+
+### Changed
+- Updated PLC communication package references to `PlcComm.Slmp`, `PlcComm.KvHostLink`, and `PlcComm.Toyopuc` `2.0.0` (canonical module I/O vocabulary release).
+
 ## [1.0.2] - 2026-07-05
 
 ### Changed
