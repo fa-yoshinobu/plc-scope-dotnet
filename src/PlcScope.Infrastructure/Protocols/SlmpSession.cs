@@ -34,7 +34,7 @@ internal sealed class SlmpSession : PlcSessionBase
             Settings.Port,
             Settings.Transport == TransportMode.Tcp ? SlmpTransportMode.Tcp : SlmpTransportMode.Udp)
         {
-            TargetAddress = new SlmpTargetAddress(Settings.SlmpNetwork, Settings.SlmpStation, Settings.SlmpModuleIo, Settings.SlmpMultidrop),
+            TargetAddress = new SlmpTargetAddress(Settings.SlmpNetwork, Settings.SlmpStation, ResolveModuleIo(Settings.SlmpModuleIo), Settings.SlmpMultidrop),
             MonitoringTimer = Settings.SlmpMonitoringTimer,
             Timeout = Settings.Timeout,
         };
@@ -1090,4 +1090,23 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         return SlmpPlcProfiles.Parse(profileName);
     }
+
+    private static ushort ResolveModuleIo(SlmpModuleIoTarget target) =>
+        target switch
+        {
+            SlmpModuleIoTarget.OwnStation => SlmpModuleIo.OwnStation,
+            SlmpModuleIoTarget.ControlSystemCpu => SlmpModuleIo.ControlSystemCpu,
+            SlmpModuleIoTarget.StandbySystemCpu => SlmpModuleIo.StandbySystemCpu,
+            SlmpModuleIoTarget.SystemACpu => SlmpModuleIo.SystemACpu,
+            SlmpModuleIoTarget.SystemBCpu => SlmpModuleIo.SystemBCpu,
+            SlmpModuleIoTarget.MultipleCpu1 => SlmpModuleIo.MultipleCpu1,
+            SlmpModuleIoTarget.MultipleCpu2 => SlmpModuleIo.MultipleCpu2,
+            SlmpModuleIoTarget.MultipleCpu3 => SlmpModuleIo.MultipleCpu3,
+            SlmpModuleIoTarget.MultipleCpu4 => SlmpModuleIo.MultipleCpu4,
+            SlmpModuleIoTarget.RemoteHead1 => SlmpModuleIo.RemoteHead1,
+            SlmpModuleIoTarget.RemoteHead2 => SlmpModuleIo.RemoteHead2,
+            SlmpModuleIoTarget.ControlSystemRemoteHead => SlmpModuleIo.ControlSystemRemoteHead,
+            SlmpModuleIoTarget.StandbySystemRemoteHead => SlmpModuleIo.StandbySystemRemoteHead,
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "Unknown SLMP module I/O target."),
+        };
 }

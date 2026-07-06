@@ -91,7 +91,7 @@ Routing defaults are suitable for common direct Ethernet connections:
 
 - Network: `0`
 - Station: `255`
-- Module I/O: `0x03FF`
+- Module I/O: `OwnStation` (canonical module I/O target name; project files store the name, e.g. `"slmpModuleIo": "OwnStation"`)
 - Multidrop: `0x00`
 
 If a remote password is entered, PLC Scope unlocks the session after connecting and locks it before disconnecting.

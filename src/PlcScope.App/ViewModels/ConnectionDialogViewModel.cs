@@ -55,11 +55,10 @@ public partial class ConnectionDialogViewModel : ObservableObject
             ?? SlmpProfiles[0];
         slmpNetwork = settings.SlmpNetwork;
         slmpStation = settings.SlmpStation;
-        slmpModuleIo = settings.SlmpModuleIo;
+        SlmpModuleIo = settings.SlmpModuleIo;
         slmpMultidrop = settings.SlmpMultidrop;
         SlmpNetworkText = slmpNetwork.ToString(CultureInfo.InvariantCulture);
         SlmpStationText = slmpStation.ToString(CultureInfo.InvariantCulture);
-        SlmpModuleIoText = FormatPrefixedHex(slmpModuleIo, 4);
         SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
         SlmpRemotePassword = settings.SlmpRemotePassword ?? string.Empty;
@@ -117,18 +116,18 @@ public partial class ConnectionDialogViewModel : ObservableObject
 
     private byte slmpStation = 0xFF;
 
-    private ushort slmpModuleIo = 0x03FF;
-
     private byte slmpMultidrop;
+
+    public IReadOnlyList<SlmpModuleIoTarget> SlmpModuleIoTargets { get; } = Enum.GetValues<SlmpModuleIoTarget>();
+
+    [ObservableProperty]
+    private SlmpModuleIoTarget slmpModuleIo = SlmpModuleIoTarget.OwnStation;
 
     [ObservableProperty]
     private string slmpNetworkText = "0";
 
     [ObservableProperty]
     private string slmpStationText = "255";
-
-    [ObservableProperty]
-    private string slmpModuleIoText = "0x03FF";
 
     [ObservableProperty]
     private string slmpMultidropText = "0x00";
@@ -181,7 +180,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
             SlmpPlcProfileName = SelectedSlmpProfile.Value,
             SlmpNetwork = slmpNetwork,
             SlmpStation = slmpStation,
-            SlmpModuleIo = slmpModuleIo,
+            SlmpModuleIo = SlmpModuleIo,
             SlmpMultidrop = slmpMultidrop,
             SlmpMonitoringTimer = SlmpMonitoringTimer,
             SlmpRemotePassword = string.IsNullOrWhiteSpace(SlmpRemotePassword) ? null : SlmpRemotePassword,
@@ -199,12 +198,11 @@ public partial class ConnectionDialogViewModel : ObservableObject
         var defaults = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
         slmpNetwork = defaults.SlmpNetwork;
         slmpStation = defaults.SlmpStation;
-        slmpModuleIo = defaults.SlmpModuleIo;
+        SlmpModuleIo = defaults.SlmpModuleIo;
         slmpMultidrop = defaults.SlmpMultidrop;
 
         SlmpNetworkText = slmpNetwork.ToString(CultureInfo.InvariantCulture);
         SlmpStationText = slmpStation.ToString(CultureInfo.InvariantCulture);
-        SlmpModuleIoText = FormatPrefixedHex(slmpModuleIo, 4);
         SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
     }
 
@@ -259,12 +257,6 @@ public partial class ConnectionDialogViewModel : ObservableObject
     {
         if (TryParseDecimalByte(value, out var parsed))
             slmpStation = parsed;
-    }
-
-    partial void OnSlmpModuleIoTextChanged(string value)
-    {
-        if (TryParsePrefixedHex(value, 0xFFFF, out var parsed))
-            slmpModuleIo = checked((ushort)parsed);
     }
 
     partial void OnSlmpMultidropTextChanged(string value)

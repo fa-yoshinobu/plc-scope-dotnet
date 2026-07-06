@@ -100,7 +100,11 @@
             <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpStationTextBox" Margin="0,0,0,8" Text="{Binding SlmpStationText, UpdateSourceTrigger=PropertyChanged}" />
 
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Module I/O" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpModuleIoTextBox" Margin="0,0,0,8" Text="{Binding SlmpModuleIoText, UpdateSourceTrigger=PropertyChanged}" />
+            <ComboBox Grid.Row="3" Grid.Column="1"
+                      AutomationProperties.AutomationId="ConnectionSlmpModuleIoComboBox"
+                      Margin="0,0,0,8"
+                      ItemsSource="{Binding SlmpModuleIoTargets}"
+                      SelectedItem="{Binding SlmpModuleIo}" />
 
             <TextBlock Grid.Row="4" Grid.Column="0" Text="Multidrop" VerticalAlignment="Center" Margin="0,0,8,8" />
             <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMultidropTextBox" Margin="0,0,0,8" Text="{Binding SlmpMultidropText, UpdateSourceTrigger=PropertyChanged}" />

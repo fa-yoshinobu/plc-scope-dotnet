@@ -10,7 +10,7 @@
     "slmpPlcProfileName": "melsec:iq-r",
     "slmpNetwork": 0,
     "slmpStation": 255,
-    "slmpModuleIo": 1023,
+    "slmpModuleIo": "OwnStation",
     "slmpMultidrop": 0,
     "slmpMonitoringTimer": 16
   },
