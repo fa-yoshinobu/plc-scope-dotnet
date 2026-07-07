@@ -10,6 +10,7 @@ public sealed record TransportModeOption(TransportMode Mode, string Label);
 public sealed record SlmpPlcProfileOption(string Value, string Label);
 public sealed record HostLinkPlcProfileOption(string Value, string Label);
 public sealed record ToyopucPlcProfileOption(string Value, string Label);
+public sealed record SlmpModuleIoTargetOption(SlmpModuleIoTarget Value, string Label);
 
 public partial class ConnectionDialogViewModel : ObservableObject
 {
@@ -40,6 +41,23 @@ public partial class ConnectionDialogViewModel : ObservableObject
             .Select(CreateToyopucPlcProfileOption)
             .ToArray();
 
+    private static readonly SlmpModuleIoTargetOption[] DefaultSlmpModuleIoTargets =
+    [
+        new(SlmpModuleIoTarget.OwnStation, "Own station"),
+        new(SlmpModuleIoTarget.ControlSystemCpu, "Control system CPU"),
+        new(SlmpModuleIoTarget.StandbySystemCpu, "Standby system CPU"),
+        new(SlmpModuleIoTarget.SystemACpu, "System A CPU"),
+        new(SlmpModuleIoTarget.SystemBCpu, "System B CPU"),
+        new(SlmpModuleIoTarget.MultipleCpu1, "Multiple CPU No. 1"),
+        new(SlmpModuleIoTarget.MultipleCpu2, "Multiple CPU No. 2"),
+        new(SlmpModuleIoTarget.MultipleCpu3, "Multiple CPU No. 3"),
+        new(SlmpModuleIoTarget.MultipleCpu4, "Multiple CPU No. 4"),
+        new(SlmpModuleIoTarget.RemoteHead1, "Remote head No. 1"),
+        new(SlmpModuleIoTarget.RemoteHead2, "Remote head No. 2"),
+        new(SlmpModuleIoTarget.ControlSystemRemoteHead, "Control system remote head"),
+        new(SlmpModuleIoTarget.StandbySystemRemoteHead, "Standby system remote head"),
+    ];
+
     public ConnectionDialogViewModel(ConnectionSettings settings)
     {
         SelectedProtocol = Protocols.First(protocol => protocol.Kind == settings.Protocol);
@@ -56,10 +74,8 @@ public partial class ConnectionDialogViewModel : ObservableObject
         slmpNetwork = settings.SlmpNetwork;
         slmpStation = settings.SlmpStation;
         SlmpModuleIo = settings.SlmpModuleIo;
-        slmpMultidrop = settings.SlmpMultidrop;
         SlmpNetworkText = slmpNetwork.ToString(CultureInfo.InvariantCulture);
         SlmpStationText = slmpStation.ToString(CultureInfo.InvariantCulture);
-        SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
         SlmpMonitoringTimer = settings.SlmpMonitoringTimer;
         SlmpRemotePassword = settings.SlmpRemotePassword ?? string.Empty;
         HostLinkProfiles = CreateHostLinkProfiles(settings.HostLinkPlcProfileName);
@@ -116,9 +132,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
 
     private byte slmpStation = 0xFF;
 
-    private byte slmpMultidrop;
-
-    public IReadOnlyList<SlmpModuleIoTarget> SlmpModuleIoTargets { get; } = Enum.GetValues<SlmpModuleIoTarget>();
+    public IReadOnlyList<SlmpModuleIoTargetOption> SlmpModuleIoTargets { get; } = DefaultSlmpModuleIoTargets;
 
     [ObservableProperty]
     private SlmpModuleIoTarget slmpModuleIo = SlmpModuleIoTarget.OwnStation;
@@ -128,9 +142,6 @@ public partial class ConnectionDialogViewModel : ObservableObject
 
     [ObservableProperty]
     private string slmpStationText = "255";
-
-    [ObservableProperty]
-    private string slmpMultidropText = "0x00";
 
     [ObservableProperty]
     private ushort slmpMonitoringTimer = 0x0010;
@@ -181,7 +192,6 @@ public partial class ConnectionDialogViewModel : ObservableObject
             SlmpNetwork = slmpNetwork,
             SlmpStation = slmpStation,
             SlmpModuleIo = SlmpModuleIo,
-            SlmpMultidrop = slmpMultidrop,
             SlmpMonitoringTimer = SlmpMonitoringTimer,
             SlmpRemotePassword = string.IsNullOrWhiteSpace(SlmpRemotePassword) ? null : SlmpRemotePassword,
             HostLinkPlcProfileName = HostLinkPlcProfileName,
@@ -199,11 +209,9 @@ public partial class ConnectionDialogViewModel : ObservableObject
         slmpNetwork = defaults.SlmpNetwork;
         slmpStation = defaults.SlmpStation;
         SlmpModuleIo = defaults.SlmpModuleIo;
-        slmpMultidrop = defaults.SlmpMultidrop;
 
         SlmpNetworkText = slmpNetwork.ToString(CultureInfo.InvariantCulture);
         SlmpStationText = slmpStation.ToString(CultureInfo.InvariantCulture);
-        SlmpMultidropText = FormatPrefixedHex(slmpMultidrop, 2);
     }
 
     partial void OnSelectedProtocolChanged(ProtocolDefinition value)
@@ -259,32 +267,8 @@ public partial class ConnectionDialogViewModel : ObservableObject
             slmpStation = parsed;
     }
 
-    partial void OnSlmpMultidropTextChanged(string value)
-    {
-        if (TryParsePrefixedHex(value, 0xFF, out var parsed))
-            slmpMultidrop = checked((byte)parsed);
-    }
-
     private static bool TryParseDecimalByte(string text, out byte value) =>
         byte.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
-
-    private static bool TryParsePrefixedHex(string text, int max, out int value)
-    {
-        var token = text.Trim();
-        if (token.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-            token = token[2..];
-
-        if (token.Length == 0 || !int.TryParse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value))
-        {
-            value = 0;
-            return false;
-        }
-
-        return value <= max;
-    }
-
-    private static string FormatPrefixedHex(int value, int width) =>
-        $"0x{value.ToString($"X{width}", CultureInfo.InvariantCulture)}";
 
     private static IReadOnlyList<SlmpPlcProfileOption> CreateSlmpProfiles(string selectedProfileName)
     {

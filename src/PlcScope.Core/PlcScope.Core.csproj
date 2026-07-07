@@ -5,6 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="PlcComm.KvHostLink" />
+    <PackageReference Include="PlcComm.Slmp" />
+    <PackageReference Include="PlcComm.Toyopuc" />
     <PackageReference Include="System.Text.Encoding.CodePages" />
   </ItemGroup>
 

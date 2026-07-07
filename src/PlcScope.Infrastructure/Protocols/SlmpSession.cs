@@ -34,7 +34,7 @@ internal sealed class SlmpSession : PlcSessionBase
             Settings.Port,
             Settings.Transport == TransportMode.Tcp ? SlmpTransportMode.Tcp : SlmpTransportMode.Udp)
         {
-            TargetAddress = new SlmpTargetAddress(Settings.SlmpNetwork, Settings.SlmpStation, ResolveModuleIo(Settings.SlmpModuleIo), Settings.SlmpMultidrop),
+            TargetAddress = new SlmpTargetAddress(Settings.SlmpNetwork, Settings.SlmpStation, ResolveModuleIo(Settings.SlmpModuleIo), 0x00),
             MonitoringTimer = Settings.SlmpMonitoringTimer,
             Timeout = Settings.Timeout,
         };

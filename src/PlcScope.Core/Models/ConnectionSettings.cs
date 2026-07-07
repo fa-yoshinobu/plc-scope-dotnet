@@ -16,7 +16,6 @@ public sealed record ConnectionSettings
     public byte SlmpNetwork { get; init; } = 0x00;
     public byte SlmpStation { get; init; } = 0xFF;
     public SlmpModuleIoTarget SlmpModuleIo { get; init; } = SlmpModuleIoTarget.OwnStation;
-    public byte SlmpMultidrop { get; init; } = 0x00;
     public ushort SlmpMonitoringTimer { get; init; } = 0x0010;
     public string? SlmpRemotePassword { get; init; }
 

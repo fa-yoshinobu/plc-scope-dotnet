@@ -82,7 +82,6 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="PLC profile" VerticalAlignment="Center" Margin="0,0,8,8" />
@@ -104,12 +103,11 @@
                       AutomationProperties.AutomationId="ConnectionSlmpModuleIoComboBox"
                       Margin="0,0,0,8"
                       ItemsSource="{Binding SlmpModuleIoTargets}"
-                      SelectedItem="{Binding SlmpModuleIo}" />
+                      DisplayMemberPath="Label"
+                      SelectedValuePath="Value"
+                      SelectedValue="{Binding SlmpModuleIo}" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Multidrop" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMultidropTextBox" Margin="0,0,0,8" Text="{Binding SlmpMultidropText, UpdateSourceTrigger=PropertyChanged}" />
-
-            <Button Grid.Row="5"
+            <Button Grid.Row="4"
                     Grid.Column="1"
                     Content="Reset routing defaults"
                     AutomationProperties.AutomationId="ConnectionSlmpResetRoutingDefaultsButton"
@@ -118,12 +116,12 @@
                     Padding="10,4"
                     Click="ResetSlmpRoutingDefaultsButton_Click" />
 
-            <TextBlock Grid.Row="6" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,8" />
-            <TextBox Grid.Row="6" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Margin="0,0,0,8" Text="{Binding SlmpMonitoringTimer}" />
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Monitoring timer" VerticalAlignment="Center" Margin="0,0,8,8" />
+            <TextBox Grid.Row="5" Grid.Column="1" AutomationProperties.AutomationId="ConnectionSlmpMonitoringTimerTextBox" Margin="0,0,0,8" Text="{Binding SlmpMonitoringTimer}" />
 
-            <TextBlock Grid.Row="7" Grid.Column="0" Text="Remote password" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="Remote password" VerticalAlignment="Center" Margin="0,0,8,0" />
             <PasswordBox x:Name="SlmpRemotePasswordBox"
-                         Grid.Row="7"
+                         Grid.Row="6"
                          Grid.Column="1"
                          AutomationProperties.AutomationId="ConnectionSlmpRemotePasswordBox" />
           </Grid>

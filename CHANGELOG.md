@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-07
+
 ### BREAKING
 - Replaced the SLMP Module I/O hex-number setting with the canonical 13-name module I/O target vocabulary. Project/settings JSON now stores `slmpModuleIo` as the canonical name (e.g. `"OwnStation"`) instead of a number, and the connection dialog uses a fixed-choice selector instead of a hex text box. Older project files with a numeric `slmpModuleIo` are not migrated.
+- Removed the SLMP MultiDrop setting from connection settings and project/settings JSON. SLMP requests now always use MultiDrop station number `0x00`; older project files containing `slmpMultidrop` are not migrated.
 
 ### Changed
 - Updated PLC communication package references to `PlcComm.Slmp`, `PlcComm.KvHostLink`, and `PlcComm.Toyopuc` `2.0.0` (canonical module I/O vocabulary release).
+- Updated PLC profile display labels to use the communication-library display-name APIs instead of app-local duplicated label tables.
+- Updated the SLMP Module I/O selector to show user-facing labels such as `Multiple CPU No. 2` instead of raw enum member names.
 
 ## [1.0.2] - 2026-07-05
 

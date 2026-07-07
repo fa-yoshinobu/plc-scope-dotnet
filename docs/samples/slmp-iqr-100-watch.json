@@ -11,7 +11,6 @@
     "slmpNetwork": 0,
     "slmpStation": 255,
     "slmpModuleIo": "OwnStation",
-    "slmpMultidrop": 0,
     "slmpMonitoringTimer": 16
   },
   "blocks": [

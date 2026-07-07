@@ -284,16 +284,21 @@ public sealed class MonitorLayoutTests
             .Single(element => element.Attributes().Any(attribute =>
                 attribute.Name.LocalName == "AutomationProperties.AutomationId"
                 && string.Equals(attribute.Value, "ConnectionSlmpRemotePasswordBox", StringComparison.Ordinal)));
-        var multidropTextBox = document
-            .Descendants()
-            .Single(element => element.Attributes().Any(attribute =>
-                attribute.Name.LocalName == "AutomationProperties.AutomationId"
-                && string.Equals(attribute.Value, "ConnectionSlmpMultidropTextBox", StringComparison.Ordinal)));
         var resetRoutingButton = document
             .Descendants()
             .Single(element => element.Attributes().Any(attribute =>
                 attribute.Name.LocalName == "AutomationProperties.AutomationId"
                 && string.Equals(attribute.Value, "ConnectionSlmpResetRoutingDefaultsButton", StringComparison.Ordinal)));
+        var moduleIoComboBox = document
+            .Descendants()
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "ConnectionSlmpModuleIoComboBox", StringComparison.Ordinal)));
+        var multidropTextBoxCount = document
+            .Descendants()
+            .Count(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, "ConnectionSlmpMultidropTextBox", StringComparison.Ordinal)));
         var slmpRows = document
             .Descendants(presentation + "GroupBox")
             .Single(element => string.Equals((string?)element.Attribute("Header"), "SLMP", StringComparison.Ordinal))
@@ -302,14 +307,16 @@ public sealed class MonitorLayoutTests
             .Elements(presentation + "RowDefinition")
             .Count();
 
-        Assert.Equal("TextBox", multidropTextBox.Name.LocalName);
-        Assert.Equal("4", (string?)multidropTextBox.Attribute("Grid.Row"));
+        Assert.Equal(0, multidropTextBoxCount);
         Assert.Equal("Button", resetRoutingButton.Name.LocalName);
         Assert.Equal("Reset routing defaults", (string?)resetRoutingButton.Attribute("Content"));
         Assert.Equal("ResetSlmpRoutingDefaultsButton_Click", (string?)resetRoutingButton.Attribute("Click"));
+        Assert.Equal("Label", (string?)moduleIoComboBox.Attribute("DisplayMemberPath"));
+        Assert.Equal("Value", (string?)moduleIoComboBox.Attribute("SelectedValuePath"));
+        Assert.Equal("{Binding SlmpModuleIo}", (string?)moduleIoComboBox.Attribute("SelectedValue"));
         Assert.Equal("PasswordBox", passwordBox.Name.LocalName);
-        Assert.Equal("7", (string?)passwordBox.Attribute("Grid.Row"));
-        Assert.True(slmpRows > 7);
+        Assert.Equal("6", (string?)passwordBox.Attribute("Grid.Row"));
+        Assert.Equal(7, slmpRows);
     }
 
     [Fact]

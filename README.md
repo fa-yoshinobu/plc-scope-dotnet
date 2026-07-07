@@ -1,7 +1,7 @@
 # PLC Scope
 
 [![Release](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml)
-[![Version](https://img.shields.io/badge/version-1.0.2-blue)](src/PlcScope.App/PlcScope.App.csproj)
+[![Version](https://img.shields.io/badge/version-1.0.3-blue)](src/PlcScope.App/PlcScope.App.csproj)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/language-C%23-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)](https://learn.microsoft.com/windows/)
@@ -92,7 +92,7 @@ Routing defaults are suitable for common direct Ethernet connections:
 - Network: `0`
 - Station: `255`
 - Module I/O: `OwnStation` (canonical module I/O target name; project files store the name, e.g. `"slmpModuleIo": "OwnStation"`)
-- Multidrop: `0x00`
+- MultiDrop is fixed internally to `0x00`
 
 If a remote password is entered, PLC Scope unlocks the session after connecting and locks it before disconnecting.
 

@@ -16,13 +16,18 @@ public sealed class ConnectionDialogViewModelTests
                 SlmpNetwork = 2,
                 SlmpStation = 15,
                 SlmpModuleIo = SlmpModuleIoTarget.MultipleCpu2,
-                SlmpMultidrop = 0x0A,
             });
 
         Assert.Equal("2", viewModel.SlmpNetworkText);
         Assert.Equal("15", viewModel.SlmpStationText);
         Assert.Equal(SlmpModuleIoTarget.MultipleCpu2, viewModel.SlmpModuleIo);
-        Assert.Equal("0x0A", viewModel.SlmpMultidropText);
+        Assert.Contains(
+            viewModel.SlmpModuleIoTargets,
+            option => option.Value == SlmpModuleIoTarget.MultipleCpu2
+                && option.Label == "Multiple CPU No. 2");
+        Assert.DoesNotContain(
+            viewModel.SlmpModuleIoTargets,
+            option => string.Equals(option.Label, nameof(SlmpModuleIoTarget.MultipleCpu2), StringComparison.Ordinal));
     }
 
     [Fact]
@@ -33,7 +38,6 @@ public sealed class ConnectionDialogViewModelTests
             SlmpNetworkText = "3",
             SlmpStationText = "200",
             SlmpModuleIo = SlmpModuleIoTarget.ControlSystemCpu,
-            SlmpMultidropText = "0x0B",
         };
 
         var settings = viewModel.BuildSettings();
@@ -41,7 +45,6 @@ public sealed class ConnectionDialogViewModelTests
         Assert.Equal(3, settings.SlmpNetwork);
         Assert.Equal(200, settings.SlmpStation);
         Assert.Equal(SlmpModuleIoTarget.ControlSystemCpu, settings.SlmpModuleIo);
-        Assert.Equal(0x0B, settings.SlmpMultidrop);
     }
 
     [Fact]
@@ -53,12 +56,10 @@ public sealed class ConnectionDialogViewModelTests
                 SlmpNetwork = 1,
                 SlmpStation = 2,
                 SlmpModuleIo = SlmpModuleIoTarget.MultipleCpu3,
-                SlmpMultidrop = 0x04,
             })
         {
             SlmpNetworkText = "0x03",
             SlmpStationText = "999",
-            SlmpMultidropText = "xyz",
         };
 
         var settings = viewModel.BuildSettings();
@@ -66,7 +67,6 @@ public sealed class ConnectionDialogViewModelTests
         Assert.Equal(1, settings.SlmpNetwork);
         Assert.Equal(2, settings.SlmpStation);
         Assert.Equal(SlmpModuleIoTarget.MultipleCpu3, settings.SlmpModuleIo);
-        Assert.Equal(0x04, settings.SlmpMultidrop);
     }
 
     [Fact]
@@ -79,7 +79,6 @@ public sealed class ConnectionDialogViewModelTests
                 SlmpNetwork = 3,
                 SlmpStation = 200,
                 SlmpModuleIo = SlmpModuleIoTarget.MultipleCpu4,
-                SlmpMultidrop = 0x0B,
                 SlmpRemotePassword = "secret1",
             });
 
@@ -89,11 +88,9 @@ public sealed class ConnectionDialogViewModelTests
         Assert.Equal("0", viewModel.SlmpNetworkText);
         Assert.Equal("255", viewModel.SlmpStationText);
         Assert.Equal(SlmpModuleIoTarget.OwnStation, viewModel.SlmpModuleIo);
-        Assert.Equal("0x00", viewModel.SlmpMultidropText);
         Assert.Equal(0, settings.SlmpNetwork);
         Assert.Equal(255, settings.SlmpStation);
         Assert.Equal(SlmpModuleIoTarget.OwnStation, settings.SlmpModuleIo);
-        Assert.Equal(0, settings.SlmpMultidrop);
         Assert.Equal("melsec:iq-f", settings.SlmpPlcProfileName);
         Assert.Equal("secret1", settings.SlmpRemotePassword);
     }
