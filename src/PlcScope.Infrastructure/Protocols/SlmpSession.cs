@@ -27,31 +27,24 @@ internal sealed class SlmpSession : PlcSessionBase
             return;
 
         _plcProfile = ResolvePlcProfile(Settings.SlmpPlcProfileName);
-        var profile = SlmpPlcProfiles.Resolve(_plcProfile);
         var inner = new SlmpClient(
             Settings.Host,
             _plcProfile,
             Settings.Port,
-            Settings.Transport == TransportMode.Tcp ? SlmpTransportMode.Tcp : SlmpTransportMode.Udp)
+            Settings.Transport == TransportMode.Tcp ? SlmpTransportMode.Tcp : SlmpTransportMode.Udp,
+            new SlmpTargetAddress(Settings.SlmpNetwork, Settings.SlmpStation, ResolveModuleIo(Settings.SlmpModuleIo), 0x00))
         {
-            TargetAddress = new SlmpTargetAddress(Settings.SlmpNetwork, Settings.SlmpStation, ResolveModuleIo(Settings.SlmpModuleIo), 0x00),
             MonitoringTimer = Settings.SlmpMonitoringTimer,
             Timeout = Settings.Timeout,
         };
 
         _client = new QueuedSlmpClient(inner);
-        _client.InnerClient.TraceHook = frame => EmitTrace(new TraceEntry(
-            DateTimeOffset.UtcNow,
-            ProtocolKind.Slmp,
-            frame.Direction == SlmpTraceDirection.Send ? TraceDirection.Send : TraceDirection.Receive,
-                "SLMP frame",
-                Convert.ToHexString(frame.Data)));
 
         try
         {
             await _client.OpenAsync(cancellationToken).ConfigureAwait(false);
             await UnlockRemotePasswordIfConfiguredAsync(cancellationToken).ConfigureAwait(false);
-            await RefreshDeviceRangeCatalogAsync(profile.RangeProfile, cancellationToken).ConfigureAwait(false);
+            await RefreshDeviceRangeCatalogAsync(cancellationToken).ConfigureAwait(false);
 
             IsConnected = true;
         }
@@ -365,8 +358,7 @@ internal sealed class SlmpSession : PlcSessionBase
         ThrowIfNotConnected(_client is not null);
         if (_deviceRangeCatalog is null)
         {
-            var profile = SlmpPlcProfiles.Resolve(_plcProfile);
-            await RefreshDeviceRangeCatalogAsync(profile.RangeProfile, cancellationToken).ConfigureAwait(false);
+            await RefreshDeviceRangeCatalogAsync(cancellationToken).ConfigureAwait(false);
         }
 
         if (_deviceRangeCatalog is null)
@@ -385,13 +377,17 @@ internal sealed class SlmpSession : PlcSessionBase
                 switch (command)
                 {
                     case CpuCommand.Run:
-                        await _client!.ExecuteAsync(inner => inner.RemoteRunAsync(false, 0, cancellationToken), cancellationToken).ConfigureAwait(false);
+                        await _client!.ExecuteAsync(
+                            inner => inner.RemoteRunAsync(SlmpRemoteMode.Normal, SlmpRemoteClearMode.NoClear, cancellationToken),
+                            cancellationToken).ConfigureAwait(false);
                         break;
                     case CpuCommand.Stop:
                         await _client!.ExecuteAsync(inner => inner.RemoteStopAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
                         break;
                     case CpuCommand.Pause:
-                        await _client!.ExecuteAsync(inner => inner.RemotePauseAsync(false, cancellationToken), cancellationToken).ConfigureAwait(false);
+                        await _client!.ExecuteAsync(
+                            inner => inner.RemotePauseAsync(SlmpRemoteMode.Normal, cancellationToken),
+                            cancellationToken).ConfigureAwait(false);
                         break;
                     default:
                         throw new NotSupportedException($"Unsupported SLMP CPU command: {command}");
@@ -612,7 +608,7 @@ internal sealed class SlmpSession : PlcSessionBase
             {
                 current.Add(new SlmpRandomReadEntry(
                     plan.QueryIndex,
-                    plan.Start with { Number = checked(plan.Start.Number + (uint)offset) },
+                    OffsetDevice(plan.Start, (uint)offset),
                     plan.ReadsDWords));
             }
         }
@@ -722,7 +718,7 @@ internal sealed class SlmpSession : PlcSessionBase
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
-            addresses[index] = FormatDisplayAddress(start with { Number = checked(start.Number + (uint)index) }, deviceFamilyCode);
+            addresses[index] = FormatDisplayAddress(OffsetDevice(start, (uint)index), deviceFamilyCode);
         }
 
         return addresses;
@@ -733,7 +729,7 @@ internal sealed class SlmpSession : PlcSessionBase
         var addresses = new string[checked(count * 2)];
         for (var index = 0; index < count; index++)
         {
-            var address = FormatDisplayAddress(start with { Number = checked(start.Number + (uint)index) }, deviceFamilyCode);
+            var address = FormatDisplayAddress(OffsetDevice(start, (uint)index), deviceFamilyCode);
             addresses[index * 2] = address;
             addresses[(index * 2) + 1] = address;
         }
@@ -755,7 +751,7 @@ internal sealed class SlmpSession : PlcSessionBase
         if (family.UsesHexAddressing)
             return family.Code + address.Number.ToString("X", CultureInfo.InvariantCulture);
 
-        return SlmpAddress.Format(address, _plcProfile);
+        return SlmpAddress.Format(address);
     }
 
     private async Task<ushort[]> ReadWordsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
@@ -766,7 +762,7 @@ internal sealed class SlmpSession : PlcSessionBase
         while (offset < count)
         {
             var chunkCount = Math.Min(64, count - offset);
-            var chunkStart = start with { Number = checked(start.Number + (uint)offset) };
+            var chunkStart = OffsetDevice(start, (uint)offset);
             var chunk = await _client!.ReadWordsRawAsync(chunkStart, checked((ushort)chunkCount), cancellationToken).ConfigureAwait(false);
             values.AddRange(chunk);
             offset += chunkCount;
@@ -783,7 +779,7 @@ internal sealed class SlmpSession : PlcSessionBase
         while (offset < count)
         {
             var chunkCount = Math.Min(64, count - offset);
-            var chunkStart = start with { Number = checked(start.Number + (uint)offset) };
+            var chunkStart = OffsetDevice(start, (uint)offset);
             var chunk = await _client!.ReadBitsAsync(chunkStart, checked((ushort)chunkCount), cancellationToken).ConfigureAwait(false);
             values.AddRange(chunk);
             offset += chunkCount;
@@ -858,7 +854,7 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             var chunkCount = Math.Min(64, count - offset);
             var devices = Enumerable.Range(0, chunkCount)
-                .Select(index => start with { Number = checked(start.Number + (uint)(offset + index)) })
+                .Select(index => OffsetDevice(start, (uint)(offset + index)))
                 .ToArray();
             var (_, dwords) = await _client!.ReadRandomAsync([], devices, cancellationToken).ConfigureAwait(false);
             for (var index = 0; index < dwords.Length; index++)
@@ -886,7 +882,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)
     {
-        var raw = await _client!.ReadWordsRawAsync(SlmpAddress.Parse("SD203"), 1, cancellationToken).ConfigureAwait(false);
+        var raw = await _client!.ReadWordsRawAsync(SlmpAddress.Parse("SD203", _plcProfile), 1, cancellationToken).ConfigureAwait(false);
         var statusWord = raw[0];
         var code = (byte)(statusWord & 0x0F);
         var state = code switch
@@ -922,11 +918,11 @@ internal sealed class SlmpSession : PlcSessionBase
         };
     }
 
-    private async Task RefreshDeviceRangeCatalogAsync(SlmpPlcProfile rangeProfile, CancellationToken cancellationToken)
+    private async Task RefreshDeviceRangeCatalogAsync(CancellationToken cancellationToken)
     {
         try
         {
-            _deviceRangeCatalog = await _client!.ReadDeviceRangeCatalogAsync(rangeProfile, cancellationToken).ConfigureAwait(false);
+            _deviceRangeCatalog = await _client!.ReadDeviceRangeCatalogAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (SlmpError exception) when (exception.IsRemotePasswordError)
         {
@@ -971,7 +967,7 @@ internal sealed class SlmpSession : PlcSessionBase
         var lastNumber = checked(start.Number + (uint)pointCount - 1);
         if (start.Number < entry.LowerBound || lastNumber > upperBound)
         {
-            var end = start with { Number = lastNumber };
+            var end = new SlmpDeviceAddress(start.Code, lastNumber, start.PlcProfile);
             throw new InvalidOperationException(
                 $"{FormatAddress(start)}"
                 + (pointCount > 1 ? $"..{FormatAddress(end)}" : string.Empty)
@@ -990,7 +986,7 @@ internal sealed class SlmpSession : PlcSessionBase
     }
 
     private string FormatAddress(SlmpDeviceAddress address) =>
-        SlmpAddress.Format(address, _plcProfile);
+        SlmpAddress.Format(address);
 
     private void AddReadUnavailableComments(
         SlmpDeviceAddress start,
@@ -1000,10 +996,13 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         for (var index = 0; index < count; index++)
         {
-            var address = SlmpAddress.Format(start with { Number = checked(start.Number + (uint)index) }, _plcProfile);
+            var address = SlmpAddress.Format(OffsetDevice(start, (uint)index));
             comments[address] = message;
         }
     }
+
+    private static SlmpDeviceAddress OffsetDevice(SlmpDeviceAddress address, uint offset) =>
+        new(address.Code, checked(address.Number + offset), address.PlcProfile);
 
     private void EmitReadWarningOnce(string key, string message, string details)
     {
@@ -1063,8 +1062,7 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             0xC810 => "Remote password authentication has failed. Check the configured SLMP remote password.",
             0xC201 => "Could not read the remote password status of the port. Configure the SLMP remote password and try again.",
-            _ => exception.EndCodeMessage
-                ?? string.Create(CultureInfo.InvariantCulture, $"Remote password operation failed. end_code=0x{exception.EndCode:X4}"),
+            _ => string.Create(CultureInfo.InvariantCulture, $"Remote password operation failed. end_code=0x{exception.EndCode:X4}"),
         };
     }
 

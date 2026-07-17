@@ -1,17 +1,10 @@
-# PLC communication release DLLs
+# PLC communication packages
 
-These DLLs are retained as checked-in release snapshots. Current local
-development builds use sibling repository project references instead of these
-assemblies.
+No communication-library DLL snapshots are checked in here. Builds restore the
+centrally managed NuGet package versions from `Directory.Packages.props`.
 
-| Assembly | Snapshot source |
+| Package | Version |
 | --- | --- |
-| PlcComm.Slmp.dll | https://www.nuget.org/packages/PlcComm.Slmp/1.1.1 |
-| PlcComm.KvHostLink.dll | https://www.nuget.org/packages/PlcComm.KvHostLink/1.1.1 |
-| PlcComm.Toyopuc.dll | https://www.nuget.org/packages/PlcComm.Toyopuc/1.1.0 |
-
-Active local source references:
-
-- `../../../plc-comm-slmp-dotnet/src/PlcComm.Slmp/PlcComm.Slmp.csproj`
-- `../../../plc-comm-hostlink-dotnet/src/PlcComm.KvHostLink/PlcComm.KvHostLink.csproj`
-- `../../../plc-comm-computerlink-dotnet/src/Toyopuc/PlcComm.Toyopuc.csproj`
+| PlcComm.Slmp | 4.0.0 |
+| PlcComm.KvHostLink | 3.2.0 |
+| PlcComm.Toyopuc | 3.2.0 |

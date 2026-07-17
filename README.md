@@ -78,6 +78,7 @@ Selectable MELSEC profiles:
 | `melsec:iq-f` | MELSEC iQ-F (built-in) |
 | `melsec:iq-l` | MELSEC iQ-L (built-in) |
 | `melsec:mx-r` | MELSEC MX-R (built-in) |
+| `melsec:mx-r:rj71en71` | MELSEC MX-R (RJ71EN71) |
 | `melsec:mx-f` | MELSEC MX-F (built-in) |
 | `melsec:qnudv` | MELSEC QnUDV (built-in) |
 | `melsec:qnudv:qj71e71-100` | MELSEC QnUDV (QJ71E71-100) |

@@ -10,6 +10,38 @@ public sealed class ToyopucSessionTests
     private const double LocalTestTimeoutSeconds = 3.0;
 
     [Fact]
+    public async Task ConnectAsync_AfterFailedAttempt_CanRetry()
+    {
+        int port;
+        using (var portReservation = new TcpListener(IPAddress.Loopback, 0))
+        {
+            portReservation.Start();
+            port = ((IPEndPoint)portReservation.LocalEndpoint).Port;
+        }
+
+        var settings = ConnectionSettings.CreateDefault(ProtocolKind.Toyopuc) with
+        {
+            Host = "127.0.0.1",
+            Port = port,
+            TimeoutSeconds = LocalTestTimeoutSeconds,
+            ToyopucPlcProfileName = "toyopuc:plus:extended",
+        };
+
+        await using var session = await new PlcSessionFactory().CreateAsync(settings);
+        await Assert.ThrowsAnyAsync<Exception>(() => session.ConnectAsync());
+        Assert.False(session.IsConnected);
+
+        using var listener = new TcpListener(IPAddress.Loopback, port);
+        listener.Start();
+        var serverTask = listener.AcceptTcpClientAsync();
+
+        await session.ConnectAsync();
+        using var serverClient = await serverTask;
+
+        Assert.True(session.IsConnected);
+    }
+
+    [Fact]
     public async Task SendCpuCommandAsync_Stop_MapsToToyopucScanStop()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);

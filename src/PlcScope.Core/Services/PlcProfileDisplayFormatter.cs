@@ -32,7 +32,7 @@ public static class PlcProfileDisplayFormatter
 
         try
         {
-            return KvHostLinkDeviceRanges.GetDisplayName(profileName);
+            return KvHostLinkPlcProfiles.GetDisplayName(profileName);
         }
         catch (HostLinkProtocolError)
         {
