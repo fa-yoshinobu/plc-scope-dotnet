@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Updated PLC communication package references to `PlcComm.Slmp` `4.0.0`, `PlcComm.KvHostLink` `3.2.0`, and `PlcComm.Toyopuc` `3.2.0`.
+- Migrated SLMP, Host Link, and TOYOPUC sessions to the latest explicit profile, route, device, and queue APIs while preserving relay-aware TOYOPUC reads and writes.
+- Added `melsec:mx-r:rj71en71` (MELSEC MX-R (RJ71EN71)) to the SLMP PLC profile selector.
+- Host Link raw-frame tracing remains available. SLMP and TOYOPUC no longer emit raw-frame trace entries because the current package APIs do not expose public trace hooks.
+
 ## [1.0.3] - 2026-07-07
 
 ### BREAKING

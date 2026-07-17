@@ -21,6 +21,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
         CreateSlmpProfileOption("melsec:iq-f"),
         CreateSlmpProfileOption("melsec:iq-l"),
         CreateSlmpProfileOption("melsec:mx-r"),
+        CreateSlmpProfileOption("melsec:mx-r:rj71en71"),
         CreateSlmpProfileOption("melsec:mx-f"),
         CreateSlmpProfileOption("melsec:qnudv"),
         CreateSlmpProfileOption("melsec:qnudv:qj71e71-100"),
@@ -32,7 +33,7 @@ public partial class ConnectionDialogViewModel : ObservableObject
     ];
 
     private static readonly HostLinkPlcProfileOption[] DefaultHostLinkProfiles =
-        KvHostLinkDeviceRanges.AvailablePlcProfiles()
+        KvHostLinkPlcProfiles.GetNames()
             .Select(CreateHostLinkProfileOption)
             .ToArray();
 

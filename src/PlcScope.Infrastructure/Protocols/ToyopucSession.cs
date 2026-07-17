@@ -7,7 +7,9 @@ using PlcScope.Core.Services;
 
 internal sealed class ToyopucSession : PlcSessionBase
 {
-    private QueuedToyopucDeviceClient? _client;
+    private ToyopucDeviceClient? _client;
+    private QueuedToyopucDeviceClient? _queuedClient;
+    private ToyopucRoute _route = ToyopucRoute.Direct;
 
     public ToyopucSession(ConnectionSettings settings)
         : base(settings, ProtocolCatalog.Get(ProtocolKind.Toyopuc))
@@ -19,32 +21,33 @@ internal sealed class ToyopucSession : PlcSessionBase
         if (_client is not null)
             return;
 
-        var innerClient = new ToyopucDeviceClient(
+        _route = string.IsNullOrWhiteSpace(Settings.ToyopucRelayHops)
+            ? ToyopucRoute.Direct
+            : ToyopucRoute.Relay(Settings.ToyopucRelayHops);
+        _client = new ToyopucDeviceClient(
             Settings.Host,
             Settings.Port,
-            Settings.ToyopucLocalPort,
             Settings.Transport == TransportMode.Tcp ? ToyopucTransportMode.Tcp : ToyopucTransportMode.Udp,
+            ToyopucProfileNames.NormalizeRequired(Settings.ToyopucPlcProfileName),
+            Settings.ToyopucLocalPort,
             Settings.Timeout,
             Settings.ToyopucRetries,
-            Settings.ToyopucRetryDelay,
-            8192,
-            addressingOptions: null,
-            plcProfile: ToyopucProfileNames.NormalizeRequired(Settings.ToyopucPlcProfileName))
+            Settings.ToyopucRetryDelay);
+        _queuedClient = new QueuedToyopucDeviceClient(_client, _route);
+        try
         {
-            Timeout = Settings.Timeout,
-            CaptureTraceFrames = true,
-        };
-
-        _client = new QueuedToyopucDeviceClient(innerClient, Settings.ToyopucRelayHops);
-        _client.TraceHook = frame => EmitTrace(new TraceEntry(
-            DateTimeOffset.UtcNow,
-            ProtocolKind.Toyopuc,
-            frame.Direction == ToyopucTraceDirection.Send ? TraceDirection.Send : TraceDirection.Receive,
-            "TOYOPUC frame",
-            Convert.ToHexString(frame.Data)));
-        await _client.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-        IsConnected = true;
+            await _queuedClient.OpenAsync(cancellationToken).ConfigureAwait(false);
+            IsConnected = true;
+        }
+        catch
+        {
+            await _queuedClient.DisposeAsync().ConfigureAwait(false);
+            _queuedClient = null;
+            _client = null;
+            _route = ToyopucRoute.Direct;
+            IsConnected = false;
+            throw;
+        }
     }
 
     public override async Task DisconnectAsync(CancellationToken cancellationToken = default)
@@ -54,8 +57,10 @@ internal sealed class ToyopucSession : PlcSessionBase
             if (_client is null)
                 return;
 
-            await _client.DisposeAsync().ConfigureAwait(false);
+            await _queuedClient!.DisposeAsync().ConfigureAwait(false);
+            _queuedClient = null;
             _client = null;
+            _route = ToyopucRoute.Direct;
             ClearCpuStateCache();
             IsConnected = false;
         }, cancellationToken).ConfigureAwait(false);
@@ -66,7 +71,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         var typedAddress = PlcAddressTypeSuffix.ParseRequired(ExpandAddress(rawAddress, family));
         var normalizedBaseAddress = _client is null
             ? typedAddress.BaseAddress.ToUpperInvariant()
-            : ToyopucAddress.Format(_client.InnerClient.ResolveDevice(typedAddress.BaseAddress), _client.InnerClient.PlcProfile);
+            : ToyopucAddress.Format(_client.ResolveDevice(typedAddress.BaseAddress));
         return $"{normalizedBaseAddress}:{typedAddress.DataType}";
     }
 
@@ -89,7 +94,7 @@ internal sealed class ToyopucSession : PlcSessionBase
                     : query.EffectiveItemCount;
 
                 elementAddresses = BuildAddresses(normalizedStart, wordCount);
-                words = await _client!.ReadWordsAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
+                words = await _queuedClient!.ReadWordsAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -187,7 +192,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             }
             else
             {
-                await _client!.WriteTypedAsync(PlcAddressTypeSuffix.Strip(address), NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
+                await _queuedClient!.WriteTypedAsync(PlcAddressTypeSuffix.Strip(address), NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
             }
         }, cancellationToken).ConfigureAwait(false);
 
@@ -231,7 +236,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(wordAddress);
         await ExecuteSerializedAsync(
-            () => _client!.WriteBitInWordAsync(PlcAddressTypeSuffix.Strip(address), bitIndex, value, cancellationToken),
+            () => _queuedClient!.WriteBitInWordAsync(PlcAddressTypeSuffix.Strip(address), bitIndex, value, cancellationToken),
             cancellationToken).ConfigureAwait(false);
         return new WriteResult(address, $"Bit {bitIndex} updated.", DateTimeOffset.UtcNow);
     }
@@ -264,42 +269,28 @@ internal sealed class ToyopucSession : PlcSessionBase
 
         await ExecuteSerializedAsync(async () =>
         {
-            if (_client!.UsesRelay)
+            if (_route.UsesRelay)
             {
                 if (command == CpuCommand.Run)
                 {
-                    await _client.ExecuteAsync(
-                        async inner =>
-                        {
-                            await inner.RelayReleaseScanStopAsync(_client.RelayHops!, cancellationToken).ConfigureAwait(false);
-                            await inner.RelayResumeScanAsync(_client.RelayHops!, cancellationToken).ConfigureAwait(false);
-                        },
-                        cancellationToken).ConfigureAwait(false);
+                    await _client!.RelayReleaseScanStopAsync(_route.RelayHops!, cancellationToken).ConfigureAwait(false);
+                    await _client.RelayResumeScanAsync(_route.RelayHops!, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await _client.ExecuteAsync(
-                        inner => inner.RelayStopScanAsync(_client.RelayHops!, cancellationToken),
-                        cancellationToken).ConfigureAwait(false);
+                    await _client!.RelayStopScanAsync(_route.RelayHops!, cancellationToken).ConfigureAwait(false);
                 }
             }
             else
             {
                 if (command == CpuCommand.Run)
                 {
-                    await _client!.ExecuteAsync(
-                        async inner =>
-                        {
-                            await inner.ReleaseScanStopAsync(cancellationToken).ConfigureAwait(false);
-                            await inner.ResumeScanAsync(cancellationToken).ConfigureAwait(false);
-                        },
-                        cancellationToken).ConfigureAwait(false);
+                    await _client!.ReleaseScanStopAsync(cancellationToken).ConfigureAwait(false);
+                    await _client.ResumeScanAsync(cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await _client!.ExecuteAsync(
-                        inner => inner.StopScanAsync(cancellationToken),
-                        cancellationToken).ConfigureAwait(false);
+                    await _client!.StopScanAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -315,11 +306,11 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private IReadOnlyList<string> BuildAddresses(string startAddress, int count)
     {
-        var start = _client!.InnerClient.ResolveDevice(PlcAddressTypeSuffix.Strip(startAddress));
+        var start = _client!.ResolveDevice(PlcAddressTypeSuffix.Strip(startAddress));
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
-            addresses[index] = FormatSequentialToyopucAddress(start, index, _client.InnerClient.PlcProfile);
+            addresses[index] = FormatSequentialToyopucAddress(start, index);
         }
 
         return addresses;
@@ -327,21 +318,21 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)
     {
-        var status = _client!.UsesRelay
-            ? await _client.ExecuteAsync(inner => inner.RelayReadCpuStatusAsync(_client.RelayHops!, cancellationToken), cancellationToken).ConfigureAwait(false)
-            : await _client.ExecuteAsync(inner => inner.ReadCpuStatusAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+        var status = _route.UsesRelay
+            ? await _client!.RelayReadCpuStatusAsync(_route.RelayHops!, cancellationToken).ConfigureAwait(false)
+            : await _client!.ReadCpuStatusAsync(cancellationToken).ConfigureAwait(false);
 
         var state = status.Run ? CpuRunState.Run : status.UnderStop || status.UnderPseudoStop ? CpuRunState.Stop : CpuRunState.Unknown;
         return new CpuState(state, status.RawHex(), SupportsControl: false);
     }
 
-    private static string FormatSequentialToyopucAddress(ResolvedDevice start, int offset, string profile)
+    private static string FormatSequentialToyopucAddress(ResolvedDevice start, int offset)
     {
         var index = checked(start.Index + offset);
         if (index < 0)
             throw new ArgumentOutOfRangeException(nameof(offset), "Offset would move address index below zero.");
 
-        return ToyopucAddress.Format(start, index, profile);
+        return ToyopucAddress.Format(start, index);
     }
 
     private bool TryCreateReadManyPlan(
@@ -464,20 +455,12 @@ internal sealed class ToyopucSession : PlcSessionBase
     }
 
     private Task<object[]> ReadManyDevicesAsync(IReadOnlyList<string> addresses, CancellationToken cancellationToken) =>
-        _client!.UsesRelay
-            ? _client.ExecuteAsync(
-                inner => inner.RelayReadManyAsync(_client.RelayHops!, addresses.Cast<object>().ToArray(), cancellationToken),
-                cancellationToken)
-            : _client.ExecuteAsync(
-                inner => inner.ReadManyAsync(addresses.Cast<object>().ToArray(), cancellationToken),
-                cancellationToken);
+        _queuedClient!.ReadDevicesAsync(addresses.Cast<object>().ToArray(), cancellationToken);
 
     private Task WriteManyDevicesAsync(
         IReadOnlyList<KeyValuePair<object, object>> items,
         CancellationToken cancellationToken) =>
-        _client!.UsesRelay
-            ? _client.ExecuteAsync(inner => inner.RelayWriteManyAsync(_client.RelayHops!, items, cancellationToken), cancellationToken)
-            : _client.ExecuteAsync(inner => inner.WriteManyAsync(items, cancellationToken), cancellationToken);
+        _queuedClient!.WriteManyAsync(items, cancellationToken);
 
     private bool TryCreateBitWriteManyPlan(
         IReadOnlyList<WriteRequest> requests,
@@ -497,7 +480,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             try
             {
                 normalizedAddress = NormalizeAddress(request.Address);
-                resolvedDevice = _client!.InnerClient.ResolveDevice(PlcAddressTypeSuffix.Strip(normalizedAddress));
+                resolvedDevice = _client!.ResolveDevice(PlcAddressTypeSuffix.Strip(normalizedAddress));
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -522,7 +505,7 @@ internal sealed class ToyopucSession : PlcSessionBase
 
     private async Task<bool[]> ReadBitDevicesAsync(string normalizedStart, int bitCount, CancellationToken cancellationToken)
     {
-        var start = _client!.InnerClient.ResolveDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
+        var start = _client!.ResolveDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         if (start.Unit != "bit")
         {
             var result = await ReadDeviceAsync(PlcAddressTypeSuffix.Strip(normalizedStart), bitCount, cancellationToken).ConfigureAwait(false);
@@ -531,8 +514,8 @@ internal sealed class ToyopucSession : PlcSessionBase
 
         var bitOffset = start.Index % 16;
         var packedWordCount = checked((bitOffset + bitCount + 15) / 16);
-        var packedStartAddress = FormatPackedWordAddress(start, start.Index / 16, _client.InnerClient.PlcProfile);
-        var words = await _client.ReadWordsAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
+        var packedStartAddress = FormatPackedWordAddress(start, start.Index / 16);
+        var words = await _queuedClient!.ReadWordsAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
 
         var bits = new bool[bitCount];
         for (var index = 0; index < bitCount; index++)
@@ -544,15 +527,11 @@ internal sealed class ToyopucSession : PlcSessionBase
         return bits;
     }
 
-    private Task<object> ReadDeviceAsync(string address, int count, CancellationToken cancellationToken) =>
-        _client!.UsesRelay
-            ? _client.ExecuteAsync(inner => inner.RelayReadAsync(_client.RelayHops!, address, count, cancellationToken), cancellationToken)
-            : _client.ExecuteAsync(inner => inner.ReadAsync(address, count, cancellationToken), cancellationToken);
+    private Task<object[]> ReadDeviceAsync(string address, int count, CancellationToken cancellationToken) =>
+        _queuedClient!.ReadManyAsync(address, count, cancellationToken);
 
     private Task WriteDeviceAsync(string address, object value, CancellationToken cancellationToken) =>
-        _client!.UsesRelay
-            ? _client.ExecuteAsync(inner => inner.RelayWriteAsync(_client.RelayHops!, address, value, cancellationToken), cancellationToken)
-            : _client.ExecuteAsync(inner => inner.WriteAsync(address, value, cancellationToken), cancellationToken);
+        _queuedClient!.WriteAsync(address, value, cancellationToken);
 
     private static bool[] ToBooleanArray(object result) =>
         result is object[] values
@@ -587,7 +566,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             _ => unchecked((ushort)Convert.ToInt64(value, CultureInfo.InvariantCulture)),
         };
 
-    private static string FormatPackedWordAddress(ResolvedDevice bitAddress, int packedIndex, string profile)
+    private static string FormatPackedWordAddress(ResolvedDevice bitAddress, int packedIndex)
     {
         var packed = bitAddress with
         {
@@ -596,7 +575,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             Index = packedIndex,
             Packed = true,
         };
-        return ToyopucAddress.Format(packed, profile);
+        return ToyopucAddress.Format(packed);
     }
 
     private static DeviceRangeEntry MapDeviceRangeEntry(DeviceFamilyDefinition family, string profile)

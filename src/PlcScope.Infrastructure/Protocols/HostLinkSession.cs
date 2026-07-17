@@ -31,12 +31,11 @@ internal sealed class HostLinkSession : PlcSessionBase
 
         _client = new KvHostLinkClient(
             Settings.Host,
-            Settings.HostLinkPlcProfileName,
             Settings.Port,
-            Settings.Transport == TransportMode.Tcp ? HostLinkTransportMode.Tcp : HostLinkTransportMode.Udp)
+            Settings.Transport == TransportMode.Tcp ? HostLinkTransportMode.Tcp : HostLinkTransportMode.Udp,
+            Settings.HostLinkPlcProfileName)
         {
             Timeout = Settings.Timeout,
-            AppendLfOnSend = false,
         };
 
         _client.TraceHook = frame => EmitTrace(new TraceEntry(
@@ -74,7 +73,7 @@ internal sealed class HostLinkSession : PlcSessionBase
     public override string NormalizeAddress(string rawAddress, DeviceFamilyDefinition? family = null)
     {
         var typedAddress = PlcAddressTypeSuffix.ParseRequired(ExpandAddress(rawAddress, family));
-        var normalizedBaseAddress = FormatHostLinkAddress(KvHostLinkDevice.ParseDevice(typedAddress.BaseAddress, allowOmittedType: false));
+        var normalizedBaseAddress = FormatHostLinkAddress(KvHostLinkDevice.ParseDevice(typedAddress.BaseAddress));
         return $"{normalizedBaseAddress}:{typedAddress.DataType}";
     }
 
@@ -203,7 +202,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         {
             if (request.DataType == ValueDataType.Bit)
             {
-                await _client!.WriteAsync(PlcAddressTypeSuffix.Strip(address), ToBoolean(request.Value) ? 1 : 0, dataFormat: string.Empty, cancellationToken).ConfigureAwait(false);
+                await _client!.WriteAsync(PlcAddressTypeSuffix.Strip(address), ToBoolean(request.Value) ? 1 : 0, dataFormat: null!, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -228,7 +227,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         try
         {
             await ExecuteSerializedAsync(
-                () => _client!.WriteConsecutiveAsync(plan.StartAddress, plan.Values, dataFormat: null, cancellationToken),
+                () => _client!.WriteConsecutiveAsync(plan.StartAddress, plan.Values, dataFormat: null!, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -445,7 +444,7 @@ internal sealed class HostLinkSession : PlcSessionBase
             try
             {
                 normalizedAddress = NormalizeAddress(request.Address);
-                address = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedAddress), allowOmittedType: false);
+                address = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedAddress));
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -487,7 +486,7 @@ internal sealed class HostLinkSession : PlcSessionBase
 
     private static IReadOnlyList<string> BuildWordAddresses(string startAddress, int count)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(startAddress), allowOmittedType: false) with { Suffix = string.Empty };
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(startAddress)) with { Suffix = string.Empty };
         var addresses = new string[count];
         for (var index = 0; index < count; index++)
         {
@@ -574,7 +573,7 @@ internal sealed class HostLinkSession : PlcSessionBase
 
     private bool CanUseMonitorWordBlockRead(string normalizedStart)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         if (_monitorWordUnsupportedDeviceTypes.Contains(start.DeviceType))
             return false;
 
@@ -583,19 +582,19 @@ internal sealed class HostLinkSession : PlcSessionBase
 
     private bool CanUseMonitorBitBlockRead(string normalizedStart)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         return !_monitorBitUnsupportedDeviceTypes.Contains(start.DeviceType);
     }
 
     private bool CanUseOptimizedNamedRead(string normalizedStart)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         return !_optimizedNamedReadUnsupportedDeviceTypes.Contains(start.DeviceType);
     }
 
     private bool CanUseLegacyConsecutiveRead(string normalizedStart)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         return !_legacyConsecutiveReadUnsupportedDeviceTypes.Contains(start.DeviceType);
     }
 
@@ -612,7 +611,6 @@ internal sealed class HostLinkSession : PlcSessionBase
             var chunk = wordAddresses
                 .Skip(offset)
                 .Take(MaxMonitorWordRegistrations)
-                .Select(AddUnsignedWordSuffix)
                 .ToArray();
             var tokens = await ReadMonitorWordChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
             words.AddRange(ParseMonitorWordTokens(tokens, chunk.Length));
@@ -628,7 +626,10 @@ internal sealed class HostLinkSession : PlcSessionBase
         var registrationKey = string.Join("|", wordAddresses);
         if (!string.Equals(_monitorWordRegistrationKey, registrationKey, StringComparison.Ordinal))
         {
-            await _client!.RegisterMonitorWordsAsync(wordAddresses, cancellationToken).ConfigureAwait(false);
+            var targets = wordAddresses
+                .Select(address => new KvMonitorWordTarget(address, "U"))
+                .ToArray();
+            await _client!.RegisterMonitorWordsAsync(targets, cancellationToken).ConfigureAwait(false);
             _monitorWordRegistrationKey = registrationKey;
         }
 
@@ -674,7 +675,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         var bits = new bool[elementAddresses.Count];
         for (var index = 0; index < elementAddresses.Count; index++)
         {
-            var tokens = await _client!.ReadAsync(PlcAddressTypeSuffix.Strip(elementAddresses[index]), dataFormat: null, cancellationToken: cancellationToken)
+            var tokens = await _client!.ReadAsync(PlcAddressTypeSuffix.Strip(elementAddresses[index]), dataFormat: null!, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             bits[index] = ToBoolean(tokens.FirstOrDefault() ?? "0");
         }
@@ -687,7 +688,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         int bitCount,
         CancellationToken cancellationToken)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false) with { Suffix = string.Empty };
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart)) with { Suffix = string.Empty };
         var bits = new List<bool>(bitCount);
         for (var offset = 0; offset < bitCount;)
         {
@@ -696,7 +697,7 @@ internal sealed class HostLinkSession : PlcSessionBase
             var tokens = await _client!.ReadConsecutiveLegacyAsync(
                     chunkStart,
                     chunkCount,
-                    dataFormat: null,
+                    dataFormat: null!,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             bits.AddRange(ParseMonitorBitTokens(tokens, chunkCount));
@@ -709,26 +710,26 @@ internal sealed class HostLinkSession : PlcSessionBase
     private void DisableMonitorWordBlockRead(string normalizedStart)
     {
         _monitorWordRegistrationKey = null;
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         _monitorWordUnsupportedDeviceTypes.Add(start.DeviceType);
     }
 
     private void DisableMonitorBitBlockRead(string normalizedStart)
     {
         _monitorBitRegistrationKey = null;
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         _monitorBitUnsupportedDeviceTypes.Add(start.DeviceType);
     }
 
     private void DisableOptimizedNamedRead(string normalizedStart)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         _optimizedNamedReadUnsupportedDeviceTypes.Add(start.DeviceType);
     }
 
     private void DisableLegacyConsecutiveRead(string normalizedStart)
     {
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart), allowOmittedType: false);
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(normalizedStart));
         _legacyConsecutiveReadUnsupportedDeviceTypes.Add(start.DeviceType);
     }
 
@@ -739,7 +740,7 @@ internal sealed class HostLinkSession : PlcSessionBase
     private static IReadOnlyList<string> BuildMonitorWordAddresses(string startAddress, int bitCount)
     {
         var wordCount = checked((bitCount + 15) / 16);
-        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(startAddress), allowOmittedType: false) with { Suffix = string.Empty };
+        var start = KvHostLinkDevice.ParseDevice(PlcAddressTypeSuffix.Strip(startAddress)) with { Suffix = string.Empty };
         var addresses = new string[wordCount];
         for (var index = 0; index < wordCount; index++)
         {
@@ -748,8 +749,6 @@ internal sealed class HostLinkSession : PlcSessionBase
 
         return addresses;
     }
-
-    private static string AddUnsignedWordSuffix(string address) => $"{address}.U";
 
     private static IReadOnlyList<ushort> ParseMonitorWordTokens(string[] tokens, int expectedCount)
     {

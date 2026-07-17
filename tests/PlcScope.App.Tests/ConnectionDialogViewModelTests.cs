@@ -132,6 +132,7 @@ public sealed class ConnectionDialogViewModelTests
         var viewModel = new ConnectionDialogViewModel(ConnectionSettings.CreateDefault(ProtocolKind.Slmp));
 
         Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:iq-r:rj71en71" && option.Label == "MELSEC iQ-R (RJ71EN71)");
+        Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:mx-r:rj71en71" && option.Label == "MELSEC MX-R (RJ71EN71)");
         Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnudv:qj71e71-100" && option.Label == "MELSEC QnUDV (QJ71E71-100)");
         Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qnu:qj71e71-100" && option.Label == "MELSEC QnU (QJ71E71-100)");
         Assert.Contains(viewModel.SlmpProfiles, option => option.Value == "melsec:qcpu:qj71e71-100" && option.Label == "MELSEC-Q (QJ71E71-100)");
