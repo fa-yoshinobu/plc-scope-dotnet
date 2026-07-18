@@ -1,14 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="PlcComm.KvHostLink" />
     <PackageReference Include="PlcComm.Slmp" />
     <PackageReference Include="PlcComm.Toyopuc" />
-    <PackageReference Include="System.Text.Encoding.CodePages" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,8 @@
 # PLC communication packages
 
-No communication-library DLL snapshots are checked in here. Builds restore the
-centrally managed NuGet package versions from `Directory.Packages.props`.
+Builds restore the centrally managed NuGet package versions from
+`Directory.Packages.props`. The DLLs under `net9.0/` are historical snapshots
+only; no project or release workflow references them.
 
 | Package | Version |
 | --- | --- |

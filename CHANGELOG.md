@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-18
+
+### BREAKING
+- Moved all projects and Windows publish paths to .NET 10 LTS. .NET 9 builds and runtimes are no longer supported.
+- Removed `commentCsvPath` and `commentCsvPaths` from project JSON. Comment CSV files are now imported explicitly for the current session only; legacy fields are ignored without migration or fallback, and CSV-derived comments are not copied into saved watch items.
+
 ### Changed
+- Bumped the application package and assembly version to `2.0.0` for the breaking project-format and runtime changes.
 - Updated PLC communication package references to `PlcComm.Slmp` `4.0.0`, `PlcComm.KvHostLink` `3.2.0`, and `PlcComm.Toyopuc` `3.2.0`.
 - Migrated SLMP, Host Link, and TOYOPUC sessions to the latest explicit profile, route, device, and queue APIs while preserving relay-aware TOYOPUC reads and writes.
 - Added `melsec:mx-r:rj71en71` (MELSEC MX-R (RJ71EN71)) to the SLMP PLC profile selector.

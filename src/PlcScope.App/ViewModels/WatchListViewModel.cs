@@ -25,6 +25,7 @@ public sealed partial class WatchListViewModel : ObservableObject
     private readonly Func<string, Exception, Task> _logErrorAsync;
     private readonly Action<string> _setErrorText;
     private readonly Action _notifyUiAutomationStateChanged;
+    private Func<string, string?> _resolveExternalComment = static _ => null;
 
     public WatchListViewModel(
         Func<IPlcSession?> getSession,
@@ -111,8 +112,8 @@ public sealed partial class WatchListViewModel : ObservableObject
             Address = address,
             DataType = InferWatchDataType(row),
             DisplayRadix = _getDefaultDisplayRadix(),
-            Comment = string.IsNullOrWhiteSpace(row.Comment) ? null : row.Comment,
         });
+        item.ApplyExternalComment(row.Comment);
         WatchItems.Add(item);
         SelectedWatchItem = item;
     }
@@ -161,7 +162,7 @@ public sealed partial class WatchListViewModel : ObservableObject
 
         var text = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(true);
         SetItems(WatchListCsvSerializer.Parse(text));
-        ApplyComments(resolveComment);
+        ApplyExternalComments(resolveComment);
         _setErrorText(string.Empty);
 
         if (_getConnectionState() == ConnectionState.Connected && _getSelectedMainTabIndex() == 1)
@@ -177,16 +178,12 @@ public sealed partial class WatchListViewModel : ObservableObject
         _setErrorText(string.Empty);
     }
 
-    public void ApplyComments(Func<string, string?> resolveComment)
+    public void ApplyExternalComments(Func<string, string?> resolveComment)
     {
+        _resolveExternalComment = resolveComment;
         foreach (var item in WatchItems)
         {
-            if (!string.IsNullOrWhiteSpace(item.Comment))
-                continue;
-
-            var comment = resolveComment(item.Address);
-            if (comment is not null)
-                item.Comment = comment;
+            item.ApplyExternalComment(resolveComment(item.Address));
         }
     }
 
@@ -364,7 +361,10 @@ public sealed partial class WatchListViewModel : ObservableObject
     private void WatchItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is WatchItemViewModel item && e.PropertyName == nameof(WatchItemViewModel.Address))
+        {
             UpdateWatchAvailableDataTypes(item);
+            item.ApplyExternalComment(_resolveExternalComment(item.Address));
+        }
     }
 
     private void UpdateWatchAvailableDataTypes(WatchItemViewModel item)

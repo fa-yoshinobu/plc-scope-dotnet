@@ -64,7 +64,6 @@ public partial class MainWindowViewModel : ObservableObject
     private ProtocolKind? _sortedFamilyProtocol;
     private KeyenceDeviceMode? _sortedFamilyKeyenceMode;
     private DeviceFamilyDefinition[]? _sortedFamiliesByCodeLength;
-    private readonly List<string> _commentCsvPaths = [];
     private string? _inlineEditingAddress;
     private string? _layoutErrorText;
     private string _rowLayoutKey = string.Empty;
@@ -237,9 +236,6 @@ public partial class MainWindowViewModel : ObservableObject
     private string currentProjectPath = string.Empty;
 
     [ObservableProperty]
-    private string commentCsvPath = string.Empty;
-
-    [ObservableProperty]
     private string projectName = "Untitled";
 
     [ObservableProperty]
@@ -303,8 +299,6 @@ public partial class MainWindowViewModel : ObservableObject
         Connection = ConnectionSettings with { AutoRefreshIntervalMs = AutoRefreshIntervalMs },
         Blocks = [BuildProjectBlockQuery()],
         WatchItems = WatchList.ToModels().ToList(),
-        CommentCsvPath = _commentCsvPaths.Count == 1 ? _commentCsvPaths[0] : null,
-        CommentCsvPaths = _commentCsvPaths.Count > 1 ? _commentCsvPaths.ToList() : null,
     };
 
 }

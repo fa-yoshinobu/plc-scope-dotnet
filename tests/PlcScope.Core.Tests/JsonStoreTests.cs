@@ -87,11 +87,6 @@ public sealed class JsonStoreTests
                         Comment = "watch",
                     },
                 ],
-                CommentCsvPaths =
-                [
-                    @"C:\plc-scope-test\comments-a.csv",
-                    @"C:\plc-scope-test\comments-b.csv",
-                ],
             };
 
             await store.SaveAsync(path, project);
@@ -103,7 +98,7 @@ public sealed class JsonStoreTests
             Assert.Equal("DM100", loaded.Blocks[0].StartAddress);
             Assert.Equal("DM200", loaded.WatchItems[0].Address);
             Assert.Equal(DisplayRadix.Hex, loaded.WatchItems[0].DisplayRadix);
-            Assert.Equal(2, loaded.CommentCsvPaths?.Count);
+            Assert.DoesNotContain("commentCsv", json, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("runtime-only value", json, StringComparison.OrdinalIgnoreCase);
         }
         finally

@@ -6,6 +6,8 @@ using PlcScope.Core.Models;
 
 public partial class WatchItemViewModel : ObservableObject
 {
+    private readonly string _persistedComment;
+
     public WatchItemViewModel()
         : this(new WatchItem())
     {
@@ -17,7 +19,8 @@ public partial class WatchItemViewModel : ObservableObject
         Address = item.Address;
         DataType = item.DataType;
         DisplayRadix = item.DisplayRadix;
-        Comment = item.Comment ?? string.Empty;
+        _persistedComment = item.Comment ?? string.Empty;
+        Comment = _persistedComment;
     }
 
     public string Id { get; }
@@ -53,12 +56,15 @@ public partial class WatchItemViewModel : ObservableObject
     [ObservableProperty]
     private bool isValueEditing;
 
+    internal void ApplyExternalComment(string? comment) =>
+        Comment = string.IsNullOrWhiteSpace(_persistedComment) ? comment ?? string.Empty : _persistedComment;
+
     public WatchItem ToModel() => new()
     {
         Id = Id,
         Address = Address,
         DataType = DataType,
         DisplayRadix = DisplayRadix,
-        Comment = string.IsNullOrWhiteSpace(Comment) ? null : Comment,
+        Comment = string.IsNullOrWhiteSpace(_persistedComment) ? null : _persistedComment,
     };
 }

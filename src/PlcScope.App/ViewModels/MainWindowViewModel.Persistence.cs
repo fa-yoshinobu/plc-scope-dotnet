@@ -46,6 +46,7 @@ public partial class MainWindowViewModel
 
     public async Task ApplyProjectAsync(ProjectFile project, string? path = null)
     {
+        ClearCommentCsvSession();
         ProjectName = GetProjectDisplayName(path);
         CurrentProjectPath = path ?? string.Empty;
 
@@ -65,18 +66,13 @@ public partial class MainWindowViewModel
         AutoRefreshEnabled = true;
         WatchList.SetItems(project.WatchItems);
         OnPropertyChanged(nameof(UiAutomationStateText));
-
-        await LoadProjectCommentCsvAsync(ProjectCommentCsvPathPolicy.GetProjectCommentCsvPaths(project)).ConfigureAwait(true);
     }
 
     public void NewProject()
     {
         ProjectName = "Untitled";
         CurrentProjectPath = string.Empty;
-        CommentCsvPath = string.Empty;
-        _commentCsvPaths.Clear();
-        _commentCsvComments.Clear();
-        InvalidateCommentResolutionCache();
+        ClearCommentCsvSession();
         ErrorText = string.Empty;
         ConnectionSettings = ConnectionSettings.CreateDefault(SelectedProtocol.Kind);
         AutoRefreshIntervalMs = ConnectionSettings.AutoRefreshIntervalMs;
@@ -106,9 +102,9 @@ public partial class MainWindowViewModel
 
     public async Task ImportCommentCsvAsync(IReadOnlyList<string> paths)
     {
-        var normalizedPaths = ProjectCommentCsvPathPolicy.NormalizeCommentCsvPaths(paths);
+        var normalizedPaths = CommentCsvImportPolicy.NormalizePaths(paths);
         var comments = await LoadCommentCsvFilesAsync(normalizedPaths).ConfigureAwait(true);
-        SetCommentCsv(normalizedPaths, comments);
+        SetCommentCsv(comments);
         ErrorText = string.Empty;
 
         if (IsConnected)
@@ -140,61 +136,18 @@ public partial class MainWindowViewModel
     private BlockQuery BuildProjectBlockQuery() =>
         BuildBlockQuery(StartAddress, Math.Max(1, ItemCount));
 
-    private async Task LoadProjectCommentCsvAsync(IReadOnlyList<string> paths)
+    private void SetCommentCsv(IReadOnlyDictionary<string, string> comments)
     {
-        var normalizedPaths = ProjectCommentCsvPathPolicy.NormalizeCommentCsvPaths(paths);
-        SetCommentCsvPaths(normalizedPaths);
-        _commentCsvComments.Clear();
-        InvalidateCommentResolutionCache();
-        if (normalizedPaths.Count == 0)
-            return;
-
-        var errors = new List<string>();
-        foreach (var path in normalizedPaths)
-        {
-            if (!File.Exists(path))
-            {
-                errors.Add($"Missing: {path}");
-                continue;
-            }
-
-            try
-            {
-                var comments = await CommentCsvImporter.LoadAsync(path, SelectedProtocol.Kind).ConfigureAwait(true);
-                AddCommentCsvComments(comments);
-            }
-            catch (Exception exception)
-            {
-                errors.Add($"{Path.GetFileName(path)}: {exception.Message}");
-            }
-        }
-
-        WatchList.ApplyComments(ResolveCsvCommentForAddress);
-
-        if (errors.Count > 0)
-        {
-            ErrorText = $"Could not load comment CSV: {string.Join("; ", errors)}";
-        }
-    }
-
-    private void SetCommentCsv(IReadOnlyList<string> paths, IReadOnlyDictionary<string, string> comments)
-    {
-        SetCommentCsvPaths(paths);
         _commentCsvComments.Clear();
         AddCommentCsvComments(comments);
-        WatchList.ApplyComments(ResolveCsvCommentForAddress);
+        WatchList.ApplyExternalComments(ResolveCsvCommentForAddress);
     }
 
-    private void SetCommentCsvPaths(IReadOnlyList<string> paths)
+    private void ClearCommentCsvSession()
     {
-        _commentCsvPaths.Clear();
-        _commentCsvPaths.AddRange(paths);
-        CommentCsvPath = paths.Count switch
-        {
-            0 => string.Empty,
-            1 => paths[0],
-            _ => $"{paths.Count} comment CSV files",
-        };
+        _commentCsvComments.Clear();
+        InvalidateCommentResolutionCache();
+        WatchList.ApplyExternalComments(static _ => null);
     }
 
     private void AddCommentCsvComments(IReadOnlyDictionary<string, string> comments)

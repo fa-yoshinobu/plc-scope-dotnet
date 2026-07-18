@@ -8,7 +8,7 @@ set "CONFIGURATION=%~1"
 if "%CONFIGURATION%"=="" set "CONFIGURATION=Release"
 
 set "RUNTIME=win-x64"
-set "EXE=%~dp0src\PlcScope.App\bin\%CONFIGURATION%\net9.0-windows\%RUNTIME%\publish\PlcScope.exe"
+set "EXE=%~dp0src\PlcScope.App\bin\%CONFIGURATION%\net10.0-windows\%RUNTIME%\publish\PlcScope.exe"
 
 if not exist "%EXE%" (
   echo PLC Scope EXE was not found.
