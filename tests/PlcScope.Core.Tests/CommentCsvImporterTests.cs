@@ -135,4 +135,25 @@ public sealed class CommentCsvImporterTests
                 File.Delete(path);
         }
     }
+
+    [Fact]
+    public async Task LoadAsync_ShiftJisCsv_DecodesJapaneseCommentsWithoutASeparateRuntimePackage()
+    {
+        const string text = "header 1,,\r\nheader 2,,\r\nD0,運転速度,,\r\n";
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.csv");
+        try
+        {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            await File.WriteAllTextAsync(path, text, System.Text.Encoding.GetEncoding(932));
+
+            var comments = await CommentCsvImporter.LoadAsync(path, ProtocolKind.Slmp);
+
+            Assert.Equal("運転速度", comments["D0"]);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
 }

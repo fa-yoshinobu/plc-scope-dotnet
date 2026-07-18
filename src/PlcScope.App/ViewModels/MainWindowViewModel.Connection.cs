@@ -180,6 +180,7 @@ public partial class MainWindowViewModel
         InvalidateCommentResolutionCache();
         InvalidateSortedDeviceFamilyCache();
         OnPropertyChanged(nameof(SelectedPlcModelText));
+        WatchList.ApplyExternalComments(ResolveCsvCommentForAddress);
         WatchList.UpdateAllAvailableDataTypes();
     }
 

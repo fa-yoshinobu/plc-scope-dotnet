@@ -413,7 +413,7 @@ public sealed class MainWindowUiTests
     {
         var root = FindRepositoryRoot(AppContext.BaseDirectory);
         var configuration = IsReleaseBuild() ? "Release" : "Debug";
-        var appPath = Path.Combine(root, "src", "PlcScope.App", "bin", configuration, "net9.0-windows", "PlcScope.exe");
+        var appPath = Path.Combine(root, "src", "PlcScope.App", "bin", configuration, "net10.0-windows", "PlcScope.exe");
         if (!File.Exists(appPath))
             throw new FileNotFoundException("The WPF application executable was not built.", appPath);
 

@@ -1,8 +1,8 @@
 # PLC Scope
 
 [![Release](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml)
-[![Version](https://img.shields.io/badge/version-1.0.3-blue)](src/PlcScope.App/PlcScope.App.csproj)
-[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](src/PlcScope.App/PlcScope.App.csproj)
+[![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/language-C%23-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)](https://learn.microsoft.com/windows/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -17,11 +17,15 @@ PLC Scope can write live PLC devices and issue CPU commands. Before writing or c
 
 Project files can store connection settings, including an SLMP remote password when one is entered. Treat project files as sensitive when a password is configured.
 
+In v2.0.0, disconnect before creating a new project, then verify the displayed endpoint before reconnecting. Creating a new project resets the displayed connection settings but does not yet guarantee that every in-progress or active session has been replaced.
+
+Explicitly disconnect before closing PLC Scope, especially when an SLMP remote password is configured, so the normal disconnect path can lock and release the session.
+
 ## Requirements
 
 - Windows
 - A PLC reachable over the selected protocol
-- .NET 9 Runtime when using a framework-dependent build
+- .NET 10 Runtime when using a framework-dependent build
 
 For development or local builds, see [Development notes](docs/development.md).
 
@@ -240,7 +244,7 @@ Use `File` -> `Import comment CSV` to load comment text.
 
 PLC Scope can load multiple comment CSV files. If multiple comments match the same device, `Comment1` has priority when present.
 
-Comment CSV files stay external to the project file. Project JSON stores the CSV paths, not the CSV contents.
+Comment CSV files stay external to the project file. PLC Scope reads them only when you explicitly select `File` -> `Import comment CSV` in the current session. Project JSON stores neither the CSV paths nor CSV-derived comments, and opening a project does not reload a comment CSV automatically.
 
 ## Project Files
 
@@ -250,7 +254,6 @@ Projects are saved as JSON and include:
 - monitor block settings
 - watch list entries
 - selected display settings
-- optional comment CSV paths
 
 Application settings are stored under:
 

@@ -5,8 +5,7 @@ This file is for maintainers and contributors. The repository root [README](../R
 ## Requirements
 
 - Windows
-- .NET 9 SDK for the PLC Scope app target
-- .NET 8, 9, and 10 SDKs when building with the sibling PLC communication source repositories
+- .NET 10 SDK for the PLC Scope app target
 - Visual Studio 2022 or another editor with WPF support
 
 `PlcScope.App` is a WPF application, so the app project is intended to build and run on Windows.
@@ -31,13 +30,13 @@ Main third-party libraries:
 - `CommunityToolkit.Mvvm`
 - `Microsoft.Extensions.DependencyInjection`
 
-PLC communication libraries are consumed from sibling local source repositories:
+PLC communication libraries are restored from the centrally managed NuGet package versions in `Directory.Packages.props`:
 
-- `../plc-comm-slmp-dotnet/src/PlcComm.Slmp/PlcComm.Slmp.csproj`
-- `../plc-comm-hostlink-dotnet/src/PlcComm.KvHostLink/PlcComm.KvHostLink.csproj`
-- `../plc-comm-computerlink-dotnet/src/Toyopuc/PlcComm.Toyopuc.csproj`
+- `PlcComm.Slmp`
+- `PlcComm.KvHostLink`
+- `PlcComm.Toyopuc`
 
-The checked-in `lib/plc-comm/net9.0/` DLLs are retained as release snapshots and are not the active project references for local development builds.
+The historical DLL snapshots under `lib/plc-comm/net9.0/` are not active project references and are not used by local or release builds.
 
 ## Build
 
@@ -88,7 +87,7 @@ build.bat Release
 Typical output:
 
 ```text
-src\PlcScope.App\bin\Release\net9.0-windows\win-x64\publish\PlcScope.exe
+src\PlcScope.App\bin\Release\net10.0-windows\win-x64\publish\PlcScope.exe
 ```
 
 Manual publish:

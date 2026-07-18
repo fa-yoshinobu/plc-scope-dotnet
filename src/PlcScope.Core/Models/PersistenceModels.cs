@@ -8,8 +8,6 @@ public sealed record ProjectFile
     public List<BlockQuery> Blocks { get; init; } = [CreateDefaultBlock()];
     public List<WatchItem> WatchItems { get; init; } = [];
     public string? SelectedBlockId { get; init; }
-    public List<string>? CommentCsvPaths { get; init; }
-    public string? CommentCsvPath { get; init; }
 
     public static BlockQuery CreateDefaultBlock() => new()
     {

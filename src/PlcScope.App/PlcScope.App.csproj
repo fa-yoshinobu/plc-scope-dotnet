@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>PlcScope</AssemblyName>
@@ -11,11 +11,11 @@
     <Authors>FA Labo(fa_yoshinobu)</Authors>
     <Copyright>FA Labo(fa_yoshinobu)</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>1.0.3</Version>
-    <AssemblyVersion>1.0.3.0</AssemblyVersion>
-    <FileVersion>1.0.3.0</FileVersion>
-    <AssemblyInformationalVersion>1.0.3</AssemblyInformationalVersion>
-    <InformationalVersion>1.0.3</InformationalVersion>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <AssemblyInformationalVersion>2.0.0</AssemblyInformationalVersion>
+    <InformationalVersion>2.0.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
     <ApplicationIcon Condition="Exists('..\..\icon.ico')">..\..\icon.ico</ApplicationIcon>

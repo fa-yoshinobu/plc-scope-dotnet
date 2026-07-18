@@ -9,7 +9,7 @@ if "%CONFIGURATION%"=="" set "CONFIGURATION=Release"
 
 set "RUNTIME=win-x64"
 set "LOG_FILE=%~dp0build.log"
-set "PUBLISH_DIR=%~dp0src\PlcScope.App\bin\%CONFIGURATION%\net9.0-windows\%RUNTIME%\publish"
+set "PUBLISH_DIR=%~dp0src\PlcScope.App\bin\%CONFIGURATION%\net10.0-windows\%RUNTIME%\publish"
 
 echo Publishing PLC Scope single-file EXE (%CONFIGURATION%, %RUNTIME%)...
 echo.
