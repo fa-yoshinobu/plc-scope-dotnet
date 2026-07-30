@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fixed low-contrast text: themed the fixed WPF defaults for ToolTip, Hyperlink, and ListView backgrounds; scoped TextBlock styles inside Button and ComboBoxItem templates so accent/disabled foregrounds actually apply; darkened the light-theme muted/hex/comment colors one step. All rendered text pairs now meet WCAG AA (4.5:1) or the 3:1 component threshold in both themes.
+- Restructured README as a user-facing entrance (dual role: PLC monitor and zero-code verification app for the plc-comm .NET libraries) and moved the full operator reference to docs/user-guide.md.
 - Updated PLC communication libraries: PlcComm.Slmp 4.0.1, PlcComm.KvHostLink 3.2.1, PlcComm.Toyopuc 3.2.1 (bug-fix releases, no API changes).
 
 ## [2.0.0] - 2026-07-18

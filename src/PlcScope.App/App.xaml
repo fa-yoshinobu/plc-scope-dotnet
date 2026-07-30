@@ -66,6 +66,31 @@
       <Setter Property="FontSize" Value="13" />
     </Style>
 
+    <!-- The WPF default Hyperlink foreground is a fixed #0066CC that ignores the theme
+         (only 3.19:1 on the dark background). Track the theme link colour instead. -->
+    <Style TargetType="{x:Type Hyperlink}">
+      <Setter Property="Foreground" Value="{DynamicResource AppAddressBrush}" />
+      <Setter Property="TextDecorations" Value="Underline" />
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Foreground" Value="{DynamicResource AppForegroundMutedBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- The WPF default ToolTip background is a fixed near-white #F1F2F7, which leaves the
+         themed tooltip text at 1.11:1 in the dark theme. -->
+    <Style TargetType="{x:Type ToolTip}">
+      <Setter Property="Background" Value="{DynamicResource AppPanelBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="8,5" />
+    </Style>
+
     <Style TargetType="{x:Type Button}">
       <Setter Property="Background" Value="{DynamicResource AppPanelAltBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
@@ -86,7 +111,19 @@
               <ContentPresenter Margin="{TemplateBinding Padding}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                RecognizesAccessKey="True" />
+                                RecognizesAccessKey="True">
+                <ContentPresenter.Resources>
+                  <!-- The application-wide implicit TextBlock style outranks both property
+                       inheritance and TextElement.Foreground, so string button content would
+                       always paint with AppForegroundBrush and ignore the button's own
+                       Foreground (white on accent, muted when disabled, ...). Scoping an
+                       implicit style here restores the button Foreground as the text colour. -->
+                  <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+                    <Setter Property="Foreground"
+                            Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                  </Style>
+                </ContentPresenter.Resources>
+              </ContentPresenter>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocused" Value="True">
@@ -327,6 +364,28 @@
       <Setter Property="Background" Value="{DynamicResource AppPanelBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundStrongBrush}" />
       <Setter Property="Padding" Value="8,5" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+            <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                <ContentPresenter.Resources>
+                  <!-- Same reason as the Button template: without a scoped implicit style the
+                       highlighted item keeps AppForegroundBrush instead of the intended
+                       AppAccentForegroundBrush, leaving dark text on the accent fill. -->
+                  <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+                    <Setter Property="Foreground"
+                            Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type ComboBoxItem}}}" />
+                  </Style>
+                </ContentPresenter.Resources>
+              </ContentPresenter>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
       <Style.Triggers>
         <Trigger Property="IsHighlighted" Value="True">
           <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
@@ -542,6 +601,15 @@
           </ControlTemplate>
         </Setter.Value>
       </Setter>
+    </Style>
+
+    <!-- Implicit styles match the exact type, so the ListBox style above never reaches ListView.
+         Its WPF default background is a fixed #FFFFFF, which leaves the About window's library
+         rows at 1.24:1 in the dark theme. -->
+    <Style TargetType="{x:Type ListView}">
+      <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
     </Style>
 
     <Style TargetType="{x:Type DataGrid}">
