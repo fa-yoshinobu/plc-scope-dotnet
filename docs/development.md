@@ -8,6 +8,8 @@ This file is for maintainers and contributors. The repository root [README](../R
 - .NET 10 SDK for the PLC Scope app target
 - Visual Studio 2022 or another editor with WPF support
 
+[global.json](../global.json) pins the SDK to `10.0.202` with `latestFeature` roll-forward, so any installed 10.0 SDK from that feature band or newer is used and older bands are rejected.
+
 `PlcScope.App` is a WPF application, so the app project is intended to build and run on Windows.
 
 ## Solution Layout
@@ -69,6 +71,24 @@ Run the core test project:
 ```powershell
 dotnet test .\tests\PlcScope.Core.Tests\PlcScope.Core.Tests.csproj
 ```
+
+## Continuous Integration
+
+[ci.yml](../.github/workflows/ci.yml) restores, builds, and tests the solution on
+`windows-latest` for every push to `main`, every pull request that targets `main`,
+and manual dispatch. It skips
+`PlcScope.App.UiTests.MainWindowUiTests`, because those FlaUI tests drive the real
+window with synthetic input and reset the PLC Scope app-data directory, which a hosted
+runner cannot do reliably. Run them locally with the full solution test command above.
+
+[release.yml](../.github/workflows/release.yml) still runs only on a `v*` tag or manual
+dispatch and publishes the single-file build.
+
+Avoid pushing to `main` directly; land changes through a pull request so CI reports
+before the merge. To enforce this on GitHub, open *Settings > Branches > Add branch
+protection rule* (or *Settings > Rules > Rulesets*), target `main`, and enable
+"Require a pull request before merging" plus "Require status checks to pass" with the
+`build-and-test` check selected.
 
 ## Publish
 

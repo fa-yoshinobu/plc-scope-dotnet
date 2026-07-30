@@ -2,7 +2,13 @@
 
 public sealed record ProjectFile
 {
-    public string ProjectVersion { get; init; } = "1.0";
+    // Schema version stamped on every project file this build writes.
+    public const string CurrentProjectVersion = "1.0";
+
+    // Highest schema major version this build knows how to read.
+    public const int SupportedMajorVersion = 1;
+
+    public string ProjectVersion { get; init; } = CurrentProjectVersion;
     public DateTimeOffset LastSavedUtc { get; init; } = DateTimeOffset.UtcNow;
     public ConnectionSettings Connection { get; init; } = ConnectionSettings.CreateDefault(ProtocolKind.Slmp);
     public List<BlockQuery> Blocks { get; init; } = [CreateDefaultBlock()];

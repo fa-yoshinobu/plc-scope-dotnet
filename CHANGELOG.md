@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Added project file schema validation: opening a project now checks `projectVersion`, accepts a missing or blank value and any version 1 file, and rejects a file written by a newer PLC Scope (or with an unreadable version) with an explicit "cannot open" message instead of silently loading partially understood data.
+- Added a `CI` workflow that restores, builds, and tests the solution on Windows for every push to `main`, every pull request against `main`, and manual dispatch, so build and test regressions are caught before a release tag. The FlaUI desktop-automation tests stay a local gate.
+- Added `global.json` pinning the .NET SDK to `10.0.202` with `latestFeature` roll-forward, so local and CI builds use the same toolchain.
 - Fixed low-contrast text: themed the fixed WPF defaults for ToolTip, Hyperlink, and ListView backgrounds; scoped TextBlock styles inside Button and ComboBoxItem templates so accent/disabled foregrounds actually apply; darkened the light-theme muted/hex/comment colors one step. All rendered text pairs now meet WCAG AA (4.5:1) or the 3:1 component threshold in both themes.
 - Restructured README as a user-facing entrance (dual role: PLC monitor and zero-code verification app for the plc-comm .NET libraries) and moved the full operator reference to docs/user-guide.md.
 - Updated PLC communication libraries: PlcComm.Slmp 4.0.1, PlcComm.KvHostLink 3.2.1, PlcComm.Toyopuc 3.2.1 (bug-fix releases, no API changes).

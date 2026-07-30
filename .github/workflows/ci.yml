@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "true"
+
+jobs:
+  build-and-test:
+    # PlcScope.App targets net10.0-windows (WPF), so the solution only builds on Windows.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No sibling repository checkout is needed here: every PlcComm dependency is a
+      # NuGet PackageReference pinned in Directory.Packages.props, and no project file
+      # references a path outside this repository.
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore PlcScopeDotNet.sln
+
+      - name: Build
+        run: dotnet build PlcScopeDotNet.sln -c Release --no-restore
+
+      # PlcScope.App.UiTests.MainWindowUiTests drives the real WPF window through FlaUI
+      # with synthetic keyboard input and focus changes, which needs a reliable interactive
+      # desktop session, and it deletes the PLC Scope app-data directory on the machine.
+      # Both make it unsuitable for a hosted runner, so it stays a local gate (see
+      # docs/development.md). Every other test, including the XAML layout tests that live
+      # in the same project, runs here. -m:1 keeps the test projects serial.
+      - name: Test
+        run: dotnet test PlcScopeDotNet.sln -c Release --no-build -m:1 --filter "FullyQualifiedName!~PlcScope.App.UiTests.MainWindowUiTests"
