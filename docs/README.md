@@ -21,7 +21,7 @@ and reusable sample projects.
 ## Improvements
 
 - [Improvement index](improvements/README.md)
-- Completed plans, reports, and investigation notes are archived under [`improvements/close/`](improvements/close/).
+- Retained design notes are kept under [`improvements/close/`](improvements/close/); real-PLC validation records live under [`validation/`](validation/).
 
 ## Validation
 

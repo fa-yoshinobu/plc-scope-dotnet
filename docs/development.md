@@ -130,7 +130,7 @@ Recommended checks before publishing:
 - Keep the root `README.md` focused on installation, connection setup, operation, troubleshooting, and sample projects.
 - Put build/test/release commands in this file.
 - Put expected application behavior and protocol contracts in [specification.md](specification.md).
-- Put completed investigation notes and implementation reports under [improvements/close](improvements/close/).
+- Keep a closed investigation note under [improvements/close](improvements/close/) only when it explains a design decision the code does not; otherwise record the outcome in the changelog and delete it.
 - Put hardware validation notes under [validation](validation/).
 - Put reusable project JSON files under [samples](samples/).
 
