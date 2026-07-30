@@ -67,6 +67,8 @@ public partial class MainWindowViewModel : ObservableObject
     private string? _inlineEditingAddress;
     private string? _layoutErrorText;
     private string _rowLayoutKey = string.Empty;
+    private readonly object _shutdownGate = new();
+    private Task? _shutdownTask;
 
     public MainWindowViewModel(
         IPlcSessionFactory sessionFactory,

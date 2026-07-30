@@ -194,15 +194,64 @@ public partial class MainWindowViewModel
         OnPropertyChanged(nameof(ConnectionToggleToolTip));
     }
 
-    private async Task DisposeSessionAsync()
+    /// <summary>
+    /// Releases the PLC session when the application is closing. Safe to call more than once:
+    /// the session is released exactly once and every caller awaits the same shutdown run.
+    /// </summary>
+    public Task ShutdownAsync()
     {
-        if (_session is null)
+        lock (_shutdownGate)
+        {
+            return _shutdownTask ??= ShutdownCoreAsync();
+        }
+    }
+
+    private async Task ShutdownCoreAsync()
+    {
+        _refreshTimer.Stop();
+        _scrollResumeTimer.Stop();
+        _layoutRefreshTimer.Stop();
+        _communicationRateTimer.Stop();
+
+        var session = DetachSession();
+        if (session is null)
             return;
 
-        _session.TraceReceived -= OnTraceReceived;
-        _session.ErrorReceived -= OnSessionErrorReceived;
-        await _session.DisposeAsync().ConfigureAwait(true);
+        try
+        {
+            // ConfigureAwait(false) keeps the shutdown independent of the dispatcher, so a caller
+            // that blocks the UI thread while waiting for it cannot deadlock on the continuation.
+            await session.DisposeAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // The application is closing; a failed release must not stop the exit.
+        }
+    }
+
+    private async Task DisposeSessionAsync()
+    {
+        var session = DetachSession();
+        if (session is null)
+            return;
+
+        await session.DisposeAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Takes ownership of the current session before any await, so concurrent callers cannot
+    /// dispose the same session twice.
+    /// </summary>
+    private IPlcSession? DetachSession()
+    {
+        var session = _session;
+        if (session is null)
+            return null;
+
         _session = null;
+        session.TraceReceived -= OnTraceReceived;
+        session.ErrorReceived -= OnSessionErrorReceived;
+        return session;
     }
 
 }

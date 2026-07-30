@@ -13,6 +13,8 @@ using PlcScope.Infrastructure.Storage;
 
 public partial class App : Application
 {
+    private static readonly TimeSpan SessionShutdownTimeout = TimeSpan.FromSeconds(5);
+
     private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ThemeColors =
         new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -156,8 +158,32 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        WaitForSessionShutdown(_serviceProvider?.GetService<MainWindowViewModel>());
         _serviceProvider?.Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// Fallback for exits that never complete the deferred window close (Application.Shutdown,
+    /// Windows session end): the cancelled close is ignored there, so the session is released here.
+    /// The shutdown runs exactly once, so waiting for an already finished run costs nothing.
+    /// </summary>
+    internal static bool WaitForSessionShutdown(MainWindowViewModel? viewModel, TimeSpan? timeout = null)
+    {
+        if (viewModel is null)
+            return true;
+
+        try
+        {
+            // MainWindowViewModel.ShutdownAsync never resumes on the dispatcher, so blocking the
+            // UI thread here cannot deadlock.
+            return viewModel.ShutdownAsync().Wait(timeout ?? SessionShutdownTimeout);
+        }
+        catch
+        {
+            // Exiting must not fail because the PLC session could not be released.
+            return false;
+        }
     }
 
     internal static ErrorEntry CreateUnhandledExceptionEntry(Exception exception)

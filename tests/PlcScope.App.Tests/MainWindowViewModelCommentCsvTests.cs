@@ -246,7 +246,7 @@ public sealed class MainWindowViewModelCommentCsvTests
             await viewModel.ImportCommentCsvAsync(csvPath);
             Assert.Equal("External comment", viewModel.WatchList.WatchItems[0].Comment);
 
-            viewModel.NewProject();
+            await viewModel.NewProjectAsync();
 
             Assert.Empty(viewModel.WatchList.WatchItems);
             Assert.Null(viewModel.ResolveCsvCommentForAddress("D0"));

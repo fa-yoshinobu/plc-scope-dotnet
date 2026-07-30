@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed low-contrast text: themed the fixed WPF defaults for ToolTip, Hyperlink, and ListView backgrounds; scoped TextBlock styles inside Button and ComboBoxItem templates so accent/disabled foregrounds actually apply; darkened the light-theme muted/hex/comment colors one step. All rendered text pairs now meet WCAG AA (4.5:1) or the 3:1 component threshold in both themes.
 - Restructured README as a user-facing entrance (dual role: PLC monitor and zero-code verification app for the plc-comm .NET libraries) and moved the full operator reference to docs/user-guide.md.
 - Updated PLC communication libraries: PlcComm.Slmp 4.0.1, PlcComm.KvHostLink 3.2.1, PlcComm.Toyopuc 3.2.1 (bug-fix releases, no API changes).
+- Fixed New project leaving the previous connection open: the session is now closed and released before the connection settings are reset, so auto-refresh polling, writes, and CPU commands can no longer reach the previous PLC.
+- Fixed the PLC session not being released when the application exits: closing the main window now waits for an exactly-once shutdown (with a fallback on application exit), so SLMP remote passwords are locked again instead of staying unlocked.
+- Fixed project saving truncating the target file before serializing: projects are written to a temporary file and then moved over the previous file, so an interrupted save can no longer leave an empty or corrupted project behind.
 
 ## [2.0.0] - 2026-07-18
 

@@ -109,6 +109,62 @@ public sealed class JsonStoreTests
     }
 
     [Fact]
+    public async Task JsonProjectStore_SaveAsync_ReplacesFileAndCleansTemporaryFile()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            var path = Path.Combine(directory.FullName, "project.json");
+            await File.WriteAllTextAsync(path, "{");
+            var store = new JsonProjectStore();
+
+            await store.SaveAsync(path, new ProjectFile
+            {
+                Connection = ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with { Host = "10.0.0.7" },
+            });
+
+            var loaded = await store.LoadAsync(path);
+
+            Assert.Equal("10.0.0.7", loaded.Connection.Host);
+            Assert.Empty(directory.EnumerateFiles("*.tmp"));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task JsonProjectStore_SaveAsync_KeepsExistingProjectWhenSaveFails()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        try
+        {
+            var path = Path.Combine(directory.FullName, "project.json");
+            var store = new JsonProjectStore();
+            await store.SaveAsync(path, new ProjectFile
+            {
+                Connection = ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with { Host = "10.0.0.7" },
+            });
+            var savedJson = await File.ReadAllTextAsync(path);
+
+            using var cancellation = new CancellationTokenSource();
+            await cancellation.CancelAsync();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => store.SaveAsync(path, new ProjectFile(), cancellation.Token));
+
+            Assert.Equal(savedJson, await File.ReadAllTextAsync(path));
+            Assert.Equal("10.0.0.7", (await store.LoadAsync(path)).Connection.Host);
+            Assert.Empty(directory.EnumerateFiles("*.tmp"));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task JsonProjectStore_PersistsSlmpModuleIoAsCanonicalName()
     {
         var store = new JsonProjectStore();

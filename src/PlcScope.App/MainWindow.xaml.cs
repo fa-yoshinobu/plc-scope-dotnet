@@ -16,6 +16,8 @@ public partial class MainWindow : Window
 {
     private const string WatchItemDragFormat = "PlcScopeWatchItem";
 
+    private readonly WindowShutdownGate _shutdownGate = new();
+
     private ScrollViewer? _monitorScrollViewer;
     private ScrollViewer? _watchScrollViewer;
     private MonitorRowViewModel? _contextMenuMonitorRow;
@@ -34,6 +36,7 @@ public partial class MainWindow : Window
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += MainWindow_Loaded;
         ContentRendered += MainWindow_ContentRendered;
+        Closing += MainWindow_Closing;
     }
 
     public MainWindowViewModel ViewModel { get; }
@@ -49,6 +52,33 @@ public partial class MainWindow : Window
     {
         ContentRendered -= MainWindow_ContentRendered;
         BringToForeground();
+    }
+
+    private async void MainWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        if (!_shutdownGate.ShouldCancelClose)
+            return;
+
+        // Closing cannot be awaited, so the close is deferred until the session is released.
+        e.Cancel = true;
+        if (!_shutdownGate.TryBeginShutdown())
+            return;
+
+        try
+        {
+            // The close was cancelled, so the dispatcher keeps pumping and this await cannot
+            // deadlock the UI thread.
+            await ViewModel.ShutdownAsync().ConfigureAwait(true);
+        }
+        catch
+        {
+            // The window must close even when the PLC could not be released cleanly.
+        }
+        finally
+        {
+            _shutdownGate.CompleteShutdown();
+            _ = Dispatcher.BeginInvoke(new Action(Close));
+        }
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -75,8 +105,16 @@ public partial class MainWindow : Window
 
     private async void NewProjectMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (await ConfirmWriteAsync("Reset the current project?").ConfigureAwait(true))
-            ViewModel.NewProject();
+        var message = ViewModel.IsConnected
+            ? "Reset the current project? The PLC connection will be closed."
+            : "Reset the current project?";
+        if (await ConfirmWriteAsync(message).ConfigureAwait(true))
+        {
+            await TryRunUiOperationAsync(
+                ViewModel.NewProjectAsync,
+                ShowError,
+                "Could not reset the project").ConfigureAwait(true);
+        }
     }
 
     private async void OpenProjectMenuItem_Click(object sender, RoutedEventArgs e)

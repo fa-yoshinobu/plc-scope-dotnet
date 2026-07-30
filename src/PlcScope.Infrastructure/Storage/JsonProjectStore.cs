@@ -16,8 +16,43 @@ public sealed class JsonProjectStore : IProjectStore
 
     public async Task SaveAsync(string path, ProjectFile project, CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? Environment.CurrentDirectory);
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, project with { LastSavedUtc = DateTimeOffset.UtcNow }, JsonDefaults.Options, cancellationToken).ConfigureAwait(false);
+        var directory = Path.GetDirectoryName(path) ?? Environment.CurrentDirectory;
+        Directory.CreateDirectory(directory);
+        var tempFile = Path.Combine(directory, $"{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await using (var stream = new FileStream(
+                tempFile,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await JsonSerializer.SerializeAsync(stream, project with { LastSavedUtc = DateTimeOffset.UtcNow }, JsonDefaults.Options, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(tempFile, path, overwrite: true);
+        }
+        catch
+        {
+            TryDeleteFile(tempFile);
+            throw;
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 }

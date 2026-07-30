@@ -68,8 +68,12 @@ public partial class MainWindowViewModel
         OnPropertyChanged(nameof(UiAutomationStateText));
     }
 
-    public void NewProject()
+    public async Task NewProjectAsync()
     {
+        // The new project resets the connection settings, so the running session belongs to the
+        // previous PLC. Release it first, otherwise polling and writes keep targeting that PLC.
+        await DisconnectAsync().ConfigureAwait(true);
+
         ProjectName = "Untitled";
         CurrentProjectPath = string.Empty;
         ClearCommentCsvSession();
