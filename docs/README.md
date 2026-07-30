@@ -2,13 +2,21 @@
 
 This directory keeps project documentation grouped by purpose.
 
-The repository root [README](../README.md) is the operator-facing manual. The files below are supporting references for maintainers, protocol details, validation evidence, and reusable sample projects.
+The repository root [README](../README.md) is the user-facing entrance and the
+[User Guide](user-guide.md) is the operator manual. The files below are
+supporting references for maintainers, protocol details, validation evidence,
+and reusable sample projects.
+
+## User Docs
+
+- [User Guide](user-guide.md)
 
 ## Core Docs
 
 - [Specification](specification.md)
 - [Development and maintainer notes](development.md)
 - [Changelog](../CHANGELOG.md)
+- [TODO](../TODO.md)
 
 ## Improvements
 
