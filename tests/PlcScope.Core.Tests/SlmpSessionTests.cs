@@ -32,7 +32,7 @@ public sealed class SlmpSessionTests
 
             var cpuRequest = await ReadSlmpFrameAsync(stream);
             await stream.WriteAsync(BuildSlmpSuccessResponse(cpuRequest, BuildWordsPayload([0x0000])));
-        });
+        }, TestContext.Current.CancellationToken);
 
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
         {
@@ -40,8 +40,8 @@ public sealed class SlmpSessionTests
             Port = port,
             TimeoutSeconds = 1,
         };
-        await using var session = await new PlcSessionFactory().CreateAsync(settings);
-        await session.ConnectAsync();
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
+        await session.ConnectAsync(TestContext.Current.CancellationToken);
 
         var results = await session.ReadBatchAsync(
         [
@@ -61,7 +61,7 @@ public sealed class SlmpSessionTests
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.DWord,
             },
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         Assert.NotNull(randomRequest);
         Assert.Equal((ushort)0x0403, ReadCommand(randomRequest));
@@ -71,7 +71,7 @@ public sealed class SlmpSessionTests
         Assert.Equal((ushort)0x1234, results[0].Result!.WordValues.Single());
         Assert.Equal([(ushort)0xCDEF, (ushort)0x89AB], results[1].Result!.WordValues.ToArray());
 
-        await serverTask.WaitAsync(TimeSpan.FromSeconds(3));
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class SlmpSessionTests
 
             var cpuRequest = await ReadSlmpFrameAsync(stream);
             await stream.WriteAsync(BuildSlmpSuccessResponse(cpuRequest, BuildWordsPayload([0x0000])));
-        });
+        }, TestContext.Current.CancellationToken);
 
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
         {
@@ -111,8 +111,8 @@ public sealed class SlmpSessionTests
             Port = port,
             TimeoutSeconds = 1,
         };
-        await using var session = await new PlcSessionFactory().CreateAsync(settings);
-        await session.ConnectAsync();
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
+        await session.ConnectAsync(TestContext.Current.CancellationToken);
 
         var queries = Enumerable.Range(0, 65)
             .Select(index => new BlockQuery
@@ -125,14 +125,14 @@ public sealed class SlmpSessionTests
             })
             .ToArray();
 
-        var results = await session.ReadBatchAsync(queries);
+        var results = await session.ReadBatchAsync(queries, TestContext.Current.CancellationToken);
 
         Assert.Equal([64, 1], randomWordCounts);
         Assert.All(results, static result => Assert.True(result.Success, result.Error?.Message));
         Assert.Equal((ushort)0, results[0].Result!.WordValues.Single());
         Assert.Equal((ushort)100, results[64].Result!.WordValues.Single());
 
-        await serverTask.WaitAsync(TimeSpan.FromSeconds(3));
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public sealed class SlmpSessionTests
 
             var cpuRequest = await ReadSlmpFrameAsync(stream);
             await stream.WriteAsync(BuildSlmpSuccessResponse(cpuRequest, BuildWordsPayload([0x0000])));
-        });
+        }, TestContext.Current.CancellationToken);
 
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
         {
@@ -169,8 +169,8 @@ public sealed class SlmpSessionTests
             Port = port,
             TimeoutSeconds = 1,
         };
-        await using var session = await new PlcSessionFactory().CreateAsync(settings);
-        await session.ConnectAsync();
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
+        await session.ConnectAsync(TestContext.Current.CancellationToken);
 
         var results = await session.ReadBatchAsync(
         [
@@ -182,14 +182,14 @@ public sealed class SlmpSessionTests
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.Word,
             },
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         Assert.Equal([(ushort)0x0403, (ushort)0x0401], commands);
         var result = Assert.Single(results);
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal((ushort)0x2222, result.Result!.WordValues.Single());
 
-        await serverTask.WaitAsync(TimeSpan.FromSeconds(3));
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public sealed class SlmpSessionTests
 
             writeRequest = await ReadSlmpFrameAsync(stream);
             await stream.WriteAsync(BuildSlmpSuccessResponse(writeRequest, []));
-        });
+        }, TestContext.Current.CancellationToken);
 
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
         {
@@ -218,20 +218,20 @@ public sealed class SlmpSessionTests
             Port = port,
             TimeoutSeconds = 1,
         };
-        await using var session = await new PlcSessionFactory().CreateAsync(settings);
-        await session.ConnectAsync();
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
+        await session.ConnectAsync(TestContext.Current.CancellationToken);
 
         var results = await session.WriteBitBatchAsync(
         [
             new WriteRequest("M0:BIT", ValueDataType.Bit, true),
             new WriteRequest("M1:BIT", ValueDataType.Bit, false),
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         Assert.NotNull(writeRequest);
         Assert.Equal((ushort)0x1402, ReadCommand(writeRequest));
         Assert.Equal(["M0:BIT", "M1:BIT"], results.Select(static result => result.Address).ToArray());
 
-        await serverTask.WaitAsync(TimeSpan.FromSeconds(3));
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -249,7 +249,7 @@ public sealed class SlmpSessionTests
             Assert.Equal((ushort)0x1630, ReadCommand(request));
             var response = BuildSlmpErrorResponse(request, 0xC810);
             await stream.WriteAsync(response);
-        });
+        }, TestContext.Current.CancellationToken);
 
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
         {
@@ -258,12 +258,12 @@ public sealed class SlmpSessionTests
             SlmpRemotePassword = "123456",
             TimeoutSeconds = 1,
         };
-        await using var session = await new PlcSessionFactory().CreateAsync(settings);
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => session.ConnectAsync());
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => session.ConnectAsync(TestContext.Current.CancellationToken));
         Assert.Contains("Remote password authentication has failed", exception.Message);
 
-        await serverTask.WaitAsync(TimeSpan.FromSeconds(3));
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -280,7 +280,7 @@ public sealed class SlmpSessionTests
             var request = await ReadSlmpFrameAsync(stream);
             var response = BuildSlmpErrorResponse(request, 0xC201);
             await stream.WriteAsync(response);
-        });
+        }, TestContext.Current.CancellationToken);
 
         var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
         {
@@ -289,13 +289,13 @@ public sealed class SlmpSessionTests
             SlmpRemotePassword = string.Empty,
             TimeoutSeconds = 1,
         };
-        await using var session = await new PlcSessionFactory().CreateAsync(settings);
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => session.ConnectAsync());
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => session.ConnectAsync(TestContext.Current.CancellationToken));
         Assert.Contains("remote password status of the port", exception.Message);
         Assert.IsNotType<FormatException>(exception);
 
-        await serverTask.WaitAsync(TimeSpan.FromSeconds(3));
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
     }
 
     private static async Task<byte[]> ReadSlmpFrameAsync(NetworkStream stream)

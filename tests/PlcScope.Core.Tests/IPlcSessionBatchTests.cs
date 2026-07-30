@@ -16,7 +16,7 @@ public sealed class IPlcSessionBatchTests
             new BlockQuery { StartAddress = "BAD" },
         };
 
-        var results = await session.ReadBatchAsync(queries);
+        var results = await session.ReadBatchAsync(queries, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, results.Count);
         Assert.True(results[0].Success);
@@ -35,7 +35,7 @@ public sealed class IPlcSessionBatchTests
             new WriteRequest("M1", ValueDataType.Bit, false),
         };
 
-        var results = await ((IPlcSession)session).WriteBitBatchAsync(requests);
+        var results = await ((IPlcSession)session).WriteBitBatchAsync(requests, TestContext.Current.CancellationToken);
 
         Assert.Equal(["M0", "M1"], session.WriteAddresses);
         Assert.Equal(["M0", "M1"], results.Select(static result => result.Address).ToArray());

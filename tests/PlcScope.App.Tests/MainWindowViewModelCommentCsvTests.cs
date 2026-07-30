@@ -36,13 +36,13 @@ public sealed class MainWindowViewModelCommentCsvTests
                 P2-K002,Toyopuc comment B,,
                 P1-K001,Toyopuc comment A,,
                 P3-K003,Toyopuc comment C,,
-                """);
+                """, TestContext.Current.CancellationToken);
             await File.WriteAllTextAsync(
                 secondPath,
                 """
                 P3-K003,Toyopuc comment C override,,
                 P1-K001,Toyopuc comment A override,,
-                """);
+                """, TestContext.Current.CancellationToken);
 
             await viewModel.ImportCommentCsvAsync([firstPath, secondPath]);
             await viewModel.SaveProjectAsync(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.json"));
@@ -81,7 +81,7 @@ public sealed class MainWindowViewModelCommentCsvTests
         {
             await File.WriteAllTextAsync(
                 csvPath,
-                "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n");
+                "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n", TestContext.Current.CancellationToken);
 
             await viewModel.ImportCommentCsvAsync(csvPath);
             await viewModel.SaveProjectAsync(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.json"));
@@ -111,7 +111,7 @@ public sealed class MainWindowViewModelCommentCsvTests
         {
             await File.WriteAllTextAsync(
                 csvPath,
-                "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n");
+                "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n", TestContext.Current.CancellationToken);
             await viewModel.ImportCommentCsvAsync(csvPath);
             Assert.Equal("External comment", viewModel.WatchList.WatchItems[0].Comment);
 
@@ -143,13 +143,13 @@ public sealed class MainWindowViewModelCommentCsvTests
 
         try
         {
-            await File.WriteAllTextAsync(csvPath, "header 1,,\r\nheader 2,,\r\nD0,Must not load,,\r\n");
+            await File.WriteAllTextAsync(csvPath, "header 1,,\r\nheader 2,,\r\nD0,Must not load,,\r\n", TestContext.Current.CancellationToken);
             var json = System.Text.Json.JsonSerializer.Serialize(new
             {
                 commentCsvPath = csvPath,
                 commentCsvPaths = new[] { csvPath },
             });
-            await File.WriteAllTextAsync(projectPath, json);
+            await File.WriteAllTextAsync(projectPath, json, TestContext.Current.CancellationToken);
 
             await viewModel.LoadProjectAsync(projectPath);
 
@@ -180,8 +180,8 @@ public sealed class MainWindowViewModelCommentCsvTests
 
         try
         {
-            await File.WriteAllTextAsync(firstPath, "header 1,,\r\nheader 2,,\r\nD0,First comment,,\r\n");
-            await File.WriteAllTextAsync(secondPath, "header 1,,\r\nheader 2,,\r\nD1,Second comment,,\r\n");
+            await File.WriteAllTextAsync(firstPath, "header 1,,\r\nheader 2,,\r\nD0,First comment,,\r\n", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(secondPath, "header 1,,\r\nheader 2,,\r\nD1,Second comment,,\r\n", TestContext.Current.CancellationToken);
 
             await viewModel.ImportCommentCsvAsync(firstPath);
             await viewModel.ImportCommentCsvAsync(secondPath);
@@ -212,7 +212,7 @@ public sealed class MainWindowViewModelCommentCsvTests
 
         try
         {
-            await File.WriteAllTextAsync(csvPath, "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n");
+            await File.WriteAllTextAsync(csvPath, "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n", TestContext.Current.CancellationToken);
             await viewModel.ImportCommentCsvAsync(csvPath);
             Assert.Equal("External comment", item.Comment);
 
@@ -242,7 +242,7 @@ public sealed class MainWindowViewModelCommentCsvTests
 
         try
         {
-            await File.WriteAllTextAsync(csvPath, "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n");
+            await File.WriteAllTextAsync(csvPath, "header 1,,\r\nheader 2,,\r\nD0,External comment,,\r\n", TestContext.Current.CancellationToken);
             await viewModel.ImportCommentCsvAsync(csvPath);
             Assert.Equal("External comment", viewModel.WatchList.WatchItems[0].Comment);
 
@@ -286,7 +286,7 @@ public sealed class MainWindowViewModelCommentCsvTests
                 header 1,,
                 header 2,,
                 T12,Timer comment,,
-                """);
+                """, TestContext.Current.CancellationToken);
             await viewModel.ImportCommentCsvAsync(csvPath);
 
             var slmpResult = ApplyCsvComments(viewModel, result);

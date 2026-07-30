@@ -92,7 +92,7 @@ public sealed class MainWindowViewModelLifecycleTests
             {
                 await Task.Delay(20);
                 release.SetResult();
-            });
+            }, TestContext.Current.CancellationToken);
 
             var completed = App.WaitForSessionShutdown(viewModel, TimeSpan.FromSeconds(5));
 

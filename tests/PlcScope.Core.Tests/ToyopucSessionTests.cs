@@ -27,15 +27,15 @@ public sealed class ToyopucSessionTests
             ToyopucPlcProfileName = "toyopuc:plus:extended",
         };
 
-        await using var session = await new PlcSessionFactory().CreateAsync(settings);
-        await Assert.ThrowsAnyAsync<Exception>(() => session.ConnectAsync());
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
+        await Assert.ThrowsAnyAsync<Exception>(() => session.ConnectAsync(TestContext.Current.CancellationToken));
         Assert.False(session.IsConnected);
 
         using var listener = new TcpListener(IPAddress.Loopback, port);
         listener.Start();
-        var serverTask = listener.AcceptTcpClientAsync();
+        var serverTask = listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
 
-        await session.ConnectAsync();
+        await session.ConnectAsync(TestContext.Current.CancellationToken);
         using var serverClient = await serverTask;
 
         Assert.True(session.IsConnected);
@@ -55,10 +55,10 @@ public sealed class ToyopucSessionTests
             await using var stream = serverClient.GetStream();
             requestFrame = await ReadFrameAsync(stream);
             await stream.WriteAsync(BuildResponse(0x32, new byte[] { 0x02, 0x00 }));
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port);
-        await session.SendCpuCommandAsync(CpuCommand.Stop);
+        await session.SendCpuCommandAsync(CpuCommand.Stop, TestContext.Current.CancellationToken);
         await serverTask;
 
         Assert.Equal(new byte[] { 0x00, 0x00, 0x04, 0x00, 0x32, 0x02, 0x00, 0x01 }, requestFrame);
@@ -81,10 +81,10 @@ public sealed class ToyopucSessionTests
             await stream.WriteAsync(BuildResponse(0x32, new byte[] { 0x02, 0x00 }));
             resumeFrame = await ReadFrameAsync(stream);
             await stream.WriteAsync(BuildResponse(0x32, new byte[] { 0x01, 0x00 }));
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port);
-        await session.SendCpuCommandAsync(CpuCommand.Run);
+        await session.SendCpuCommandAsync(CpuCommand.Run, TestContext.Current.CancellationToken);
         await serverTask;
 
         Assert.Equal(new byte[] { 0x00, 0x00, 0x04, 0x00, 0x32, 0x02, 0x00, 0x00 }, releaseFrame);
@@ -108,7 +108,7 @@ public sealed class ToyopucSessionTests
 
             _ = await ReadFrameAsync(stream);
             await stream.WriteAsync(BuildResponse(0x60, new byte[] { 0x11, 0x02, 0x00, 0x06, 0x0B, 0x00, 0x32, 0x11, 0x00, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x00 }));
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port, relayHops: "P1-L1:N2");
         var result = await session.ReadBlockAsync(new BlockQuery
@@ -118,7 +118,7 @@ public sealed class ToyopucSessionTests
             DeviceKind = DeviceKind.Word,
             StartAddress = "P1-D0000:U",
             ItemCount = 1,
-        });
+        }, TestContext.Current.CancellationToken);
         await serverTask;
 
         Assert.Equal(new byte[] { 0x00, 0x00, 0x0E, 0x00, 0x60, 0x11, 0x02, 0x00, 0x05, 0x06, 0x00, 0x94, 0x01, 0x00, 0x10, 0x01, 0x00, 0x00 }, readFrame);
@@ -139,10 +139,10 @@ public sealed class ToyopucSessionTests
             await using var stream = serverClient.GetStream();
             writeFrame = await ReadFrameAsync(stream);
             await stream.WriteAsync(BuildResponse(0x60, new byte[] { 0x11, 0x02, 0x00, 0x06, 0x01, 0x00, 0x95, 0x01 }));
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port, relayHops: "P1-L1:N2");
-        await session.WriteAsync(new WriteRequest("P1-D0000:U", ValueDataType.UInt16, 0x1234));
+        await session.WriteAsync(new WriteRequest("P1-D0000:U", ValueDataType.UInt16, 0x1234), TestContext.Current.CancellationToken);
         await serverTask;
 
         Assert.Equal(new byte[] { 0x00, 0x00, 0x0E, 0x00, 0x60, 0x11, 0x02, 0x00, 0x05, 0x06, 0x00, 0x95, 0x01, 0x00, 0x10, 0x34, 0x12, 0x00 }, writeFrame);
@@ -162,7 +162,7 @@ public sealed class ToyopucSessionTests
             await using var stream = serverClient.GetStream();
             readManyFrame = await ReadFrameAsync(stream);
             await stream.WriteAsync(BuildResponse(0x94, new byte[] { 0x34, 0x12, 0x78, 0x56 }));
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port);
         var results = await session.ReadBatchAsync(
@@ -183,7 +183,7 @@ public sealed class ToyopucSessionTests
                 StartAddress = "P1-D0001:U",
                 ItemCount = 1,
             },
-        ]);
+        ], TestContext.Current.CancellationToken);
         await serverTask;
 
         Assert.All(results, static result => Assert.True(result.Success, result.Error?.Message));
@@ -206,14 +206,14 @@ public sealed class ToyopucSessionTests
             await using var stream = serverClient.GetStream();
             writeManyFrame = await ReadFrameAsync(stream);
             await stream.WriteAsync(BuildResponse(0x99, new byte[] { 0x01 }));
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port);
         var results = await session.WriteBitBatchAsync(
         [
             new WriteRequest("P1-M0000:BIT", ValueDataType.Bit, true),
             new WriteRequest("P1-M0001:BIT", ValueDataType.Bit, false),
-        ]);
+        ], TestContext.Current.CancellationToken);
         await serverTask;
 
         Assert.Equal(["P1-M0000:BIT", "P1-M0001:BIT"], results.Select(static result => result.Address).ToArray());
@@ -234,7 +234,7 @@ public sealed class ToyopucSessionTests
             await using var stream = serverClient.GetStream();
             readManyFrame = await ReadFrameAsync(stream);
             await stream.WriteAsync(BuildResponse(0x94, new byte[] { 0x34, 0x12 }));
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port);
         var results = await session.ReadBatchAsync(
@@ -255,7 +255,7 @@ public sealed class ToyopucSessionTests
                 StartAddress = "P1-D0000:U",
                 ItemCount = 1,
             },
-        ]);
+        ], TestContext.Current.CancellationToken);
         await serverTask;
 
         Assert.False(results[0].Success);
@@ -269,7 +269,7 @@ public sealed class ToyopucSessionTests
     {
         await using var session = await CreateToyopucSessionAsync("toyopuc:plus:extended");
 
-        var catalog = await session.ReadDeviceRangeCatalogAsync();
+        var catalog = await session.ReadDeviceRangeCatalogAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("toyopuc:plus:extended", catalog.Model);
         Assert.Equal("toyopuc:plus:extended", catalog.Family);
@@ -296,7 +296,7 @@ public sealed class ToyopucSessionTests
     {
         await using var session = await CreateToyopucSessionAsync("toyopuc:pc10g:pc10");
 
-        var catalog = await session.ReadDeviceRangeCatalogAsync();
+        var catalog = await session.ReadDeviceRangeCatalogAsync(TestContext.Current.CancellationToken);
 
         var p1P = Assert.Single(catalog.Entries, entry => entry.Device == "P1-P");
         Assert.True(p1P.Supported);

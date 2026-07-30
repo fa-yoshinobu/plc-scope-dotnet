@@ -20,10 +20,10 @@ public sealed class FileLogStoreTests : IDisposable
     {
         using var store = CreateStore();
 
-        await store.AppendErrorAsync(new ErrorEntry(DateTimeOffset.UtcNow, "Read", "SLMP error", "details"));
+        await store.AppendErrorAsync(new ErrorEntry(DateTimeOffset.UtcNow, "Read", "SLMP error", "details"), TestContext.Current.CancellationToken);
 
         Assert.True(File.Exists(_errorLogFile));
-        var errors = await store.LoadRecentErrorsAsync(10);
+        var errors = await store.LoadRecentErrorsAsync(10, TestContext.Current.CancellationToken);
         Assert.Single(errors);
         Assert.Equal("Read", errors[0].Operation);
         Assert.Equal("SLMP error", errors[0].Message);
@@ -39,11 +39,11 @@ public sealed class FileLogStoreTests : IDisposable
             await store.AppendErrorAsync(new ErrorEntry(
                 DateTimeOffset.UtcNow.AddSeconds(index),
                 "Read",
-                $"error-{index}"));
+                $"error-{index}"), TestContext.Current.CancellationToken);
         }
 
-        var lines = await File.ReadAllLinesAsync(_errorLogFile);
-        var errors = await store.LoadRecentErrorsAsync(500);
+        var lines = await File.ReadAllLinesAsync(_errorLogFile, TestContext.Current.CancellationToken);
+        var errors = await store.LoadRecentErrorsAsync(500, TestContext.Current.CancellationToken);
 
         Assert.Equal(505, lines.Length);
         Assert.Equal(500, errors.Count);
@@ -61,11 +61,11 @@ public sealed class FileLogStoreTests : IDisposable
             await store.AppendErrorAsync(new ErrorEntry(
                 DateTimeOffset.UtcNow.AddSeconds(index),
                 "Read",
-                $"error-{index}"));
+                $"error-{index}"), TestContext.Current.CancellationToken);
         }
 
-        var lines = await File.ReadAllLinesAsync(_errorLogFile);
-        var errors = await store.LoadRecentErrorsAsync(600);
+        var lines = await File.ReadAllLinesAsync(_errorLogFile, TestContext.Current.CancellationToken);
+        var errors = await store.LoadRecentErrorsAsync(600, TestContext.Current.CancellationToken);
 
         Assert.Equal(500, lines.Length);
         Assert.Equal(500, errors.Count);
@@ -83,9 +83,9 @@ public sealed class FileLogStoreTests : IDisposable
             ProtocolKind.Slmp,
             TraceDirection.Send,
             "SLMP frame",
-            "0102"));
+            "0102"), TestContext.Current.CancellationToken);
 
-        var traces = await store.LoadRecentTraceAsync(10);
+        var traces = await store.LoadRecentTraceAsync(10, TestContext.Current.CancellationToken);
 
         Assert.Single(traces);
         Assert.Equal("0102", traces[0].PayloadHex);
@@ -95,14 +95,14 @@ public sealed class FileLogStoreTests : IDisposable
     public async Task ClearAsync_RemovesPersistedLogsAndBufferedTraceRecords()
     {
         using var store = CreateStore();
-        await store.AppendTraceAsync(new TraceEntry(DateTimeOffset.UtcNow, ProtocolKind.Slmp, TraceDirection.Send, "SLMP frame", "01"));
-        await store.AppendErrorAsync(new ErrorEntry(DateTimeOffset.UtcNow, "Read", "error"));
+        await store.AppendTraceAsync(new TraceEntry(DateTimeOffset.UtcNow, ProtocolKind.Slmp, TraceDirection.Send, "SLMP frame", "01"), TestContext.Current.CancellationToken);
+        await store.AppendErrorAsync(new ErrorEntry(DateTimeOffset.UtcNow, "Read", "error"), TestContext.Current.CancellationToken);
 
-        await store.ClearTraceAsync();
-        await store.ClearErrorsAsync();
+        await store.ClearTraceAsync(TestContext.Current.CancellationToken);
+        await store.ClearErrorsAsync(TestContext.Current.CancellationToken);
 
-        Assert.Empty(await store.LoadRecentTraceAsync(10));
-        Assert.Empty(await store.LoadRecentErrorsAsync(10));
+        Assert.Empty(await store.LoadRecentTraceAsync(10, TestContext.Current.CancellationToken));
+        Assert.Empty(await store.LoadRecentErrorsAsync(10, TestContext.Current.CancellationToken));
         Assert.False(File.Exists(_traceLogFile));
         Assert.False(File.Exists(_errorLogFile));
     }

@@ -72,10 +72,10 @@ public sealed class MainWindowViewModelWatchTests
                 Address,Type,Format,Comment
                 D10,UInt16,Hex,Word comment
                 M0,Bit,Dec,Bit comment
-                """);
+                """, TestContext.Current.CancellationToken);
 
-            await viewModel.WatchList.ImportCsvAsync(importPath, viewModel.ResolveCsvCommentForAddress);
-            await viewModel.WatchList.ExportCsvAsync(exportPath);
+            await viewModel.WatchList.ImportCsvAsync(importPath, viewModel.ResolveCsvCommentForAddress, TestContext.Current.CancellationToken);
+            await viewModel.WatchList.ExportCsvAsync(exportPath, TestContext.Current.CancellationToken);
 
             Assert.Equal(["D10", "M0"], viewModel.WatchList.WatchItems.Select(static item => item.Address).ToArray());
             Assert.Equal(ValueDataType.UInt16, viewModel.WatchList.WatchItems[0].DataType);
@@ -83,7 +83,7 @@ public sealed class MainWindowViewModelWatchTests
             Assert.Equal("Word comment", viewModel.WatchList.WatchItems[0].Comment);
             Assert.Same(viewModel.WatchList.WatchItems[0], viewModel.WatchList.SelectedWatchItem);
 
-            var exported = await File.ReadAllTextAsync(exportPath);
+            var exported = await File.ReadAllTextAsync(exportPath, TestContext.Current.CancellationToken);
             Assert.Contains("Address,Type,Format,Comment", exported, StringComparison.Ordinal);
             Assert.DoesNotContain("IsEnabled", exported, StringComparison.Ordinal);
             Assert.Contains("D10,UInt16,Hex,Word comment", exported, StringComparison.Ordinal);

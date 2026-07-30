@@ -13,9 +13,9 @@ public sealed class JsonStoreTests
         try
         {
             var path = Path.Combine(directory.FullName, "settings.json");
-            await File.WriteAllTextAsync(path, "{");
+            await File.WriteAllTextAsync(path, "{", TestContext.Current.CancellationToken);
 
-            var settings = await new JsonSettingsStore(path).LoadAsync();
+            var settings = await new JsonSettingsStore(path).LoadAsync(TestContext.Current.CancellationToken);
 
             Assert.Null(settings.LastSelectedProtocol);
             Assert.Equal(14, settings.UiFontSize);
@@ -34,7 +34,7 @@ public sealed class JsonStoreTests
         try
         {
             var path = Path.Combine(directory.FullName, "settings.json");
-            await File.WriteAllTextAsync(path, "{");
+            await File.WriteAllTextAsync(path, "{", TestContext.Current.CancellationToken);
             var store = new JsonSettingsStore(path);
 
             await store.SaveAsync(new AppSettings
@@ -42,9 +42,9 @@ public sealed class JsonStoreTests
                 LastSelectedProtocol = ProtocolKind.HostLink.ToString(),
                 UiFontSize = 18,
                 UiTheme = "Light",
-            });
+            }, TestContext.Current.CancellationToken);
 
-            var loaded = await store.LoadAsync();
+            var loaded = await store.LoadAsync(TestContext.Current.CancellationToken);
 
             Assert.Equal(ProtocolKind.HostLink.ToString(), loaded.LastSelectedProtocol);
             Assert.Equal(18, loaded.UiFontSize);
@@ -90,9 +90,9 @@ public sealed class JsonStoreTests
                 ],
             };
 
-            await store.SaveAsync(path, project);
-            var loaded = await store.LoadAsync(path);
-            var json = await File.ReadAllTextAsync(path);
+            await store.SaveAsync(path, project, TestContext.Current.CancellationToken);
+            var loaded = await store.LoadAsync(path, TestContext.Current.CancellationToken);
+            var json = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
 
             Assert.DoesNotContain("\"name\"", json, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("10.0.0.5", loaded.Connection.Host);
@@ -116,15 +116,15 @@ public sealed class JsonStoreTests
         try
         {
             var path = Path.Combine(directory.FullName, "project.json");
-            await File.WriteAllTextAsync(path, "{");
+            await File.WriteAllTextAsync(path, "{", TestContext.Current.CancellationToken);
             var store = new JsonProjectStore();
 
             await store.SaveAsync(path, new ProjectFile
             {
                 Connection = ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with { Host = "10.0.0.7" },
-            });
+            }, TestContext.Current.CancellationToken);
 
-            var loaded = await store.LoadAsync(path);
+            var loaded = await store.LoadAsync(path, TestContext.Current.CancellationToken);
 
             Assert.Equal("10.0.0.7", loaded.Connection.Host);
             Assert.Empty(directory.EnumerateFiles("*.tmp"));
@@ -146,8 +146,8 @@ public sealed class JsonStoreTests
             await store.SaveAsync(path, new ProjectFile
             {
                 Connection = ConnectionSettings.CreateDefault(ProtocolKind.HostLink) with { Host = "10.0.0.7" },
-            });
-            var savedJson = await File.ReadAllTextAsync(path);
+            }, TestContext.Current.CancellationToken);
+            var savedJson = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
 
             using var cancellation = new CancellationTokenSource();
             await cancellation.CancelAsync();
@@ -155,8 +155,8 @@ public sealed class JsonStoreTests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => store.SaveAsync(path, new ProjectFile(), cancellation.Token));
 
-            Assert.Equal(savedJson, await File.ReadAllTextAsync(path));
-            Assert.Equal("10.0.0.7", (await store.LoadAsync(path)).Connection.Host);
+            Assert.Equal(savedJson, await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+            Assert.Equal("10.0.0.7", (await store.LoadAsync(path, TestContext.Current.CancellationToken)).Connection.Host);
             Assert.Empty(directory.EnumerateFiles("*.tmp"));
         }
         finally
@@ -174,9 +174,9 @@ public sealed class JsonStoreTests
             var path = Path.Combine(directory.FullName, "project.json");
             var store = new JsonProjectStore();
 
-            await store.SaveAsync(path, new ProjectFile());
-            var json = await File.ReadAllTextAsync(path);
-            var loaded = await store.LoadAsync(path);
+            await store.SaveAsync(path, new ProjectFile(), TestContext.Current.CancellationToken);
+            var json = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+            var loaded = await store.LoadAsync(path, TestContext.Current.CancellationToken);
 
             Assert.Contains($"\"projectVersion\": \"{ProjectFile.CurrentProjectVersion}\"", json, StringComparison.Ordinal);
             Assert.Equal(ProjectFile.CurrentProjectVersion, loaded.ProjectVersion);
@@ -197,9 +197,9 @@ public sealed class JsonStoreTests
         try
         {
             var path = Path.Combine(directory.FullName, "project.json");
-            await File.WriteAllTextAsync(path, $"{{\"projectVersion\":\"{projectVersion}\",\"connection\":{{\"host\":\"10.0.0.9\"}}}}");
+            await File.WriteAllTextAsync(path, $"{{\"projectVersion\":\"{projectVersion}\",\"connection\":{{\"host\":\"10.0.0.9\"}}}}", TestContext.Current.CancellationToken);
 
-            var loaded = await new JsonProjectStore().LoadAsync(path);
+            var loaded = await new JsonProjectStore().LoadAsync(path, TestContext.Current.CancellationToken);
 
             Assert.Equal(projectVersion, loaded.ProjectVersion);
             Assert.Equal("10.0.0.9", loaded.Connection.Host);
@@ -220,9 +220,9 @@ public sealed class JsonStoreTests
         try
         {
             var path = Path.Combine(directory.FullName, "project.json");
-            await File.WriteAllTextAsync(path, json);
+            await File.WriteAllTextAsync(path, json, TestContext.Current.CancellationToken);
 
-            var loaded = await new JsonProjectStore().LoadAsync(path);
+            var loaded = await new JsonProjectStore().LoadAsync(path, TestContext.Current.CancellationToken);
 
             Assert.Equal(ProjectFile.CurrentProjectVersion, loaded.ProjectVersion);
         }
@@ -243,10 +243,10 @@ public sealed class JsonStoreTests
         try
         {
             var path = Path.Combine(directory.FullName, "project.json");
-            await File.WriteAllTextAsync(path, $"{{\"projectVersion\":\"{projectVersion}\",\"connection\":{{\"host\":\"10.0.0.9\"}}}}");
+            await File.WriteAllTextAsync(path, $"{{\"projectVersion\":\"{projectVersion}\",\"connection\":{{\"host\":\"10.0.0.9\"}}}}", TestContext.Current.CancellationToken);
 
             var exception = await Assert.ThrowsAsync<InvalidDataException>(
-                () => new JsonProjectStore().LoadAsync(path));
+                () => new JsonProjectStore().LoadAsync(path, TestContext.Current.CancellationToken));
 
             Assert.Contains(projectVersion, exception.Message, StringComparison.Ordinal);
             Assert.Contains("PLC Scope", exception.Message, StringComparison.Ordinal);
@@ -264,9 +264,9 @@ public sealed class JsonStoreTests
         try
         {
             var path = Path.Combine(directory.FullName, "project.json");
-            await File.WriteAllTextAsync(path, "{");
+            await File.WriteAllTextAsync(path, "{", TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAnyAsync<JsonException>(() => new JsonProjectStore().LoadAsync(path));
+            await Assert.ThrowsAnyAsync<JsonException>(() => new JsonProjectStore().LoadAsync(path, TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -289,9 +289,9 @@ public sealed class JsonStoreTests
                 },
             };
 
-            await store.SaveAsync(path, project);
-            var loaded = await store.LoadAsync(path);
-            var json = await File.ReadAllTextAsync(path);
+            await store.SaveAsync(path, project, TestContext.Current.CancellationToken);
+            var loaded = await store.LoadAsync(path, TestContext.Current.CancellationToken);
+            var json = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
 
             Assert.Contains("\"slmpModuleIo\": \"MultipleCpu2\"", json, StringComparison.Ordinal);
             Assert.Equal(SlmpModuleIoTarget.MultipleCpu2, loaded.Connection.SlmpModuleIo);

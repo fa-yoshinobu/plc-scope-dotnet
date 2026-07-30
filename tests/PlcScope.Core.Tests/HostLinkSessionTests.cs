@@ -68,7 +68,7 @@ public sealed class HostLinkSessionTests
                 ItemCount = 1,
                 DisplayMode = BlockDisplayMode.BitExpand,
             },
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         Assert.All(results, static result => Assert.True(result.Success, result.Error?.Message));
         Assert.Equal([10], results[0].Result!.WordValues);
@@ -112,7 +112,7 @@ public sealed class HostLinkSessionTests
                 StartAddress = "D1000:U",
                 ItemCount = 1,
             },
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         Assert.False(results[0].Success);
         Assert.True(results[1].Success, results[1].Error?.Message);
@@ -132,7 +132,7 @@ public sealed class HostLinkSessionTests
             new WriteRequest("MR000:BIT", ValueDataType.Bit, true),
             new WriteRequest("MR001:BIT", ValueDataType.Bit, false),
             new WriteRequest("MR002:BIT", ValueDataType.Bit, true),
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         Assert.Equal(["MR000:BIT", "MR001:BIT", "MR002:BIT"], results.Select(static result => result.Address).ToArray());
         Assert.Equal(["WRS MR000 3 1 0 1"], server.ReceivedCommands.ToArray());
@@ -148,7 +148,7 @@ public sealed class HostLinkSessionTests
         [
             new WriteRequest("MR015:BIT", ValueDataType.Bit, true),
             new WriteRequest("MR100:BIT", ValueDataType.Bit, false),
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         Assert.Equal(["MR015:BIT", "MR100:BIT"], results.Select(static result => result.Address).ToArray());
         Assert.DoesNotContain(server.ReceivedCommands, command => command.StartsWith("WRS ", StringComparison.Ordinal));
@@ -175,7 +175,7 @@ public sealed class HostLinkSessionTests
             StartAddress = "MR000:BIT",
             ItemCount = 32,
             DisplayMode = BlockDisplayMode.Word,
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(["MWS MR000.U MR100.U", "MWR", "?M"], server.ReceivedCommands.ToArray());
         Assert.Empty(result.WordValues);
@@ -211,8 +211,8 @@ public sealed class HostLinkSessionTests
             DisplayMode = BlockDisplayMode.Word,
         };
 
-        var first = await session.ReadBlockAsync(query);
-        var second = await session.ReadBlockAsync(query);
+        var first = await session.ReadBlockAsync(query, TestContext.Current.CancellationToken);
+        var second = await session.ReadBlockAsync(query, TestContext.Current.CancellationToken);
 
         Assert.Equal(
             [
@@ -247,7 +247,7 @@ public sealed class HostLinkSessionTests
             StartAddress = "X390:BIT",
             ItemCount = 32,
             DisplayMode = BlockDisplayMode.Word,
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(["MWS X390.U X400.U", "MWR", "?M"], server.ReceivedCommands.ToArray());
         Assert.True(result.BitValues[0]);
@@ -279,7 +279,7 @@ public sealed class HostLinkSessionTests
             StartAddress = "M100:BIT",
             ItemCount = 2,
             DisplayMode = BlockDisplayMode.BitExpand,
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(["MBS M100 M101", "MBR", "?M"], server.ReceivedCommands.ToArray());
         Assert.True(result.BitValues[0]);
@@ -311,8 +311,8 @@ public sealed class HostLinkSessionTests
             DisplayMode = BlockDisplayMode.BitExpand,
         };
 
-        var first = await session.ReadBlockAsync(query);
-        var second = await session.ReadBlockAsync(query);
+        var first = await session.ReadBlockAsync(query, TestContext.Current.CancellationToken);
+        var second = await session.ReadBlockAsync(query, TestContext.Current.CancellationToken);
 
         Assert.Equal(
             [
@@ -355,7 +355,7 @@ public sealed class HostLinkSessionTests
             StartAddress = "B0:BIT",
             ItemCount = 2,
             DisplayMode = BlockDisplayMode.BitExpand,
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(["MWS B0.U", "MBS B0 B1", "RDS B0 2", "RDE B0 2", "?M"], server.ReceivedCommands.ToArray());
         Assert.True(result.BitValues[0]);
@@ -372,7 +372,7 @@ public sealed class HostLinkSessionTests
         });
         await using var session = await CreateConnectedHostLinkSessionAsync(server.Port, "keyence:kv-8000-xym");
 
-        var catalog = await session.ReadDeviceRangeCatalogAsync();
+        var catalog = await session.ReadDeviceRangeCatalogAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("keyence:kv-8000-xym", catalog.Family);
         var d = Assert.Single(catalog.Entries, entry => entry.Device == "D");

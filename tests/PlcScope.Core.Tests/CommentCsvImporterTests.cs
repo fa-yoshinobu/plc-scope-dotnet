@@ -122,9 +122,9 @@ public sealed class CommentCsvImporterTests
         var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.csv");
         try
         {
-            await File.WriteAllTextAsync(path, text, System.Text.Encoding.Unicode);
+            await File.WriteAllTextAsync(path, text, System.Text.Encoding.Unicode, TestContext.Current.CancellationToken);
 
-            var comments = await CommentCsvImporter.LoadAsync(path, ProtocolKind.Slmp);
+            var comments = await CommentCsvImporter.LoadAsync(path, ProtocolKind.Slmp, TestContext.Current.CancellationToken);
 
             Assert.Equal("Axis alarm", comments["X0A"]);
             Assert.Equal("Data protect key", comments["Y41A"]);
@@ -144,9 +144,9 @@ public sealed class CommentCsvImporterTests
         try
         {
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-            await File.WriteAllTextAsync(path, text, System.Text.Encoding.GetEncoding(932));
+            await File.WriteAllTextAsync(path, text, System.Text.Encoding.GetEncoding(932), TestContext.Current.CancellationToken);
 
-            var comments = await CommentCsvImporter.LoadAsync(path, ProtocolKind.Slmp);
+            var comments = await CommentCsvImporter.LoadAsync(path, ProtocolKind.Slmp, TestContext.Current.CancellationToken);
 
             Assert.Equal("運転速度", comments["D0"]);
         }
