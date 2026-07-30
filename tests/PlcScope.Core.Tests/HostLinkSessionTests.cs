@@ -82,8 +82,10 @@ public sealed class HostLinkSessionTests
     }
 
     [Fact]
-    public async Task ReadBatchAsync_FallsBackToSequentialWhenNamedReadPlanningFails()
+    public async Task ReadBatchAsync_FallsBackToSequentialWhenNamedReadFails()
     {
+        // Since PlcComm.KvHostLink 3.2.1, catalog upper bounds no longer reject
+        // sends client-side; out-of-range addresses reach the PLC and fail there.
         await using var server = new ScriptedHostLinkServer(command => command switch
         {
             "RDS D1000.U 1" => "7",
@@ -115,7 +117,8 @@ public sealed class HostLinkSessionTests
         Assert.False(results[0].Success);
         Assert.True(results[1].Success, results[1].Error?.Message);
         Assert.Equal([7], results[1].Result!.WordValues);
-        Assert.DoesNotContain(server.ReceivedCommands, command => command.Contains("D99999", StringComparison.Ordinal));
+        Assert.Contains(server.ReceivedCommands, command => command.Contains("D99999", StringComparison.Ordinal));
+        Assert.Equal(2, server.ReceivedCommands.Count(command => command == "RDS D1000.U 1"));
     }
 
     [Fact]

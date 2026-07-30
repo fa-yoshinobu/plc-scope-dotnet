@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Updated PLC communication libraries: PlcComm.Slmp 4.0.1, PlcComm.KvHostLink 3.2.1, PlcComm.Toyopuc 3.2.1 (bug-fix releases, no API changes).
+
 ## [2.0.0] - 2026-07-18
 
 ### BREAKING
