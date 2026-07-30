@@ -14,8 +14,8 @@ No active improvement memo is currently open.
 
 Completed instruction documents and closed investigation checklists are not kept
 here. Their outcome lives in the [changelog](../../CHANGELOG.md) and in the code,
-and the documents themselves remain in the git history. Real-PLC validation
-records and release decisions are kept under [../validation](../validation/).
+and the documents themselves remain in the git history. A hardware finding that
+users need belongs in [user-guide.md](../user-guide.md).
 
 ## Adding New Work
 

@@ -4,8 +4,8 @@ This directory keeps project documentation grouped by purpose.
 
 The repository root [README](../README.md) is the user-facing entrance and the
 [User Guide](user-guide.md) is the operator manual. The files below are
-supporting references for maintainers, protocol details, validation evidence,
-and reusable sample projects.
+supporting references for maintainers, protocol details, and reusable sample
+projects.
 
 ## User Docs
 
@@ -21,11 +21,7 @@ and reusable sample projects.
 ## Improvements
 
 - [Improvement index](improvements/README.md)
-- Retained design notes are kept under [`improvements/close/`](improvements/close/); real-PLC validation records live under [`validation/`](validation/).
-
-## Validation
-
-- [TOYOPUC relay-hop validation](validation/toyopuc-relay-hop-validation-2026-06-12.md)
+- Retained design notes are kept under [`improvements/close/`](improvements/close/).
 
 ## Samples
 

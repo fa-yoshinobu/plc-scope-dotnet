@@ -91,6 +91,8 @@ P1-L1:N2
 
 Use the profile that matches the target PLC or compatibility mode. Unsupported devices are hidden when profile range information is available.
 
+When routing through a relay hop, keep to one client at a time. A single client path is stable, but several TCP clients reaching the same relay hop at once contend for the target path and reads or writes start failing. Close other software that talks through the same hop before connecting.
+
 ## Monitor Tab
 
 The Monitor tab shows a generated device range.

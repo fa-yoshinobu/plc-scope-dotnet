@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Documented the TOYOPUC relay-hop limitation in the user guide: only one client at a time should route through a relay hop, because several TCP clients on the same hop contend for the target path.
 - Migrated the test projects from xUnit 2.9.3, which NuGet reports as deprecated, to xUnit v3. Test counts are unchanged (Core 247, App 70, UI automation 37) and the build keeps zero warnings; the analyzer's cancellation-token findings were fixed rather than suppressed.
 - Added project file schema validation: opening a project now checks `projectVersion`, accepts a missing or blank value and any version 1 file, and rejects a file written by a newer PLC Scope (or with an unreadable version) with an explicit "cannot open" message instead of silently loading partially understood data.
 - Added a `CI` workflow that restores, builds, and tests the solution on Windows for every push to `main`, every pull request against `main`, and manual dispatch, so build and test regressions are caught before a release tag. The FlaUI desktop-automation tests stay a local gate.

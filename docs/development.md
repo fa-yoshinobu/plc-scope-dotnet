@@ -149,7 +149,7 @@ Recommended checks before publishing:
 - Put build/test/release commands in this file.
 - Put expected application behavior and protocol contracts in [specification.md](specification.md).
 - Keep a closed investigation note under [improvements/close](improvements/close/) only when it explains a design decision the code does not; otherwise record the outcome in the changelog and delete it.
-- Put hardware validation notes under [validation](validation/).
+- Put a hardware finding where users read it: a behavior or limitation belongs in [user-guide.md](user-guide.md), not in a separate validation note.
 - Put reusable project JSON files under [samples](samples/).
 
 ## Release Checklist

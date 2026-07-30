@@ -82,8 +82,8 @@ troubleshooting are all covered in the [User Guide](docs/user-guide.md).
 - [Security notes](SECURITY.md)
 - [PLC Communication Libraries documentation site](https://fa-yoshinobu.github.io/plc-comm-docs-site/)
 
-Maintainer material (specification, development notes, improvement plans,
-validation records) is indexed in [docs/README.md](docs/README.md).
+Maintainer material (specification, development notes, improvement plans) is
+indexed in [docs/README.md](docs/README.md).
 
 ## License
 
