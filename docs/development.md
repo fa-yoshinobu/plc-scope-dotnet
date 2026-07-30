@@ -148,9 +148,20 @@ Recommended checks before publishing:
 - Keep the root `README.md` focused on installation, connection setup, operation, troubleshooting, and sample projects.
 - Put build/test/release commands in this file.
 - Put expected application behavior and protocol contracts in [specification.md](specification.md).
-- Keep a closed investigation note under [improvements/close](improvements/close/) only when it explains a design decision the code does not; otherwise record the outcome in the changelog and delete it.
+- Do not keep a closed investigation note. Record the outcome in the changelog and delete the document; git history holds the rest. A note that characterises library behaviour goes stale silently when the package is updated, which is worse than having none.
 - Put a hardware finding where users read it: a behavior or limitation belongs in [user-guide.md](user-guide.md), not in a separate validation note.
 - Put reusable project JSON files under [samples](samples/).
+
+### Watch-list batching
+
+Host Link and TOYOPUC batch visible watch rows conservatively and fall back to
+sequential reads whenever a batched request fails, because their point limits,
+mixed-device rules, and invalid-address behaviour are not fully specified.
+Before widening that scope, re-measure those limits against the package version
+you are shipping: a 2026-06 characterisation was invalidated by
+PlcComm.KvHostLink 3.2.1, which stopped rejecting out-of-range addresses on the
+client, repacked direct-bit tokens, and split consecutive reads at the command
+limit.
 
 ## Release Checklist
 

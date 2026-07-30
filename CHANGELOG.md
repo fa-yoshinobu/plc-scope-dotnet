@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Replaced the 2026-06 Host Link/TOYOPUC batching investigation note with a maintainer rule: the note characterised package version 0.8.0, and PlcComm.KvHostLink 3.2.1 has since changed out-of-range handling, direct-bit packing, and consecutive-read splitting, so its conclusions no longer describe the shipped library.
 - Documented the TOYOPUC relay-hop limitation in the user guide: only one client at a time should route through a relay hop, because several TCP clients on the same hop contend for the target path.
 - Migrated the test projects from xUnit 2.9.3, which NuGet reports as deprecated, to xUnit v3. Test counts are unchanged (Core 247, App 70, UI automation 37) and the build keeps zero warnings; the analyzer's cancellation-token findings were fixed rather than suppressed.
 - Added project file schema validation: opening a project now checks `projectVersion`, accepts a missing or blank value and any version 1 file, and rejects a file written by a newer PLC Scope (or with an unreadable version) with an explicit "cannot open" message instead of silently loading partially understood data.

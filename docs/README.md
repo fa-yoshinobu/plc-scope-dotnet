@@ -18,11 +18,6 @@ projects.
 - [Changelog](../CHANGELOG.md)
 - [TODO](../TODO.md)
 
-## Improvements
-
-- [Improvement index](improvements/README.md)
-- Retained design notes are kept under [`improvements/close/`](improvements/close/).
-
 ## Samples
 
 - [SLMP iQ-R 100-row watch sample project](samples/slmp-iqr-100-watch.json)
