@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-31
+
+- Corrected the documented location of `settings.json`: it sits next to the executable, not under `%LOCALAPPDATA%`. Documented the theme, font, and always-on-top controls, the watch-list CSV menu items, and the message shown when a project written by a newer PLC Scope is opened. Corrected the project-file contract in the specification.
 - Replaced the 2026-06 Host Link/TOYOPUC batching investigation note with a maintainer rule: the note characterised package version 0.8.0, and PlcComm.KvHostLink 3.2.1 has since changed out-of-range handling, direct-bit packing, and consecutive-read splitting, so its conclusions no longer describe the shipped library.
 - Documented the TOYOPUC relay-hop limitation in the user guide: only one client at a time should route through a relay hop, because several TCP clients on the same hop contend for the target path.
 - Migrated the test projects from xUnit 2.9.3, which NuGet reports as deprecated, to xUnit v3. Test counts are unchanged (Core 247, App 70, UI automation 37) and the build keeps zero warnings; the analyzer's cancellation-token findings were fixed rather than suppressed.

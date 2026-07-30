@@ -116,12 +116,16 @@ Each log keeps the latest 500 entries.
 Project JSON files contain:
 
 - project version
+- last saved timestamp
 - connection settings
 - monitor block definitions
+- selected monitor block
 - watch list entries
 
-Watch list entries persist only address, type, format, enable flag, and comment. Value, raw hex text, bit cells, and error state are runtime display fields and are not saved.
+Watch list entries persist only id, address, type, format, and comment. Value, raw hex text, bit cells, and error state are runtime display fields and are not saved.
 
 Comment CSV files are session-only external inputs. They are loaded only through an explicit `Import comment CSV` action. Project JSON does not store their paths or CSV-derived comments, and project loading never accesses a comment CSV automatically. Watch-list-owned comments remain part of the watch list and are independent from comment CSV data.
 
-Project compatibility is best-effort across early `0.1.x` releases.
+A project is written with the current schema version and is read when its major version is one, or when the version is missing or blank. A file written by a newer PLC Scope, or one whose version cannot be read, is rejected with an explicit message instead of being loaded as partially understood data.
+
+A project is saved by writing a temporary file and replacing the target, so an interrupted save leaves the previous file intact.

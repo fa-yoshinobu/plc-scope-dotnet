@@ -1,7 +1,7 @@
 # PLC Scope
 
 [![Release](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-scope-dotnet/actions/workflows/release.yml)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](src/PlcScope.App/PlcScope.App.csproj)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue)](src/PlcScope.App/PlcScope.App.csproj)
 [![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/language-C%23-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)](https://learn.microsoft.com/windows/)
@@ -23,9 +23,7 @@ PLC Scope can write live PLC devices and issue CPU commands. Before writing or c
 
 Project files can store connection settings, including an SLMP remote password when one is entered. Treat project files as sensitive when a password is configured.
 
-In v2.0.0, disconnect before creating a new project, then verify the displayed endpoint before reconnecting. Creating a new project resets the displayed connection settings but does not yet guarantee that every in-progress or active session has been replaced.
-
-Explicitly disconnect before closing PLC Scope, especially when an SLMP remote password is configured, so the normal disconnect path can lock and release the session.
+Creating a new project closes the PLC connection first, and closing PLC Scope releases the session, so an SLMP remote password is locked again on exit. Both were manual steps before v2.1.0.
 
 ## Requirements
 

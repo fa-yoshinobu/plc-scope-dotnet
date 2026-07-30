@@ -93,6 +93,16 @@ Use the profile that matches the target PLC or compatibility mode. Unsupported d
 
 When routing through a relay hop, keep to one client at a time. A single client path is stable, but several TCP clients reaching the same relay hop at once contend for the target path and reads or writes start failing. Close other software that talks through the same hop before connecting.
 
+## Window Controls
+
+The toolbar carries two display settings, both remembered between sessions:
+
+- `Theme`: `Dark` or `Light`
+- `Font`: table font size
+
+`View` -> `Always on top` keeps the window above other applications, which is
+useful while working in programming software on the same screen.
+
 ## Monitor Tab
 
 The Monitor tab shows a generated device range.
@@ -128,7 +138,7 @@ Supported actions:
 - edit address/type/format
 - remove rows from the right-click menu or `Delete`
 - reorder rows by drag and drop
-- import/export watch CSV
+- import or export the watch list as CSV with `File` -> `Import watch list CSV` and `File` -> `Export watch list CSV`
 - refresh only visible rows
 - isolate invalid rows so one bad address does not stop other visible rows from updating
 
@@ -212,10 +222,14 @@ Projects are saved as JSON and include:
 - watch list entries
 - selected display settings
 
-Application settings are stored under:
+A project written by a newer PLC Scope cannot be opened; the message names the
+version it was written with. Install the matching version to open it.
+
+Application settings are stored next to the executable, in the same folder as
+the log files:
 
 ```text
-%LOCALAPPDATA%\PlcScope\settings.json
+settings.json
 ```
 
 ## Debug Sample Projects

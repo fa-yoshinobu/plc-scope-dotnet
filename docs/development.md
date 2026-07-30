@@ -1,6 +1,6 @@
 # Development Notes
 
-This file is for maintainers and contributors. The repository root [README](../README.md) is the operator-facing manual; build, test, release, dependency, and maintenance details should live here instead of in the user guide.
+This file is for maintainers and contributors. The repository root [README](../README.md) is the entrance and [user-guide.md](user-guide.md) is the operator manual; build, test, release, dependency, and maintenance details belong here instead.
 
 ## Requirements
 
@@ -22,6 +22,10 @@ This file is for maintainers and contributors. The repository root [README](../R
   PLC protocol adapters, JSON persistence, and log storage.
 - `tests/PlcScope.Core.Tests`
   Unit tests for core services and infrastructure protocol behavior.
+- `tests/PlcScope.App.Tests`
+  Unit tests for the view models and application-level behavior.
+- `tests/PlcScope.App.UiTests`
+  XAML layout tests, plus the FlaUI desktop-automation tests that drive the real window.
 
 ## Dependencies
 
@@ -145,7 +149,8 @@ Recommended checks before publishing:
 
 ## Maintainer Documentation Rules
 
-- Keep the root `README.md` focused on installation, connection setup, operation, troubleshooting, and sample projects.
+- Keep the root `README.md` short: what PLC Scope is, safety, requirements, supported protocols, and a first connection.
+- Put every operator-facing detail in [user-guide.md](user-guide.md): connection fields, monitor and watch usage, address syntax, value types, writing, CPU control, comments, project files, samples, and troubleshooting.
 - Put build/test/release commands in this file.
 - Put expected application behavior and protocol contracts in [specification.md](specification.md).
 - Do not keep a closed investigation note. Record the outcome in the changelog and delete the document; git history holds the rest. A note that characterises library behaviour goes stale silently when the package is updated, which is worse than having none.
