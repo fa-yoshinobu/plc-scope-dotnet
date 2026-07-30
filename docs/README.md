@@ -25,7 +25,6 @@ and reusable sample projects.
 
 ## Validation
 
-- [v2.0.0 release record](validation/v2.0.0-release-record.md)
 - [TOYOPUC relay-hop validation](validation/toyopuc-relay-hop-validation-2026-06-12.md)
 
 ## Samples

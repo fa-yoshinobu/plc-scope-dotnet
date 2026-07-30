@@ -38,8 +38,6 @@ PLC communication libraries are restored from the centrally managed NuGet packag
 - `PlcComm.KvHostLink`
 - `PlcComm.Toyopuc`
 
-The historical DLL snapshots under `lib/plc-comm/net9.0/` are not active project references and are not used by local or release builds.
-
 ## Build
 
 Build the full solution:
