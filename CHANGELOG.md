@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-08-07
+
+### Changed
+
+- Updated the PLC communication packages to `PlcComm.KvHostLink` `4.0.0`, `PlcComm.Toyopuc` `4.0.0`, and `PlcComm.Slmp` `5.0.0` from public NuGet.
+- Migrated Host Link bit writes to the library's native Boolean single-value and consecutive-write APIs.
+- Migrated the SLMP and TOYOPUC adapters from the removed external queue wrappers to the libraries' built-in serialized clients and lifecycle APIs, including direct SLMP CPU/password commands and route-aware TOYOPUC client construction. PLC Scope project files, saved settings, route selection, and operator workflow remain compatible.
+
 ## [2.1.0] - 2026-07-31
 
 - Corrected the documented location of `settings.json`: it sits next to the executable, not under `%LOCALAPPDATA%`. Documented the theme, font, and always-on-top controls, the watch-list CSV menu items, and the message shown when a project written by a newer PLC Scope is opened. Corrected the project-file contract in the specification.

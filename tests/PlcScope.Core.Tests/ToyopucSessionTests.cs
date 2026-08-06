@@ -205,7 +205,7 @@ public sealed class ToyopucSessionTests
             using var serverClient = await listener.AcceptTcpClientAsync();
             await using var stream = serverClient.GetStream();
             writeManyFrame = await ReadFrameAsync(stream);
-            await stream.WriteAsync(BuildResponse(0x99, new byte[] { 0x01 }));
+            await stream.WriteAsync(BuildResponse(0x99, []));
         }, TestContext.Current.CancellationToken);
 
         await using var session = await CreateConnectedToyopucSessionAsync(port);

@@ -8,7 +8,6 @@ using PlcScope.Core.Services;
 internal sealed class ToyopucSession : PlcSessionBase
 {
     private ToyopucDeviceClient? _client;
-    private QueuedToyopucDeviceClient? _queuedClient;
     private ToyopucRoute _route = ToyopucRoute.Direct;
 
     public ToyopucSession(ConnectionSettings settings)
@@ -32,17 +31,16 @@ internal sealed class ToyopucSession : PlcSessionBase
             Settings.ToyopucLocalPort,
             Settings.Timeout,
             Settings.ToyopucRetries,
-            Settings.ToyopucRetryDelay);
-        _queuedClient = new QueuedToyopucDeviceClient(_client, _route);
+            Settings.ToyopucRetryDelay,
+            _route);
         try
         {
-            await _queuedClient.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await _client.OpenAsync(cancellationToken).ConfigureAwait(false);
             IsConnected = true;
         }
         catch
         {
-            await _queuedClient.DisposeAsync().ConfigureAwait(false);
-            _queuedClient = null;
+            await _client.DisposeAsync().ConfigureAwait(false);
             _client = null;
             _route = ToyopucRoute.Direct;
             IsConnected = false;
@@ -57,8 +55,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             if (_client is null)
                 return;
 
-            await _queuedClient!.DisposeAsync().ConfigureAwait(false);
-            _queuedClient = null;
+            await _client.DisposeAsync().ConfigureAwait(false);
             _client = null;
             _route = ToyopucRoute.Direct;
             ClearCpuStateCache();
@@ -94,7 +91,7 @@ internal sealed class ToyopucSession : PlcSessionBase
                     : query.EffectiveItemCount;
 
                 elementAddresses = BuildAddresses(normalizedStart, wordCount);
-                words = await _queuedClient!.ReadWordsAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
+                words = await _client!.ReadWordsAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -192,7 +189,7 @@ internal sealed class ToyopucSession : PlcSessionBase
             }
             else
             {
-                await _queuedClient!.WriteTypedAsync(PlcAddressTypeSuffix.Strip(address), NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
+                await _client!.WriteTypedAsync(PlcAddressTypeSuffix.Strip(address), NormalizeWordDType(request.DataType), request.Value, cancellationToken).ConfigureAwait(false);
             }
         }, cancellationToken).ConfigureAwait(false);
 
@@ -236,7 +233,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         ThrowIfNotConnected(_client is not null);
         var address = NormalizeAddress(wordAddress);
         await ExecuteSerializedAsync(
-            () => _queuedClient!.WriteBitInWordAsync(PlcAddressTypeSuffix.Strip(address), bitIndex, value, cancellationToken),
+            () => _client!.WriteBitInWordAsync(PlcAddressTypeSuffix.Strip(address), bitIndex, value, cancellationToken),
             cancellationToken).ConfigureAwait(false);
         return new WriteResult(address, $"Bit {bitIndex} updated.", DateTimeOffset.UtcNow);
     }
@@ -455,12 +452,12 @@ internal sealed class ToyopucSession : PlcSessionBase
     }
 
     private Task<object[]> ReadManyDevicesAsync(IReadOnlyList<string> addresses, CancellationToken cancellationToken) =>
-        _queuedClient!.ReadDevicesAsync(addresses.Cast<object>().ToArray(), cancellationToken);
+        _client!.ReadDevicesAsync(addresses.Cast<object>().ToArray(), cancellationToken);
 
     private Task WriteManyDevicesAsync(
         IReadOnlyList<KeyValuePair<object, object>> items,
         CancellationToken cancellationToken) =>
-        _queuedClient!.WriteManyAsync(items, cancellationToken);
+        _client!.WriteManyAsync(items, cancellationToken);
 
     private bool TryCreateBitWriteManyPlan(
         IReadOnlyList<WriteRequest> requests,
@@ -515,7 +512,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         var bitOffset = start.Index % 16;
         var packedWordCount = checked((bitOffset + bitCount + 15) / 16);
         var packedStartAddress = FormatPackedWordAddress(start, start.Index / 16);
-        var words = await _queuedClient!.ReadWordsAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
+        var words = await _client!.ReadWordsAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
 
         var bits = new bool[bitCount];
         for (var index = 0; index < bitCount; index++)
@@ -528,10 +525,10 @@ internal sealed class ToyopucSession : PlcSessionBase
     }
 
     private Task<object[]> ReadDeviceAsync(string address, int count, CancellationToken cancellationToken) =>
-        _queuedClient!.ReadManyAsync(address, count, cancellationToken);
+        _client!.ReadManyAsync(address, count, cancellationToken);
 
     private Task WriteDeviceAsync(string address, object value, CancellationToken cancellationToken) =>
-        _queuedClient!.WriteAsync(address, value, cancellationToken);
+        _client!.WriteAsync(address, value, cancellationToken);
 
     private static bool[] ToBooleanArray(object result) =>
         result is object[] values

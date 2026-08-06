@@ -10,7 +10,7 @@ internal sealed class SlmpSession : PlcSessionBase
     private const int MaxRandomReadDevicesPerRequest = 64;
     private const int MaxRandomBitWritesPerRequest = 64;
 
-    private QueuedSlmpClient? _client;
+    private SlmpClient? _client;
     private SlmpPlcProfile _plcProfile = SlmpPlcProfile.IqR;
     private SlmpDeviceRangeCatalog? _deviceRangeCatalog;
     private readonly HashSet<string> _reportedReadWarnings = [];
@@ -27,7 +27,7 @@ internal sealed class SlmpSession : PlcSessionBase
             return;
 
         _plcProfile = ResolvePlcProfile(Settings.SlmpPlcProfileName);
-        var inner = new SlmpClient(
+        _client = new SlmpClient(
             Settings.Host,
             _plcProfile,
             Settings.Port,
@@ -37,8 +37,6 @@ internal sealed class SlmpSession : PlcSessionBase
             MonitoringTimer = Settings.SlmpMonitoringTimer,
             Timeout = Settings.Timeout,
         };
-
-        _client = new QueuedSlmpClient(inner);
 
         try
         {
@@ -377,17 +375,16 @@ internal sealed class SlmpSession : PlcSessionBase
                 switch (command)
                 {
                     case CpuCommand.Run:
-                        await _client!.ExecuteAsync(
-                            inner => inner.RemoteRunAsync(SlmpRemoteMode.Normal, SlmpRemoteClearMode.NoClear, cancellationToken),
+                        await _client!.RemoteRunAsync(
+                            SlmpRemoteMode.Normal,
+                            SlmpRemoteClearMode.NoClear,
                             cancellationToken).ConfigureAwait(false);
                         break;
                     case CpuCommand.Stop:
-                        await _client!.ExecuteAsync(inner => inner.RemoteStopAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+                        await _client!.RemoteStopAsync(cancellationToken).ConfigureAwait(false);
                         break;
                     case CpuCommand.Pause:
-                        await _client!.ExecuteAsync(
-                            inner => inner.RemotePauseAsync(SlmpRemoteMode.Normal, cancellationToken),
-                            cancellationToken).ConfigureAwait(false);
+                        await _client!.RemotePauseAsync(SlmpRemoteMode.Normal, cancellationToken).ConfigureAwait(false);
                         break;
                     default:
                         throw new NotSupportedException($"Unsupported SLMP CPU command: {command}");
@@ -659,8 +656,8 @@ internal sealed class SlmpSession : PlcSessionBase
 
         try
         {
-            await _client!.ExecuteAsync(
-                inner => inner.RemotePasswordUnlockAsync(Settings.SlmpRemotePassword!, cancellationToken),
+            await _client!.RemotePasswordUnlockAsync(
+                Settings.SlmpRemotePassword!,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (SlmpError exception) when (exception.Command == SlmpCommand.RemotePasswordUnlock)
@@ -678,8 +675,8 @@ internal sealed class SlmpSession : PlcSessionBase
 
         try
         {
-            await _client.ExecuteAsync(
-                inner => inner.RemotePasswordLockAsync(Settings.SlmpRemotePassword!, cancellationToken),
+            await _client.RemotePasswordLockAsync(
+                Settings.SlmpRemotePassword!,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

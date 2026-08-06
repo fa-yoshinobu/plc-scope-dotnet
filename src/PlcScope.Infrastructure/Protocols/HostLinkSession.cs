@@ -202,7 +202,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         {
             if (request.DataType == ValueDataType.Bit)
             {
-                await _client!.WriteAsync(PlcAddressTypeSuffix.Strip(address), ToBoolean(request.Value) ? 1 : 0, dataFormat: null!, cancellationToken).ConfigureAwait(false);
+                await _client!.WriteAsync(PlcAddressTypeSuffix.Strip(address), ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -227,7 +227,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         try
         {
             await ExecuteSerializedAsync(
-                () => _client!.WriteConsecutiveAsync(plan.StartAddress, plan.Values, dataFormat: null!, cancellationToken),
+                () => _client!.WriteConsecutiveAsync(plan.StartAddress, plan.Values, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -428,7 +428,7 @@ internal sealed class HostLinkSession : PlcSessionBase
     {
         plan = default!;
         var normalizedAddresses = new List<string>(requests.Count);
-        var values = new int[requests.Count];
+        var values = new bool[requests.Count];
         string? startAddress = null;
         string? deviceType = null;
         KvDeviceAddress? previousAddress = null;
@@ -474,7 +474,7 @@ internal sealed class HostLinkSession : PlcSessionBase
 
             previousAddress = address;
             normalizedAddresses.Add(normalizedAddress);
-            values[index] = ToBoolean(request.Value) ? 1 : 0;
+            values[index] = ToBoolean(request.Value);
         }
 
         if (startAddress is null)
@@ -946,5 +946,5 @@ internal sealed class HostLinkSession : PlcSessionBase
     private sealed record HostLinkBitWritePlan(
         string StartAddress,
         IReadOnlyList<string> NormalizedAddresses,
-        IReadOnlyList<int> Values);
+        IReadOnlyList<bool> Values);
 }

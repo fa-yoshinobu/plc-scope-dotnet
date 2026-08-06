@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0-windows7.0": {
+      "CommunityToolkit.Mvvm": {
+        "type": "Direct",
+        "requested": "[8.4.2, )",
+        "resolved": "8.4.2",
+        "contentHash": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+      },
+      "Microsoft.Extensions.DependencyInjection": {
+        "type": "Direct",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "NijozhERJDIaJ4k5TSMy1jOi0cSC2HfkvRD/Sl+kGSSKgVbFnF4GxgtMN/MrzHB8D1JxIrD4xSer9Blh9v3axQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.9"
+        }
+      },
+      "PlcComm.KvHostLink": {
+        "type": "Direct",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "+eDlfIhOiMIxklpTLX74QceEIzdoJOmVQDUyLtY7k4S3ghwxY4HckmEjdptViCLEM+Gk5+NNDA2Mas3Z+Fap4Q=="
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "g41l/30G3K4B/d/L8kjux0+30e27c8D0FVQ/PFCpbekgfDpj9mnDhieP67EqXWvl1EWNeZh2rpR4F5B/jcDOHA=="
+      },
+      "plcscope.core": {
+        "type": "Project",
+        "dependencies": {
+          "PlcComm.KvHostLink": "[4.0.0, )",
+          "PlcComm.Slmp": "[5.0.0, )",
+          "PlcComm.Toyopuc": "[4.0.0, )"
+        }
+      },
+      "plcscope.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "PlcComm.KvHostLink": "[4.0.0, )",
+          "PlcComm.Slmp": "[5.0.0, )",
+          "PlcComm.Toyopuc": "[4.0.0, )",
+          "PlcScope.Core": "[1.0.0, )"
+        }
+      },
+      "PlcComm.Slmp": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0, )",
+        "resolved": "5.0.0",
+        "contentHash": "H2/PVaQ74i5m4ZR7c/CfovxhqPfF3Lm8/+K9lq++qlayxp47b9lQnYnXSFJjTvHNAQZRZkvksZAir0RthZcFLg=="
+      },
+      "PlcComm.Toyopuc": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.0, )",
+        "resolved": "4.0.0",
+        "contentHash": "JDn/1rAAQuUdyvqle3jIx7DEUY7hyIqpOsbGbJ0JToj3NKqwKFPF9D+qGlZZedhc1zqZvyYFgrEPCJQsxZAFqA=="
+      }
+    }
+  }
+}
