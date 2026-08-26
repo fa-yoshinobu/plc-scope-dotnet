@@ -97,7 +97,7 @@ internal sealed class HostLinkSession : PlcSessionBase
                     : query.EffectiveItemCount;
 
                 elementAddresses = BuildWordAddresses(normalizedStart, wordCount);
-                words = await _client!.ReadWordsAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
+                words = await _client!.ReadWordsSingleRequestAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
             }
             else
             {

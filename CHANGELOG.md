@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-08-27
+
+### Changed
+
+- Updated the public PLC communication packages to `PlcComm.KvHostLink` `4.1.0`, `PlcComm.Slmp` `5.1.0`, and `PlcComm.Toyopuc` `4.1.0`.
+- Migrated contiguous Host Link and TOYOPUC word reads and SLMP bit writes to the packages' explicit single-request APIs.
+- Isolated package restore to nuget.org and a repository-local cache so an unpublished package with the same identity cannot be reused from the machine-wide NuGet cache.
+
 ## [2.2.0] - 2026-08-07
 
 ### Changed

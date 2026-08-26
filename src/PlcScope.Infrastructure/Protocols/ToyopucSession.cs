@@ -91,7 +91,7 @@ internal sealed class ToyopucSession : PlcSessionBase
                     : query.EffectiveItemCount;
 
                 elementAddresses = BuildAddresses(normalizedStart, wordCount);
-                words = await _client!.ReadWordsAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
+                words = await _client!.ReadWordsSingleRequestAsync(PlcAddressTypeSuffix.Strip(normalizedStart), wordCount, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -512,7 +512,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         var bitOffset = start.Index % 16;
         var packedWordCount = checked((bitOffset + bitCount + 15) / 16);
         var packedStartAddress = FormatPackedWordAddress(start, start.Index / 16);
-        var words = await _client!.ReadWordsAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
+        var words = await _client!.ReadWordsSingleRequestAsync(packedStartAddress, packedWordCount, cancellationToken).ConfigureAwait(false);
 
         var bits = new bool[bitCount];
         for (var index = 0; index < bitCount; index++)

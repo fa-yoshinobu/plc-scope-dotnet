@@ -301,7 +301,7 @@ internal sealed class SlmpSession : PlcSessionBase
                 }
                 else if (request.DataType == ValueDataType.Bit)
                 {
-                    await _client!.WriteBitsBlockAsync(parsedAddress, [ToBoolean(request.Value)], cancellationToken).ConfigureAwait(false);
+                    await _client!.WriteBitsSingleRequestAsync(parsedAddress, [ToBoolean(request.Value)], cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {

@@ -179,7 +179,7 @@
         "dependencies": {
           "CommunityToolkit.Mvvm": "[8.4.2, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.9, )",
-          "PlcComm.KvHostLink": "[4.0.0, )",
+          "PlcComm.KvHostLink": "[4.1.0, )",
           "PlcScope.Core": "[1.0.0, )",
           "PlcScope.Infrastructure": "[1.0.0, )"
         }
@@ -187,17 +187,17 @@
       "plcscope.core": {
         "type": "Project",
         "dependencies": {
-          "PlcComm.KvHostLink": "[4.0.0, )",
-          "PlcComm.Slmp": "[5.0.0, )",
-          "PlcComm.Toyopuc": "[4.0.0, )"
+          "PlcComm.KvHostLink": "[4.1.0, )",
+          "PlcComm.Slmp": "[5.1.0, )",
+          "PlcComm.Toyopuc": "[4.1.0, )"
         }
       },
       "plcscope.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "PlcComm.KvHostLink": "[4.0.0, )",
-          "PlcComm.Slmp": "[5.0.0, )",
-          "PlcComm.Toyopuc": "[4.0.0, )",
+          "PlcComm.KvHostLink": "[4.1.0, )",
+          "PlcComm.Slmp": "[5.1.0, )",
+          "PlcComm.Toyopuc": "[4.1.0, )",
           "PlcScope.Core": "[1.0.0, )"
         }
       },
@@ -218,21 +218,21 @@
       },
       "PlcComm.KvHostLink": {
         "type": "CentralTransitive",
-        "requested": "[4.0.0, )",
-        "resolved": "4.0.0",
-        "contentHash": "+eDlfIhOiMIxklpTLX74QceEIzdoJOmVQDUyLtY7k4S3ghwxY4HckmEjdptViCLEM+Gk5+NNDA2Mas3Z+Fap4Q=="
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "wuQFo0ocMFLm2uMCfB5zpmJsVFt2YbqlKMfEYzetVIDqVE6wrOwVEyWaW9rB15sGeTn9A8S/Gw2LjjJFcnj28A=="
       },
       "PlcComm.Slmp": {
         "type": "CentralTransitive",
-        "requested": "[5.0.0, )",
-        "resolved": "5.0.0",
-        "contentHash": "H2/PVaQ74i5m4ZR7c/CfovxhqPfF3Lm8/+K9lq++qlayxp47b9lQnYnXSFJjTvHNAQZRZkvksZAir0RthZcFLg=="
+        "requested": "[5.1.0, )",
+        "resolved": "5.1.0",
+        "contentHash": "Q1ksZnckNsvMy2PR0lUiyyCLT/dz7wRQaj3YA2/pjvBNpyXReSMjEArHTkWmNZXuqKTwuvZCH4N2QkZUWfTW9Q=="
       },
       "PlcComm.Toyopuc": {
         "type": "CentralTransitive",
-        "requested": "[4.0.0, )",
-        "resolved": "4.0.0",
-        "contentHash": "JDn/1rAAQuUdyvqle3jIx7DEUY7hyIqpOsbGbJ0JToj3NKqwKFPF9D+qGlZZedhc1zqZvyYFgrEPCJQsxZAFqA=="
+        "requested": "[4.1.0, )",
+        "resolved": "4.1.0",
+        "contentHash": "Oq+laAygTAgdOx/6GF26haL0Vh8iP0Trp8v4tH8TbDVRvU51Cz23EiHLQdxrtM9t3HeC2GNETC3nFrlxLzqkuA=="
       }
     }
   }
