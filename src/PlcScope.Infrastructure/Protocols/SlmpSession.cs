@@ -760,7 +760,7 @@ internal sealed class SlmpSession : PlcSessionBase
         {
             var chunkCount = Math.Min(64, count - offset);
             var chunkStart = OffsetDevice(start, (uint)offset);
-            var chunk = await _client!.ReadWordsRawAsync(chunkStart, checked((ushort)chunkCount), cancellationToken).ConfigureAwait(false);
+            var chunk = await _client!.ReadWordsAsync(chunkStart, checked((ushort)chunkCount), cancellationToken).ConfigureAwait(false);
             values.AddRange(chunk);
             offset += chunkCount;
         }
@@ -879,7 +879,7 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)
     {
-        var raw = await _client!.ReadWordsRawAsync(SlmpAddress.Parse("SD203", _plcProfile), 1, cancellationToken).ConfigureAwait(false);
+        var raw = await _client!.ReadWordsAsync(SlmpAddress.Parse("SD203", _plcProfile), 1, cancellationToken).ConfigureAwait(false);
         var statusWord = raw[0];
         var code = (byte)(statusWord & 0x0F);
         var state = code switch

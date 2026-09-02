@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Updated the PLC communication packages to `PlcComm.KvHostLink` `4.2.0`, `PlcComm.Slmp` `5.2.0`, and `PlcComm.Toyopuc` `4.2.0`.
+- Migrated SLMP word reads from the removed raw-read API to the current `ReadWordsAsync` API.
+
 ## [2.3.0] - 2026-08-27
 
 ### Changed
