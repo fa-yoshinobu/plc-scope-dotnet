@@ -528,7 +528,7 @@ internal sealed class ToyopucSession : PlcSessionBase
         _client!.ReadManyAsync(address, count, cancellationToken);
 
     private Task WriteDeviceAsync(string address, object value, CancellationToken cancellationToken) =>
-        _client!.WriteAsync(address, value, cancellationToken);
+        _client!.WriteTypedAsync(address, "BIT", value, cancellationToken);
 
     private static bool[] ToBooleanArray(object result) =>
         result is object[] values

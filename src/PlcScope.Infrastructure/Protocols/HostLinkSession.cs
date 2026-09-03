@@ -202,7 +202,11 @@ internal sealed class HostLinkSession : PlcSessionBase
         {
             if (request.DataType == ValueDataType.Bit)
             {
-                await _client!.WriteAsync(PlcAddressTypeSuffix.Strip(address), ToBoolean(request.Value), cancellationToken).ConfigureAwait(false);
+                await _client!.WriteTypedAsync(
+                    PlcAddressTypeSuffix.Strip(address),
+                    "BIT",
+                    ToBoolean(request.Value),
+                    cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -227,7 +231,7 @@ internal sealed class HostLinkSession : PlcSessionBase
         try
         {
             await ExecuteSerializedAsync(
-                () => _client!.WriteConsecutiveAsync(plan.StartAddress, plan.Values, cancellationToken),
+                () => _client!.WriteBitsSingleRequestAsync(plan.StartAddress, plan.Values, cancellationToken),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -675,9 +679,10 @@ internal sealed class HostLinkSession : PlcSessionBase
         var bits = new bool[elementAddresses.Count];
         for (var index = 0; index < elementAddresses.Count; index++)
         {
-            var tokens = await _client!.ReadAsync(PlcAddressTypeSuffix.Strip(elementAddresses[index]), dataFormat: null!, cancellationToken: cancellationToken)
+            var value = await _client!
+                .ReadTypedAsync(PlcAddressTypeSuffix.Strip(elementAddresses[index]), "BIT", cancellationToken)
                 .ConfigureAwait(false);
-            bits[index] = ToBoolean(tokens.FirstOrDefault() ?? "0");
+            bits[index] = ToBoolean(value);
         }
 
         return bits;

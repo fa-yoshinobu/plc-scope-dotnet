@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the PLC communication packages to `PlcComm.KvHostLink` `4.2.0`, `PlcComm.Slmp` `5.2.0`, and `PlcComm.Toyopuc` `4.2.0`.
 - Migrated SLMP word reads from the removed raw-read API to the current `ReadWordsAsync` API.
 
+### Fixed
+
+- Use the selected SLMP PLC profile limits when splitting direct reads, random reads, random bit writes, and long-timer reads.
+- Route SLMP `LCS` and `LCC` block reads through the supported typed long-counter state API.
+- Use the protocol libraries' dedicated typed, single-request, DWord, and CPU-state APIs instead of equivalent generic operations.
+
 ## [2.3.0] - 2026-08-27
 
 ### Changed

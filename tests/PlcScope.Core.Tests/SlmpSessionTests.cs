@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
+using PlcComm.Slmp;
 using PlcScope.Core.Abstractions;
 using PlcScope.Core.Models;
 using PlcScope.Infrastructure.Protocols;
@@ -9,6 +10,123 @@ namespace PlcScope.Core.Tests;
 
 public sealed class SlmpSessionTests
 {
+    [Fact]
+    public async Task ReadBlockAsync_ReadsLongCounterStatesThroughTypedRoute()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var requests = new List<(uint Head, ushort Count)>();
+
+        var serverTask = Task.Run(async () =>
+        {
+            using var client = await listener.AcceptTcpClientAsync();
+            await using var stream = client.GetStream();
+
+            var catalogRequest = await ReadSlmpFrameAsync(stream);
+            await stream.WriteAsync(BuildSlmpErrorResponse(catalogRequest, 0xC059));
+
+            for (var index = 0; index < 2; index++)
+            {
+                var request = await ReadSlmpFrameAsync(stream);
+                requests.Add((ReadDirectHead(request), ReadDirectWordCount(request)));
+                await stream.WriteAsync(BuildSlmpSuccessResponse(request, [index == 0 ? (byte)0x10 : (byte)0x00]));
+            }
+
+            var cpuRequest = await ReadSlmpFrameAsync(stream);
+            await stream.WriteAsync(BuildSlmpSuccessResponse(cpuRequest, BuildWordsPayload([0x0000])));
+        }, TestContext.Current.CancellationToken);
+
+        var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
+        {
+            Host = IPAddress.Loopback.ToString(),
+            Port = port,
+            TimeoutSeconds = 1,
+        };
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
+        await session.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var result = await session.ReadBlockAsync(new BlockQuery
+        {
+            Protocol = ProtocolKind.Slmp,
+            DeviceFamilyCode = "LCS",
+            DeviceKind = DeviceKind.Bit,
+            StartAddress = "LCS0:BIT",
+            ItemCount = 2,
+            DisplayMode = BlockDisplayMode.DWord,
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal([(0U, (ushort)1), (1U, (ushort)1)], requests);
+        Assert.Equal([true, false], result.BitValues);
+
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ReadBlockAsync_ChunksLongTimerStateReadsAtProfileRequestLimit()
+    {
+        Assert.True(SlmpPlcProfiles.TryGetProfileLimit(
+            SlmpPlcProfile.IqR,
+            SlmpProfileLimitKey.DirectWordRead,
+            out var directWordReadLimit));
+        var maxStatesPerRequest = directWordReadLimit.MaxPoints / 4;
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var requests = new List<(uint Head, ushort WordCount)>();
+
+        var serverTask = Task.Run(async () =>
+        {
+            using var client = await listener.AcceptTcpClientAsync();
+            await using var stream = client.GetStream();
+
+            var catalogRequest = await ReadSlmpFrameAsync(stream);
+            await stream.WriteAsync(BuildSlmpErrorResponse(catalogRequest, 0xC059));
+
+            for (var chunkIndex = 0; chunkIndex < 2; chunkIndex++)
+            {
+                var request = await ReadSlmpFrameAsync(stream);
+                var wordCount = ReadDirectWordCount(request);
+                requests.Add((ReadDirectHead(request), wordCount));
+                var words = new ushort[wordCount];
+                for (var index = 0; index < wordCount / 4; index++)
+                    words[(index * 4) + 2] = chunkIndex == 0 ? (ushort)0x0002 : (ushort)0x0000;
+                await stream.WriteAsync(BuildSlmpSuccessResponse(request, BuildWordsPayload(words)));
+            }
+
+            var cpuRequest = await ReadSlmpFrameAsync(stream);
+            await stream.WriteAsync(BuildSlmpSuccessResponse(cpuRequest, BuildWordsPayload([0x0000])));
+        }, TestContext.Current.CancellationToken);
+
+        var settings = ConnectionSettings.CreateDefault(ProtocolKind.Slmp) with
+        {
+            Host = IPAddress.Loopback.ToString(),
+            Port = port,
+            TimeoutSeconds = 1,
+        };
+        await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
+        await session.ConnectAsync(TestContext.Current.CancellationToken);
+
+        var result = await session.ReadBlockAsync(new BlockQuery
+        {
+            Protocol = ProtocolKind.Slmp,
+            DeviceFamilyCode = "LTS",
+            DeviceKind = DeviceKind.Bit,
+            StartAddress = "LTS0:BIT",
+            ItemCount = maxStatesPerRequest * 2,
+            DisplayMode = BlockDisplayMode.DWord,
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [(0U, checked((ushort)directWordReadLimit.MaxPoints)), (checked((uint)maxStatesPerRequest), checked((ushort)directWordReadLimit.MaxPoints))],
+            requests);
+        Assert.Equal(maxStatesPerRequest * 2, result.BitValues.Count);
+        Assert.All(result.BitValues.Take(maxStatesPerRequest), Assert.True);
+        Assert.All(result.BitValues.Skip(maxStatesPerRequest), Assert.False);
+
+        await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+    }
+
     [Fact]
     public async Task ReadBatchAsync_UsesRandomReadForMixedWordAndDWordQueries()
     {
@@ -75,8 +193,12 @@ public sealed class SlmpSessionTests
     }
 
     [Fact]
-    public async Task ReadBatchAsync_ChunksRandomReadAtSixtyFourDevices()
+    public async Task ReadBatchAsync_ChunksRandomReadAtProfileRequestLimit()
     {
+        Assert.True(SlmpPlcProfiles.TryGetProfileLimit(
+            SlmpPlcProfile.IqR,
+            SlmpProfileLimitKey.RandomReadWord,
+            out var randomReadLimit));
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
@@ -114,7 +236,7 @@ public sealed class SlmpSessionTests
         await using var session = await new PlcSessionFactory().CreateAsync(settings, TestContext.Current.CancellationToken);
         await session.ConnectAsync(TestContext.Current.CancellationToken);
 
-        var queries = Enumerable.Range(0, 65)
+        var queries = Enumerable.Range(0, randomReadLimit.MaxPoints + 1)
             .Select(index => new BlockQuery
             {
                 DeviceFamilyCode = "D",
@@ -127,10 +249,10 @@ public sealed class SlmpSessionTests
 
         var results = await session.ReadBatchAsync(queries, TestContext.Current.CancellationToken);
 
-        Assert.Equal([64, 1], randomWordCounts);
+        Assert.Equal([randomReadLimit.MaxPoints, 1], randomWordCounts);
         Assert.All(results, static result => Assert.True(result.Success, result.Error?.Message));
         Assert.Equal((ushort)0, results[0].Result!.WordValues.Single());
-        Assert.Equal((ushort)100, results[64].Result!.WordValues.Single());
+        Assert.Equal((ushort)100, results[randomReadLimit.MaxPoints].Result!.WordValues.Single());
 
         await serverTask.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
     }
@@ -347,6 +469,22 @@ public sealed class SlmpSessionTests
         {
             0x54 => 19,
             0x50 => 15,
+            _ => throw new InvalidOperationException("Unsupported SLMP request frame."),
+        };
+
+    private static uint ReadDirectHead(byte[] request) =>
+        request[0] switch
+        {
+            0x54 => BinaryPrimitives.ReadUInt32LittleEndian(request.AsSpan(19, 4)),
+            0x50 => BinaryPrimitives.ReadUInt32LittleEndian(request.AsSpan(15, 4)),
+            _ => throw new InvalidOperationException("Unsupported SLMP request frame."),
+        };
+
+    private static ushort ReadDirectWordCount(byte[] request) =>
+        request[0] switch
+        {
+            0x54 => BinaryPrimitives.ReadUInt16LittleEndian(request.AsSpan(25, 2)),
+            0x50 => BinaryPrimitives.ReadUInt16LittleEndian(request.AsSpan(21, 2)),
             _ => throw new InvalidOperationException("Unsupported SLMP request frame."),
         };
 

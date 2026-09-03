@@ -7,9 +7,6 @@ using PlcScope.Core.Services;
 
 internal sealed class SlmpSession : PlcSessionBase
 {
-    private const int MaxRandomReadDevicesPerRequest = 64;
-    private const int MaxRandomBitWritesPerRequest = 64;
-
     private SlmpClient? _client;
     private SlmpPlcProfile _plcProfile = SlmpPlcProfile.IqR;
     private SlmpDeviceRangeCatalog? _deviceRangeCatalog;
@@ -246,13 +243,14 @@ internal sealed class SlmpSession : PlcSessionBase
 
         try
         {
+            var maxRandomBitWritesPerRequest = GetProfileRequestLimit(SlmpProfileLimitKey.RandomWriteBit);
             await ExecuteSerializedAsync(async () =>
             {
-                for (var offset = 0; offset < entries.Count; offset += MaxRandomBitWritesPerRequest)
+                for (var offset = 0; offset < entries.Count; offset += maxRandomBitWritesPerRequest)
                 {
                     var chunk = entries
                         .Skip(offset)
-                        .Take(MaxRandomBitWritesPerRequest)
+                        .Take(maxRandomBitWritesPerRequest)
                         .Select(static entry => (entry.Device, entry.Value))
                         .ToArray();
                     await _client!.WriteRandomBitsAsync(chunk, cancellationToken).ConfigureAwait(false);
@@ -429,7 +427,7 @@ internal sealed class SlmpSession : PlcSessionBase
                     return false;
 
                 var dwordCount = query.EffectiveItemCount;
-                if (dwordCount > MaxRandomReadDevicesPerRequest)
+                if (dwordCount > GetProfileRequestLimit(SlmpProfileLimitKey.RandomReadWord))
                     return false;
 
                 ValidateDeviceRange(start, dwordCount, "Read");
@@ -446,7 +444,7 @@ internal sealed class SlmpSession : PlcSessionBase
             var wordCount = query.DisplayMode is BlockDisplayMode.DWord or BlockDisplayMode.Float32
                 ? checked(query.EffectiveItemCount * 2)
                 : query.EffectiveItemCount;
-            if (wordCount > MaxRandomReadDevicesPerRequest)
+            if (wordCount > GetProfileRequestLimit(SlmpProfileLimitKey.RandomReadWord))
                 return false;
 
             ValidateDeviceRange(start, wordCount, "Read");
@@ -494,7 +492,9 @@ internal sealed class SlmpSession : PlcSessionBase
         await ExecuteSerializedAsync(async () =>
         {
             var timer = StartTimer();
-            foreach (var chunk in BuildRandomReadChunks(plans))
+            foreach (var chunk in BuildRandomReadChunks(
+                         plans,
+                         GetProfileRequestLimit(SlmpProfileLimitKey.RandomReadWord)))
             {
                 var wordDevices = chunk
                     .Where(static entry => !entry.ReadsDWord)
@@ -590,12 +590,13 @@ internal sealed class SlmpSession : PlcSessionBase
     }
 
     private static IEnumerable<IReadOnlyList<SlmpRandomReadEntry>> BuildRandomReadChunks(
-        IReadOnlyList<SlmpBatchReadPlan> plans)
+        IReadOnlyList<SlmpBatchReadPlan> plans,
+        int maxDevicesPerRequest)
     {
-        var current = new List<SlmpRandomReadEntry>(MaxRandomReadDevicesPerRequest);
+        var current = new List<SlmpRandomReadEntry>(maxDevicesPerRequest);
         foreach (var plan in plans)
         {
-            if (current.Count + plan.DeviceCount > MaxRandomReadDevicesPerRequest && current.Count > 0)
+            if (current.Count + plan.DeviceCount > maxDevicesPerRequest && current.Count > 0)
             {
                 yield return current.ToArray();
                 current.Clear();
@@ -754,13 +755,14 @@ internal sealed class SlmpSession : PlcSessionBase
     private async Task<ushort[]> ReadWordsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
     {
         var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(startAddress), _plcProfile);
+        var maxPointsPerRequest = GetProfileRequestLimit(SlmpProfileLimitKey.DirectWordRead);
         var values = new List<ushort>(count);
         var offset = 0;
         while (offset < count)
         {
-            var chunkCount = Math.Min(64, count - offset);
+            var chunkCount = Math.Min(maxPointsPerRequest, count - offset);
             var chunkStart = OffsetDevice(start, (uint)offset);
-            var chunk = await _client!.ReadWordsAsync(chunkStart, checked((ushort)chunkCount), cancellationToken).ConfigureAwait(false);
+            var chunk = await _client!.ReadWordsSingleRequestAsync(chunkStart, chunkCount, cancellationToken).ConfigureAwait(false);
             values.AddRange(chunk);
             offset += chunkCount;
         }
@@ -771,13 +773,14 @@ internal sealed class SlmpSession : PlcSessionBase
     private async Task<bool[]> ReadBitsChunkedInternalAsync(string startAddress, int count, CancellationToken cancellationToken)
     {
         var start = SlmpAddress.Parse(PlcAddressTypeSuffix.Strip(startAddress), _plcProfile);
+        var maxPointsPerRequest = GetProfileRequestLimit(SlmpProfileLimitKey.DirectBitRead);
         var values = new List<bool>(count);
         var offset = 0;
         while (offset < count)
         {
-            var chunkCount = Math.Min(64, count - offset);
+            var chunkCount = Math.Min(maxPointsPerRequest, count - offset);
             var chunkStart = OffsetDevice(start, (uint)offset);
-            var chunk = await _client!.ReadBitsAsync(chunkStart, checked((ushort)chunkCount), cancellationToken).ConfigureAwait(false);
+            var chunk = await _client!.ReadBitsSingleRequestAsync(chunkStart, chunkCount, cancellationToken).ConfigureAwait(false);
             values.AddRange(chunk);
             offset += chunkCount;
         }
@@ -793,15 +796,31 @@ internal sealed class SlmpSession : PlcSessionBase
     {
         try
         {
-            return start.Code switch
+            if (start.Code is SlmpDeviceCode.LCS or SlmpDeviceCode.LCC)
+                return await ReadLongCounterStateBitsAsync(start, count, cancellationToken).ConfigureAwait(false);
+
+            var maxStatesPerRequest = GetProfileRequestItemLimit(
+                SlmpProfileLimitKey.DirectWordRead,
+                wirePointsPerItem: 4);
+            var values = new List<bool>(count);
+            var offset = 0;
+            while (offset < count)
             {
-                SlmpDeviceCode.LTS => await _client!.ReadLtsStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
-                SlmpDeviceCode.LTC => await _client!.ReadLtcStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
-                SlmpDeviceCode.LSTS => await _client!.ReadLstsStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
-                SlmpDeviceCode.LSTC => await _client!.ReadLstcStatesAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false),
-                SlmpDeviceCode.LCS or SlmpDeviceCode.LCC => await ReadBitsChunkedInternalAsync(FormatAddress(start), count, cancellationToken).ConfigureAwait(false),
-                _ => throw new NotSupportedException($"Unsupported long state bit device: {start.Code}"),
-            };
+                var chunkCount = Math.Min(maxStatesPerRequest, count - offset);
+                var chunkHead = checked((int)start.Number + offset);
+                var chunk = start.Code switch
+                {
+                    SlmpDeviceCode.LTS => await _client!.ReadLtsStatesAsync(chunkHead, chunkCount, cancellationToken).ConfigureAwait(false),
+                    SlmpDeviceCode.LTC => await _client!.ReadLtcStatesAsync(chunkHead, chunkCount, cancellationToken).ConfigureAwait(false),
+                    SlmpDeviceCode.LSTS => await _client!.ReadLstsStatesAsync(chunkHead, chunkCount, cancellationToken).ConfigureAwait(false),
+                    SlmpDeviceCode.LSTC => await _client!.ReadLstcStatesAsync(chunkHead, chunkCount, cancellationToken).ConfigureAwait(false),
+                    _ => throw new NotSupportedException($"Unsupported long state bit device: {start.Code}"),
+                };
+                values.AddRange(chunk);
+                offset += chunkCount;
+            }
+
+            return values.ToArray();
         }
         catch (SlmpError exception) when (IsUnsupportedLongTimerBitRead(exception))
         {
@@ -815,19 +834,48 @@ internal sealed class SlmpSession : PlcSessionBase
         }
     }
 
+    private async Task<bool[]> ReadLongCounterStateBitsAsync(
+        SlmpDeviceAddress start,
+        int count,
+        CancellationToken cancellationToken)
+    {
+        var values = new bool[count];
+        for (var offset = 0; offset < count; offset++)
+        {
+            var device = OffsetDevice(start, (uint)offset);
+            values[offset] = (bool)await _client!
+                .ReadTypedAsync(device, "BIT", cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return values;
+    }
+
     private async Task<ushort[]> ReadLongCurrentValuesAsync(SlmpDeviceAddress start, int count, CancellationToken cancellationToken)
     {
-        var values = start.Code switch
+        if (start.Code is SlmpDeviceCode.LCN)
+            return PackDWordValues(await ReadRandomDWordValuesAsync(start, count, cancellationToken).ConfigureAwait(false));
+
+        if (start.Code is not (SlmpDeviceCode.LTN or SlmpDeviceCode.LSTN))
+            throw new NotSupportedException($"Unsupported long current value device: {start.Code}");
+
+        var maxTimersPerRequest = GetProfileRequestItemLimit(
+            SlmpProfileLimitKey.DirectWordRead,
+            wirePointsPerItem: 4);
+        var values = new uint[count];
+        var offset = 0;
+        while (offset < count)
         {
-            SlmpDeviceCode.LTN => (await _client!.ReadLongTimerAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false))
-                .Select(timer => timer.CurrentValue)
-                .ToArray(),
-            SlmpDeviceCode.LSTN => (await _client!.ReadLongRetentiveTimerAsync(checked((int)start.Number), count, cancellationToken).ConfigureAwait(false))
-                .Select(timer => timer.CurrentValue)
-                .ToArray(),
-            SlmpDeviceCode.LCN => await ReadRandomDWordValuesAsync(start, count, cancellationToken).ConfigureAwait(false),
-            _ => throw new NotSupportedException($"Unsupported long current value device: {start.Code}"),
-        };
+            var chunkCount = Math.Min(maxTimersPerRequest, count - offset);
+            var chunkHead = checked((int)start.Number + offset);
+            var chunk = start.Code == SlmpDeviceCode.LTN
+                ? await _client!.ReadLongTimerAsync(chunkHead, chunkCount, cancellationToken).ConfigureAwait(false)
+                : await _client!.ReadLongRetentiveTimerAsync(chunkHead, chunkCount, cancellationToken).ConfigureAwait(false);
+            for (var index = 0; index < chunk.Length; index++)
+                values[offset + index] = chunk[index].CurrentValue;
+
+            offset += chunkCount;
+        }
 
         return PackDWordValues(values);
     }
@@ -845,15 +893,16 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private async Task<uint[]> ReadRandomDWordValuesAsync(SlmpDeviceAddress start, int count, CancellationToken cancellationToken)
     {
+        var maxPointsPerRequest = GetProfileRequestLimit(SlmpProfileLimitKey.RandomReadWord);
         var values = new uint[count];
         var offset = 0;
         while (offset < count)
         {
-            var chunkCount = Math.Min(64, count - offset);
+            var chunkCount = Math.Min(maxPointsPerRequest, count - offset);
             var devices = Enumerable.Range(0, chunkCount)
                 .Select(index => OffsetDevice(start, (uint)(offset + index)))
                 .ToArray();
-            var (_, dwords) = await _client!.ReadRandomAsync([], devices, cancellationToken).ConfigureAwait(false);
+            var dwords = await _client!.ReadRandomDWordsAsync(devices, cancellationToken).ConfigureAwait(false);
             for (var index = 0; index < dwords.Length; index++)
             {
                 values[offset + index] = dwords[index];
@@ -863,6 +912,25 @@ internal sealed class SlmpSession : PlcSessionBase
         }
 
         return values;
+    }
+
+    private int GetProfileRequestLimit(SlmpProfileLimitKey key)
+    {
+        if (!SlmpPlcProfiles.TryGetProfileLimit(_plcProfile, key, out var limit) || limit.MaxPoints < 1)
+            throw new InvalidOperationException($"SLMP request limit '{key}' is unavailable for profile '{_plcProfile}'.");
+
+        return limit.MaxPoints;
+    }
+
+    private int GetProfileRequestItemLimit(SlmpProfileLimitKey key, int wirePointsPerItem)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(wirePointsPerItem, 1);
+        var itemLimit = GetProfileRequestLimit(key) / wirePointsPerItem;
+        if (itemLimit < 1)
+            throw new InvalidOperationException(
+                $"SLMP request limit '{key}' for profile '{_plcProfile}' is smaller than one {wirePointsPerItem}-point item.");
+
+        return itemLimit;
     }
 
     private static ushort[] PackDWordValues(IReadOnlyCollection<uint> values)
@@ -879,18 +947,16 @@ internal sealed class SlmpSession : PlcSessionBase
 
     private async Task<CpuState> ReadCpuStateInternalAsync(CancellationToken cancellationToken)
     {
-        var raw = await _client!.ReadWordsAsync(SlmpAddress.Parse("SD203", _plcProfile), 1, cancellationToken).ConfigureAwait(false);
-        var statusWord = raw[0];
-        var code = (byte)(statusWord & 0x0F);
-        var state = code switch
+        var status = await _client!.ReadCpuOperationStateAsync(cancellationToken).ConfigureAwait(false);
+        var state = status.Status switch
         {
-            0x00 => CpuRunState.Run,
-            0x02 => CpuRunState.Stop,
-            0x03 => CpuRunState.Pause,
+            SlmpCpuOperationStatus.Run => CpuRunState.Run,
+            SlmpCpuOperationStatus.Stop => CpuRunState.Stop,
+            SlmpCpuOperationStatus.Pause => CpuRunState.Pause,
             _ => CpuRunState.Unknown,
         };
 
-        return new CpuState(state, $"0x{statusWord:X4}", SupportsControl: true, RequiresPassword: HasRemotePassword);
+        return new CpuState(state, $"0x{status.RawStatusWord:X4}", SupportsControl: true, RequiresPassword: HasRemotePassword);
     }
 
     private Task WriteLongCurrentValueAsync(SlmpDeviceAddress address, WriteRequest request, CancellationToken cancellationToken)
