@@ -1,18 +1,34 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="FlaUI.UIA3" Version="5.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="PlcComm.KvHostLink" Version="4.2.0" />
     <PackageVersion Include="PlcComm.Slmp" Version="5.2.0" />
     <PackageVersion Include="PlcComm.Toyopuc" Version="4.2.0" />
-    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="xunit.v3.mtp-off" Version="4.0.2" />
+  </ItemGroup>
+
+  <!-- Keep test-tool runtime dependencies on the supported .NET 10 servicing line. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="10.0.14" />
+    <PackageVersion Include="System.CodeDom" Version="10.0.14" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.14" />
+    <PackageVersion Include="System.Diagnostics.EventLog" Version="10.0.14" />
+    <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="10.0.14" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.14" />
+    <PackageVersion Include="System.Management" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Permissions" Version="10.0.14" />
+    <PackageVersion Include="System.Windows.Extensions" Version="10.0.14" />
   </ItemGroup>
 </Project>

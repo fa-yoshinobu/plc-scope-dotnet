@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the application icon with a magnifier over bit cells design in the UI colors, readable at small sizes, with 9 sizes from 16 to 256 px.
+
 ## [2.4.1] - 2026-10-27
 
 ### Changed
