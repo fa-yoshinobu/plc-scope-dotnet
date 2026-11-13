@@ -30,6 +30,16 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
+      - name: Verify application version
+        shell: pwsh
+        env:
+          CHECK_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+        run: |
+          if ($env:CHECK_TAG -cnotmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$') { throw 'Use a SemVer tag such as v1.2.3.' }
+          [xml]$project = Get-Content -LiteralPath 'src/PlcScope.App/PlcScope.App.csproj'
+          $version = @($project.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          if ($version -cne $env:CHECK_TAG.Substring(1)) { throw 'Release tag must match the application version.' }
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
@@ -42,7 +52,7 @@ jobs:
           --configuration Release
           --runtime win-x64
           --self-contained true
-          --output dist/win-x64
+          --output artifacts/release
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
@@ -53,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Compress-Archive -Path "dist/win-x64/*" -DestinationPath "artifacts/PlcScope-win-x64.zip" -Force
+          Compress-Archive -LiteralPath "artifacts/release/PlcScope.exe" -DestinationPath "artifacts/release/PlcScope-win-x64.zip" -Force
 
       - name: Set up release tools
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -65,7 +75,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
         run: |
-          python .github/scripts/release_assets.py prepare --repository "$env:GITHUB_REPOSITORY" --release-tag "$env:RELEASE_TAG" --asset-name PlcScope-win-x64.zip --zip artifacts/PlcScope-win-x64.zip
+          python .github/scripts/release_assets.py prepare --repository "$env:GITHUB_REPOSITORY" --release-tag "$env:RELEASE_TAG" --asset-name PlcScope-win-x64.zip --zip artifacts/release/PlcScope-win-x64.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publish ZIP and checksum

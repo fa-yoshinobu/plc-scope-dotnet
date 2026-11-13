@@ -109,14 +109,16 @@ build.bat Release
 Typical output:
 
 ```text
-src\PlcScope.App\bin\Release\net10.0-windows\win-x64\publish\PlcScope.exe
+artifacts\release\PlcScope.exe
 ```
+
+Run this EXE directly after building. Local builds and the release workflow use the same output directory. Existing output folders are not deleted by `build.bat`.
 
 Manual publish:
 
 ```powershell
 dotnet restore .\src\PlcScope.App\PlcScope.App.csproj -r win-x64
-dotnet publish .\src\PlcScope.App\PlcScope.App.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false
+dotnet publish .\src\PlcScope.App\PlcScope.App.csproj -c Release -r win-x64 --self-contained true --no-restore --output artifacts/release -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false
 ```
 
 ## Versioning
@@ -179,3 +181,5 @@ Before publishing a release build:
 5. Build the Windows x64 single-file package with `build.bat Release`.
 6. Confirm the published `PlcScope.exe` starts and opens the connection dialog.
 7. Update [CHANGELOG.md](../CHANGELOG.md) with the user-visible changes and validation summary.
+
+配布ZIPとその `.zip.sha256` も `artifacts/release/` に作成します。ZIPには必要な配布ファイルだけを含め、既存ZIP・チェックサム・リリース本文は含めません。旧出力フォルダは自動削除しません。
