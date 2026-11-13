@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Aligned ZIP and SHA-256 output with the published executable under `artifacts/release/`.
+
+- Unified local and CI publish output at `artifacts/release/PlcScope.exe` and removed the separate launcher batch file.
 - Replaced the application icon with a magnifier over bit cells design in the UI colors, readable at small sizes, with 9 sizes from 16 to 256 px.
+
+### Fixed
+
+- Reject incomplete VirusTotal responses without a matching API-provided executable SHA-256.
+
 
 ## [2.4.1] - 2026-10-27
 

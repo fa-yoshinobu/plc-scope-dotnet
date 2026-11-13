@@ -9,15 +9,13 @@ if "%CONFIGURATION%"=="" set "CONFIGURATION=Release"
 
 set "RUNTIME=win-x64"
 set "LOG_FILE=%~dp0build.log"
-set "PUBLISH_DIR=%~dp0src\PlcScope.App\bin\%CONFIGURATION%\net10.0-windows\%RUNTIME%\publish"
+set "PUBLISH_DIR=%~dp0artifacts\release"
 
 echo Publishing PLC Scope single-file EXE (%CONFIGURATION%, %RUNTIME%)...
 echo.
 echo Log:
 echo   %LOG_FILE%
 echo.
-
-if exist "%PUBLISH_DIR%" rmdir /s /q "%PUBLISH_DIR%"
 
 dotnet restore ".\src\PlcScope.App\PlcScope.App.csproj" -r "%RUNTIME%" > "%LOG_FILE%" 2>&1
 if errorlevel 1 goto :failed
@@ -26,6 +24,7 @@ dotnet publish ".\src\PlcScope.App\PlcScope.App.csproj" ^
   -c "%CONFIGURATION%" ^
   -r "%RUNTIME%" ^
   --self-contained true ^
+  --output "%PUBLISH_DIR%" ^
   --no-restore ^
   -p:PublishSingleFile=true ^
   -p:IncludeNativeLibrariesForSelfExtract=true ^
@@ -36,6 +35,9 @@ dotnet publish ".\src\PlcScope.App\PlcScope.App.csproj" ^
 if errorlevel 1 goto :failed
 
 echo.
+powershell -NoProfile -Command "$ErrorActionPreference = 'Stop'; $zip = Join-Path $env:PUBLISH_DIR 'PlcScope-win-x64.zip'; Compress-Archive -LiteralPath @((Join-Path $env:PUBLISH_DIR 'PlcScope.exe')) -DestinationPath $zip -Force; $line = ([BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([IO.File]::ReadAllBytes($zip)))).Replace('-', '').ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($zip) + [char]10; [IO.File]::WriteAllText($zip + '.sha256', $line, [Text.UTF8Encoding]::new($false))"
+if errorlevel 1 exit /b 1
+
 echo Publish completed.
 echo Output:
 echo   %PUBLISH_DIR%\PlcScope.exe
