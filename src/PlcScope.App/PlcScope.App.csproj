@@ -35,6 +35,7 @@
 
   <ItemGroup>
     <Resource Include="..\..\icon.ico" Link="icon.ico" Condition="Exists('..\..\icon.ico')" />
+    <Resource Include="Assets\AppIcon256.png" />
   </ItemGroup>
 
   <ItemGroup>

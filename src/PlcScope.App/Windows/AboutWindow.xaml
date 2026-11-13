@@ -21,15 +21,17 @@
     <Border BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" Padding="10">
       <Grid>
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="56" />
+          <ColumnDefinition Width="96" />
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
+        <!-- A 256px PNG: WPF picks a small frame from .ico files and stretches it. -->
         <Image Grid.Column="0"
-               Width="40"
-               Height="40"
+               Width="80"
+               Height="80"
+               RenderOptions.BitmapScalingMode="HighQuality"
                HorizontalAlignment="Left"
                VerticalAlignment="Top"
-               Source="/icon.ico" />
+               Source="/Assets/AppIcon256.png" />
         <StackPanel Grid.Column="1">
           <TextBlock Text="PLC Scope" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AppForegroundStrongBrush}" />
           <TextBlock x:Name="VersionTextBlock" Margin="0,4,0,0" />

@@ -43,7 +43,30 @@
 
     <Style x:Key="MonitorHeaderTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource SectionTitleTextStyle}">
       <Setter Property="Padding" Value="8,6" />
-      <Setter Property="FontSize" Value="12" />
+      <!-- Follow the Font option like the rows below, instead of a fixed 12. -->
+      <Setter Property="FontSize" Value="{Binding FontSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundMutedBrush}" />
+    </Style>
+
+    <Style x:Key="EmptyListHintStyle" TargetType="{x:Type StackPanel}">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="24" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <Style x:Key="EmptyListTitleTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource SectionTitleTextStyle}">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="15" />
+    </Style>
+
+    <Style x:Key="EmptyListBodyTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundMutedBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="MaxWidth" Value="460" />
+      <Setter Property="Margin" Value="0,6,0,0" />
     </Style>
 
     <Style x:Key="AddressTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
@@ -638,6 +661,7 @@
                        VirtualizingPanel.IsVirtualizing="True"
                        VirtualizingPanel.ScrollUnit="Item"
                        VirtualizingPanel.VirtualizationMode="Recycling"
+                       AlternationCount="2"
                        ItemTemplateSelector="{StaticResource MonitorRowTemplateSelector}">
                 <ListBox.ItemContainerStyle>
                   <Style TargetType="{x:Type ListBoxItem}" BasedOn="{StaticResource {x:Type ListBoxItem}}">
@@ -653,6 +677,21 @@
                   </ContextMenu>
                 </ListBox.ContextMenu>
               </ListBox>
+
+              <StackPanel Grid.Row="2" AutomationProperties.AutomationId="MonitorEmptyHint">
+                <StackPanel.Style>
+                  <Style TargetType="{x:Type StackPanel}" BasedOn="{StaticResource EmptyListHintStyle}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Rows.Count}" Value="0">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="No rows to monitor" Style="{StaticResource EmptyListTitleTextStyle}" />
+                <TextBlock Text="Open Connection settings, choose the PLC, then press Connect. Rows appear from the start address above." Style="{StaticResource EmptyListBodyTextStyle}" />
+              </StackPanel>
             </Grid>
           </Border>
         </TabItem>
@@ -711,7 +750,8 @@
                        ScrollViewer.CanContentScroll="True"
                        VirtualizingPanel.IsVirtualizing="True"
                        VirtualizingPanel.ScrollUnit="Item"
-                       VirtualizingPanel.VirtualizationMode="Recycling">
+                       VirtualizingPanel.VirtualizationMode="Recycling"
+                       AlternationCount="2">
                 <ListBox.ItemContainerStyle>
                   <Style TargetType="{x:Type ListBoxItem}" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                     <Setter Property="MinHeight" Value="34" />
@@ -779,6 +819,21 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
+
+              <StackPanel Grid.Row="1" AutomationProperties.AutomationId="WatchEmptyHint">
+                <StackPanel.Style>
+                  <Style TargetType="{x:Type StackPanel}" BasedOn="{StaticResource EmptyListHintStyle}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding WatchItems.Count}" Value="0">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="The watch list is empty" Style="{StaticResource EmptyListTitleTextStyle}" />
+                <TextBlock Text="Right-click a row on the Monitor tab and choose Add to watch list, or use File &gt; Import watch list CSV." Style="{StaticResource EmptyListBodyTextStyle}" />
+              </StackPanel>
             </Grid>
           </Border>
         </TabItem>

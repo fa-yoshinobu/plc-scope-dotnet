@@ -22,6 +22,7 @@
     <SolidColorBrush x:Key="AppSelectionBrush" Color="#1E3A8A" />
     <SolidColorBrush x:Key="AppSelectionForegroundBrush" Color="#F9FAFB" />
     <SolidColorBrush x:Key="AppRowHoverBrush" Color="#27364A" />
+    <SolidColorBrush x:Key="AppRowAltBrush" Color="#131D31" />
     <SolidColorBrush x:Key="AppSuccessBrush" Color="#22C55E" />
     <SolidColorBrush x:Key="AppSuccessSoftBrush" Color="#12351F" />
     <SolidColorBrush x:Key="AppWarningBrush" Color="#F59E0B" />
@@ -601,6 +602,13 @@
           </ControlTemplate>
         </Setter.Value>
       </Setter>
+      <!-- Zebra stripes for lists that set AlternationCount="2" (monitor and watch rows), so a
+           value can be followed across the wide row. Hover and selection still win in the template. -->
+      <Style.Triggers>
+        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+          <Setter Property="Background" Value="{DynamicResource AppRowAltBrush}" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <!-- Implicit styles match the exact type, so the ListBox style above never reaches ListView.

@@ -12,9 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aligned ZIP and SHA-256 output with the published executable under `artifacts/release/`.
 
 - Unified local and CI publish output at `artifacts/release/PlcScope.exe` and removed the separate launcher batch file.
-- Replaced the application icon with a magnifier over bit cells design in the UI colors, readable at small sizes, with 9 sizes from 16 to 256 px.
+- Replaced the application icon with a 3x3 grid of I/O lamps in the UI colors, readable at small sizes, with 9 sizes from 16 to 256 px.
+- Striped monitor and watch rows, made list headers follow the Font option, and show a short hint when the monitor or watch list is empty.
 
 ### Fixed
+
+- Show the About window icon from a 256 px PNG at 80 px instead of a small, stretched `.ico` frame.
 
 - Reject incomplete VirusTotal responses without a matching API-provided executable SHA-256.
 
