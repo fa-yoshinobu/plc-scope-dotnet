@@ -96,6 +96,34 @@ public sealed class MonitorLayoutTests
         Assert.Contains("new LibraryInfo(\"PlcComm.Toyopuc\", GetAssemblyVersionText(\"PlcComm.Toyopuc\"), \"MIT\"", code, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("MonitorListBox", "MonitorEmptyHint", "{Binding Rows.Count}")]
+    [InlineData("WatchListBox", "WatchEmptyHint", "{Binding WatchItems.Count}")]
+    public void MonitorAndWatchLists_UseZebraRowsAndShowEmptyHint(string listName, string hintId, string countBinding)
+    {
+        var xamlPath = ResolveRepoPath("src", "PlcScope.App", "MainWindow.xaml");
+        var document = XDocument.Load(xamlPath);
+        XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        var listBox = document
+            .Descendants(presentation + "ListBox")
+            .Single(element => string.Equals((string?)element.Attribute(xaml + "Name"), listName, StringComparison.Ordinal));
+        Assert.Equal("2", (string?)listBox.Attribute("AlternationCount"));
+
+        var hint = document
+            .Descendants(presentation + "StackPanel")
+            .Single(element => element.Attributes().Any(attribute =>
+                attribute.Name.LocalName == "AutomationProperties.AutomationId"
+                && string.Equals(attribute.Value, hintId, StringComparison.Ordinal)));
+        Assert.Equal(listBox.Parent, hint.Parent);
+        Assert.Equal((string?)listBox.Attribute("Grid.Row"), (string?)hint.Attribute("Grid.Row"));
+        Assert.Contains(
+            hint.Descendants(presentation + "DataTrigger"),
+            trigger => string.Equals((string?)trigger.Attribute("Binding"), countBinding, StringComparison.Ordinal)
+                && string.Equals((string?)trigger.Attribute("Value"), "0", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void WatchList_UsesListBoxWithTemplateRows()
     {
